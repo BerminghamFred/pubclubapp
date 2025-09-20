@@ -13,8 +13,10 @@ export interface Pub {
   openingHours: string;
   amenities?: string[]; // New field for amenities
   _internal?: {
+    place_id?: string;
     lat?: number;
     lng?: number;
+    types?: string;
     photo_url?: string;
   };
 } 

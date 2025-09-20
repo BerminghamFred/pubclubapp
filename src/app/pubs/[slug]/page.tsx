@@ -13,8 +13,9 @@ export async function generateStaticParams() {
 }
 
 // Generate metadata for each pub page
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const pubId = extractPubIdFromSlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const resolvedParams = await params;
+  const pubId = extractPubIdFromSlug(resolvedParams.slug);
   const pub = pubData.find(p => p.id === pubId);
   
   if (!pub) {
@@ -98,7 +99,12 @@ function parseOpeningHours(hoursString: string) {
   // This is a simplified parser - you might want to enhance this
   // For now, return a basic structure
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const specifications = [];
+  const specifications: Array<{
+    "@type": "OpeningHoursSpecification";
+    "dayOfWeek": string[];
+    "opens": string;
+    "closes": string;
+  }> = [];
   
   // Split by semicolon and parse each day
   const dayHours = hoursString.split(';');
@@ -120,8 +126,9 @@ function parseOpeningHours(hoursString: string) {
   return specifications;
 }
 
-export default function PubPage({ params }: { params: { slug: string } }) {
-  const pubId = extractPubIdFromSlug(params.slug);
+export default async function PubPage({ params }: { params: Promise<{ slug: string }> }) {
+  const resolvedParams = await params;
+  const pubId = extractPubIdFromSlug(resolvedParams.slug);
   const pub = pubData.find(p => p.id === pubId);
   
   if (!pub) {

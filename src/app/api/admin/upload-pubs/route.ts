@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
-import { Pub } from '@/data/pubData';
+import { Pub } from '@/data/types';
 
 export async function POST(request: NextRequest) {
   try {

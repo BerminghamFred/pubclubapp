@@ -364,9 +364,16 @@ export default function PubDataLoader() {
       filtered = filtered.filter(pub => (pub.rating || 0) >= minRating);
       }
 
-    // Price filter
-      if (priceRange && priceRange !== 'Any Price') {
-      filtered = filtered.filter(pub => pub.priceRange === priceRange);
+    // Price filter (simplified based on rating)
+    if (priceRange && priceRange !== 'Any Price') {
+      filtered = filtered.filter(pub => {
+        const rating = pub.rating;
+        if (priceRange === 'Budget (£)' && rating >= 4) return false;
+        if (priceRange === 'Mid-Range (££)' && (rating < 4 || rating >= 4.5)) return false;
+        if (priceRange === 'Premium (£££)' && (rating < 4.5 || rating >= 4.8)) return false;
+        if (priceRange === 'Luxury (££££)' && rating < 4.8) return false;
+        return true;
+      });
     }
 
     // Opening hours filter

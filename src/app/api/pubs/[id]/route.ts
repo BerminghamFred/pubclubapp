@@ -3,10 +3,11 @@ import { pubData } from '@/data/pubData';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const pub = pubData.find(p => p.id === params.id);
+    const resolvedParams = await params;
+    const pub = pubData.find(p => p.id === resolvedParams.id);
     
     if (!pub) {
       return NextResponse.json({ error: 'Pub not found' }, { status: 404 });
