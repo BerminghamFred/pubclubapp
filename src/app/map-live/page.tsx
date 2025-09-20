@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { pubData } from '@/data/pubData';
 import { Pub } from '@/data/types';
 import { loadGoogleMaps } from '@/utils/googleMapsLoader';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 export default function MapLivePage() {
   const [pubs, setPubs] = useState<Pub[]>([]);
@@ -216,14 +217,24 @@ export default function MapLivePage() {
                 </div>
               </div>
               
-              <button 
-                onclick="document.getElementById('amenities-${pub.id}').style.display = document.getElementById('amenities-${pub.id}').style.display === 'none' ? 'block' : 'none'; this.textContent = this.textContent === 'See Features' ? 'Hide Features' : 'See Features';"
-                style="width: 100%; background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 8px; transition: background-color 0.2s;"
-                onmouseover="this.style.background='#2563eb'"
-                onmouseout="this.style.background='#3b82f6'"
-              >
-                See Features
-              </button>
+              <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <button 
+                  onclick="document.getElementById('amenities-${pub.id}').style.display = document.getElementById('amenities-${pub.id}').style.display === 'none' ? 'block' : 'none'; this.textContent = this.textContent === 'See Features' ? 'Hide Features' : 'See Features';"
+                  style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 0.2s;"
+                  onmouseover="this.style.background='#2563eb'"
+                  onmouseout="this.style.background='#3b82f6'"
+                >
+                  See Features
+                </button>
+                <a 
+                  href="/pubs/${generatePubSlug(pub.name, pub.id)}"
+                  style="flex: 1; background: #08d78c; color: black; border: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; text-align: center; transition: background-color 0.2s; display: flex; align-items: center; justify-content: center;"
+                  onmouseover="this.style.background='#06b875'"
+                  onmouseout="this.style.background='#08d78c'"
+                >
+                  View Page
+                </a>
+              </div>
             </div>
           `
         });

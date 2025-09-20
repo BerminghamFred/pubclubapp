@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 interface PubCardProps {
   pub: {
@@ -33,8 +35,9 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-      {/* Pub Image */}
-      <div className="h-48 relative overflow-hidden">
+      {/* Pub Image - Clickable */}
+      <Link href={`/pubs/${generatePubSlug(pub.name, pub.id)}`}>
+        <div className="h-48 relative overflow-hidden cursor-pointer">
         {pub.photoUrl ? (
           <img
             src={pub.photoUrl}
@@ -57,7 +60,8 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
         >
           <div className="text-[#08d78c] text-4xl">🍺</div>
         </div>
-      </div>
+        </div>
+      </Link>
       
       <div className="p-6">
         <div className="flex items-center justify-between mb-3">
@@ -66,9 +70,11 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
           </span>
           <span className="text-sm text-gray-500">{pub.borough}</span>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
-          {pub.name}
-        </h3>
+        <Link href={`/pubs/${generatePubSlug(pub.name, pub.id)}`}>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-[#08d78c] transition-colors cursor-pointer">
+            {pub.name}
+          </h3>
+        </Link>
         <p className="text-gray-600 mb-4 line-clamp-3">
           {pub.description}
         </p>
@@ -110,12 +116,20 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
               </>
             )}
           </div>
-          <button 
-            onClick={handleExpand}
-            className="text-[#08d78c] hover:text-[#06b875] font-semibold text-sm"
-          >
-            {isExpanded ? 'Show Less' : 'View Details →'}
-          </button>
+          <div className="flex gap-2">
+            <Link 
+              href={`/pubs/${generatePubSlug(pub.name, pub.id)}`}
+              className="text-[#08d78c] hover:text-[#06b875] font-semibold text-sm"
+            >
+              View Page →
+            </Link>
+            <button 
+              onClick={handleExpand}
+              className="text-gray-500 hover:text-gray-700 font-semibold text-sm"
+            >
+              {isExpanded ? 'Show Less' : 'Quick Details'}
+            </button>
+          </div>
         </div>
       </div>
 
