@@ -16,24 +16,22 @@ export function generateSlug(text: string): string {
  */
 export function generatePubSlug(name: string, id: string): string {
   const nameSlug = generateSlug(name);
-  const shortId = id.substring(0, 8); // Use first 8 chars of ID for uniqueness
-  return `${nameSlug}-${shortId}`;
+  // Keep underscores in the ID, only replace other special chars
+  const cleanId = id.replace(/[^\w_]/g, '-');
+  return `${nameSlug}-${cleanId}`;
 }
 
 /**
  * Extract pub ID from slug
  */
 export function extractPubIdFromSlug(slug: string): string | null {
-  // If slug contains a hyphen, try to extract the ID part
-  const parts = slug.split('-');
-  if (parts.length > 1) {
-    const possibleId = parts[parts.length - 1];
-    // Check if it looks like a Google Place ID (starts with ChIJ)
-    if (possibleId.startsWith('ChIJ') || possibleId.length >= 8) {
-      return possibleId;
-    }
+  // Look for Google Place ID pattern (ChIJ followed by alphanumeric characters, underscores, and hyphens)
+  const match = slug.match(/(ChIJ[a-zA-Z0-9_-]+)/);
+  if (match) {
+    // Keep the ID as-is (underscores should already be preserved)
+    return match[1];
   }
   
-  // If no hyphen, assume the whole slug is the ID
+  // Fallback: if no Google Place ID found, return the original slug
   return slug;
 }

@@ -12,6 +12,10 @@ export interface Pub {
   website?: string;
   openingHours: string;
   amenities?: string[]; // New field for amenities
+  manager_email?: string; // Pub manager's email for login
+  manager_password?: string; // Hashed password for authentication
+  last_updated?: string; // ISO timestamp of last update
+  updated_by?: string; // Track who made the last change ('admin' or 'manager')
   _internal?: {
     place_id?: string;
     lat?: number;

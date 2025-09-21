@@ -1,0 +1,336 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Cities & Boroughs
+model City {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  boroughs Borough[]
+  pubs     Pub[]
+
+  @@map("cities")
+}
+
+model Borough {
+  id      Int    @id @default(autoincrement())
+  name    String
+  cityId  Int
+  city    City   @relation(fields: [cityId], references: [id])
+
+  pubs Pub[]
+
+  @@unique([cityId, name])
+  @@map("boroughs")
+}
+
+// Pubs & Amenities
+model Pub {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  address     String?
+  postcode    String?
+  lat         Float?
+  lng         Float?
+  cityId      Int?
+  boroughId   Int?
+  priceRange  String?
+  description String?
+  phone       String?
+  website     String?
+  rating      Float?   // Google reviews rating
+  reviewCount Int?     // Google reviews count
+  openingHours String?
+  photoUrl    String?
+  managerEmail String?
+  managerPassword String? // Hashed password
+  lastUpdated DateTime?
+  updatedBy   String? // 'admin' or 'manager'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // User-generated content counters (denormalized for speed)
+  userReviewCount   Int      @default(0)
+  userRatingAvg     Float?   // null when no user ratings
+  wishlistCount     Int      @default(0)
+  checkinCount      Int      @default(0)
+
+  city      City?           @relation(fields: [cityId], references: [id])
+  borough   Borough?        @relation(fields: [boroughId], references: [id])
+  amenities PubAmenity[]
+  photos    PubPhoto[]
+  managers  PubManager[]
+  logins    ManagerLogin[]
+
+  // User account relations
+  reviews   Review[]
+  wishlist  Wishlist[]
+  checkins  Checkin[]
+
+  @@map("pubs")
+}
+
+model Amenity {
+  id    Int    @id @default(autoincrement())
+  key   String @unique // e.g. 'beer_garden', 'dog_friendly'
+  label String // e.g. 'Beer Garden'
+
+  pubs PubAmenity[]
+
+  @@map("amenities")
+}
+
+model PubAmenity {
+  pubId    String
+  amenityId Int
+  value    Boolean @default(true)
+
+  pub     Pub     @relation(fields: [pubId], references: [id], onDelete: Cascade)
+  amenity Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([pubId, amenityId])
+  @@map("pub_amenities")
+}
+
+model PubPhoto {
+  id         String   @id @default(cuid())
+  pubId      String
+  url        String
+  isCover    Boolean  @default(false)
+  uploadedBy String? // admin or manager id
+  createdAt  DateTime @default(now())
+
+  pub Pub @relation(fields: [pubId], references: [id], onDelete: Cascade)
+
+  @@map("pub_photos")
+}
+
+// Manager Portal
+model Manager {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pubs   PubManager[]
+  logins ManagerLogin[]
+
+  @@map("managers")
+}
+
+model PubManager {
+  pubId     String
+  managerId String
+  role      String @default("owner") // 'owner' or 'editor'
+
+  pub     Pub     @relation(fields: [pubId], references: [id], onDelete: Cascade)
+  manager Manager @relation(fields: [managerId], references: [id], onDelete: Cascade)
+
+  @@id([pubId, managerId])
+  @@map("pub_managers")
+}
+
+model ManagerLogin {
+  id         String    @id @default(cuid())
+  managerId  String?
+  pubId      String?
+  loggedInAt DateTime  @default(now())
+
+  manager Manager? @relation(fields: [managerId], references: [id], onDelete: SetNull)
+  pub     Pub?     @relation(fields: [pubId], references: [id], onDelete: SetNull)
+
+  @@map("manager_logins")
+}
+
+// Admin Users
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("content_admin") // 'superadmin', 'content_admin', 'analytics_viewer', 'support'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_users")
+}
+
+// Admin Audit
+model AdminAudit {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String   // 'pub','photo','amenity', etc.
+  entityId  String
+  diff      Json?
+  createdAt DateTime @default(now())
+
+  @@map("admin_audit")
+}
+
+// Event Tracking (OLAP - for analytics)
+model EventPageView {
+  id        String   @id @default(cuid())
+  ts        DateTime @default(now())
+  userId    String?
+  sessionId String
+  pubId     String?
+  areaSlug  String?
+  ref       String?
+  utm       Json?
+  device    String?
+
+  @@map("events_page_view")
+}
+
+model EventSearch {
+  id          String   @id @default(cuid())
+  ts          DateTime @default(now())
+  userId      String?
+  sessionId   String
+  query       String
+  cityId      Int?
+  boroughId   Int?
+  resultsCount Int?
+
+  @@map("events_search")
+}
+
+model EventFilterUsage {
+  id        String   @id @default(cuid())
+  ts        DateTime @default(now())
+  sessionId String
+  filterKey String
+  cityId    Int?
+  boroughId Int?
+
+  @@map("events_filter_usage")
+}
+
+model EventCtaClick {
+  id        String   @id @default(cuid())
+  ts        DateTime @default(now())
+  sessionId String
+  pubId     String
+  type      String // 'book', 'call', 'website'
+
+  @@map("events_cta_click")
+}
+
+// Materialized views for performance (daily aggregates)
+model PubViewsDaily {
+  id      String   @id @default(cuid())
+  pubId   String
+  date    DateTime
+  views   Int      @default(0)
+
+  @@unique([pubId, date])
+  @@map("pub_views_daily")
+}
+
+model FiltersDaily {
+  id        String   @id @default(cuid())
+  filterKey String
+  cityId    Int?
+  boroughId Int?
+  date      DateTime
+  uses      Int      @default(0)
+
+  @@unique([filterKey, cityId, boroughId, date])
+  @@map("filters_daily")
+}
+
+model SearchesDaily {
+  id        String   @id @default(cuid())
+  cityId    Int?
+  boroughId Int?
+  date      DateTime
+  count     Int      @default(0)
+
+  @@unique([cityId, boroughId, date])
+  @@map("searches_daily")
+}
+
+// User Accounts & Reviews
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  reviews       Review[]
+  wishlist      Wishlist[]
+  checkins      Checkin[]
+
+  @@map("users")
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  userId        String
+  pubId         String
+  rating        Int      // 1..5
+  title         String?  // optional short headline
+  body          String   // 10..2000 chars
+  photos        String?  // JSON array of urls (optional)
+  isEdited      Boolean  @default(false)
+  isVisible     Boolean  @default(true) // moderation flag
+  reportedCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id])
+  pub           Pub      @relation(fields: [pubId], references: [id])
+
+  @@unique([userId, pubId]) // one review per user per pub (editable)
+  @@index([pubId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  pubId     String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  pub       Pub      @relation(fields: [pubId], references: [id])
+
+  @@unique([userId, pubId])
+  @@index([userId])
+  @@index([pubId])
+  @@map("wishlist")
+}
+
+model Checkin {
+  id        String   @id @default(cuid())
+  userId    String
+  pubId     String
+  note      String?      // optional: "with friends", "quiz night", etc.
+  visitedAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  pub       Pub      @relation(fields: [pubId], references: [id])
+
+  @@unique([userId, pubId]) // can also choose to allow multiple by removing this
+  @@index([userId])
+  @@index([pubId])
+  @@map("checkins")
+}

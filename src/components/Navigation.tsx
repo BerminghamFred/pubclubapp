@@ -2,12 +2,18 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function Navigation() {
+  const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: '/' });
   };
 
   return (
@@ -54,6 +60,35 @@ export default function Navigation() {
             >
               Download App
             </Link>
+            <Link 
+              href="/pub-manager/login" 
+              className="text-[#08d78c] hover:text-[#06b875] transition-colors duration-200"
+            >
+              Pub Manager
+            </Link>
+            {session?.user ? (
+              <>
+                <Link 
+                  href="/profile" 
+                  className="hover:text-[#08d78c] transition-colors duration-200"
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="hover:text-[#08d78c] transition-colors duration-200"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <Link 
+                href="/login" 
+                className="hover:text-[#08d78c] transition-colors duration-200"
+              >
+                Sign In
+              </Link>
+            )}
             <Link 
               href="/admin" 
               className="bg-[#08d78c] hover:bg-[#06b875] text-black px-4 py-2 rounded-lg font-semibold transition-colors duration-200"
@@ -118,6 +153,41 @@ export default function Navigation() {
               >
                 Download App
               </Link>
+              <Link 
+                href="/pub-manager/login" 
+                className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Pub Manager
+              </Link>
+              {session?.user ? (
+                <>
+                  <Link 
+                    href="/profile" 
+                    className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setIsMenuOpen(false);
+                    }}
+                    className="block w-full text-left px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link 
+                  href="/login" 
+                  className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Sign In
+                </Link>
+              )}
               <Link 
                 href="/admin" 
                 className="block px-3 py-2 rounded-md text-base font-medium bg-[#08d78c] text-black rounded-lg font-semibold hover:bg-[#06b875] transition-colors duration-200"

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pubData } from '@/data/pubData';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
@@ -13,21 +14,28 @@ export async function GET(
       return NextResponse.json({ error: 'Pub not found' }, { status: 404 });
     }
 
-    // Return full pub details
+    // Return pub details without user-generated content for fast loading
     const pubDetails = {
-      id: pub.id,
-      name: pub.name,
-      description: pub.description,
-      area: pub.area,
-      type: pub.type,
-      features: pub.features,
-      rating: pub.rating,
-      reviewCount: pub.reviewCount,
-      address: pub.address,
-      phone: pub.phone,
-      website: pub.website,
-      openingHours: pub.openingHours,
-      _internal: pub._internal
+      success: true,
+      pub: {
+        id: pub.id,
+        name: pub.name,
+        description: pub.description,
+        area: pub.area,
+        type: pub.type,
+        features: pub.features,
+        rating: pub.rating,
+        reviewCount: pub.reviewCount,
+        address: pub.address,
+        phone: pub.phone,
+        website: pub.website,
+        openingHours: pub.openingHours,
+        amenities: pub.amenities,
+        manager_email: pub.manager_email,
+        last_updated: pub.last_updated,
+        updated_by: pub.updated_by,
+        _internal: pub._internal
+      }
     };
 
     return NextResponse.json(pubDetails);

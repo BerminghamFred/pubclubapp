@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
 import { Pub } from '@/data/types';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     const records = parse(csvText, { columns: true, skip_empty_lines: true, trim: true });
 
     // Transform Google Places data to user-friendly pub data
-    const pubs: Pub[] = records.map((record: any, index: number) => {
+    const pubs: Pub[] = await Promise.all(records.map(async (record: any, index: number) => {
       if (!record.name || !record.address) {
         throw new Error(`Row ${index + 2}: Missing required fields (name or address)`);
       }
@@ -48,6 +49,20 @@ export async function POST(request: NextRequest) {
       const rating = parseFloat(record.rating) || 0;
       const reviewCount = Math.floor(Math.random() * 200) + 50; // Generate realistic review count
 
+      // Handle manager credentials (optional fields)
+      let manager_email: string | undefined;
+      let manager_password: string | undefined;
+      
+      if (record.manager_email && record.manager_email.trim()) {
+        manager_email = record.manager_email.trim().toLowerCase();
+        
+        // If manager_password is provided, hash it
+        if (record.manager_password && record.manager_password.trim()) {
+          const saltRounds = 10;
+          manager_password = await bcrypt.hash(record.manager_password.trim(), saltRounds);
+        }
+      }
+
       return {
         id: record.place_id,
         name: record.name.trim(),
@@ -61,6 +76,10 @@ export async function POST(request: NextRequest) {
         phone: record.phone?.trim() || '',
         website: record.website?.trim() || undefined,
         openingHours: record.opening_hours?.trim() || 'Check website for hours',
+        manager_email: manager_email,
+        manager_password: manager_password,
+        last_updated: new Date().toISOString(),
+        updated_by: 'admin',
         // Store technical data for internal use (not displayed to users)
         _internal: {
           place_id: record.place_id,
@@ -70,7 +89,7 @@ export async function POST(request: NextRequest) {
           photo_url: record.photo_url
         }
       };
-    });
+    }));
 
     // Completely replace existing data with new data
     const allPubs = pubs;

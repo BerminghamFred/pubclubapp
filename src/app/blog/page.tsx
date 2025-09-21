@@ -1,5 +1,27 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { blogPosts } from '@/data/blogPosts';
+
+export const metadata: Metadata = {
+  title: 'Pub Club Blog - Latest Pub News & Guides',
+  description: 'Discover the latest pub news, events, and insights into London\'s vibrant nightlife scene. Expert guides to the best pubs, bars, and drinking experiences.',
+  openGraph: {
+    title: 'Pub Club Blog - Latest Pub News & Guides',
+    description: 'Discover the latest pub news, events, and insights into London\'s vibrant nightlife scene.',
+    url: 'https://pubclub.co.uk/blog',
+    siteName: 'Pub Club',
+    locale: 'en_GB',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pub Club Blog - Latest Pub News & Guides',
+    description: 'Discover the latest pub news, events, and insights into London\'s vibrant nightlife scene.',
+  },
+  alternates: {
+    canonical: 'https://pubclub.co.uk/blog',
+  },
+};
 
 export default function BlogPage() {
   return (
@@ -85,6 +107,65 @@ export default function BlogPage() {
           </div>
         </div>
       </section>
+
+      {/* Schema.org JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(generateBlogSchema()),
+        }}
+      />
     </div>
   );
+}
+
+// Generate CollectionPage + ItemList schema for blog listing
+function generateBlogSchema() {
+  const baseUrl = "https://pubclub.co.uk";
+  
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Pub Club Blog",
+    "url": `${baseUrl}/blog`,
+    "description": "Discover the latest pub news, events, and insights into London's vibrant nightlife scene.",
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": baseUrl
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog"
+        }
+      ]
+    },
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListOrder": "https://schema.org/ItemListOrderDescending",
+      "numberOfItems": blogPosts.length,
+      "itemListElement": blogPosts.map((post, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "item": {
+          "@type": "Article",
+          "@id": `${baseUrl}/blog/${post.slug}#article`,
+          "headline": post.title,
+          "description": post.excerpt,
+          "author": {
+            "@type": "Person",
+            "name": post.author
+          },
+          "datePublished": post.date,
+          "url": `${baseUrl}/blog/${post.slug}`,
+          "keywords": post.tags.join(", ")
+        }
+      }))
+    }
+  };
 } 

@@ -1,0 +1,2 @@
+place_id,name,address,lat,lng,types,website,phone,rating,opening_hours,photo_url,summary,borough,manager_email,manager_password
+ChIJg-M6qNHhdUgRvqvNsEqoB-4,The Test Pub,123 Test Street,51.5074,-0.1278,"bar,food,establishment",https://testpub.com,02012345678,4.5,"Monday: 12:00 – 23:00;Tuesday: 12:00 – 23:00;Wednesday: 12:00 – 23:00;Thursday: 12:00 – 23:00;Friday: 12:00 – 00:00;Saturday: 12:00 – 00:00;Sunday: 12:00 – 22:30",https://example.com/photo1.jpg,A test pub for manager login testing,Westminster,test@testpub.com,testpassword123

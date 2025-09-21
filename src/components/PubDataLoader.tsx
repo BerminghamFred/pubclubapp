@@ -4,7 +4,10 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { pubData } from '@/data/pubData';
 import { Pub } from '@/data/types';
 import PubCard from '@/components/PubCard';
+import RandomPicker from '@/components/RandomPicker';
+import { generatePubSlug } from '@/utils/slugUtils';
 import { loadGoogleMaps } from '@/utils/googleMapsLoader';
+import { isPubOpenNow, getCurrentUKTimeString, getCurrentUKDayName } from '@/utils/openingHours';
 
 // Google Maps types
 declare global {
@@ -63,18 +66,15 @@ export default function PubDataLoader() {
   const [searchTerm, setSearchTerm] = useState('');
   const [amenitySearchTerm, setAmenitySearchTerm] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
-  const [selectedType, setSelectedType] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [minRating, setMinRating] = useState<number>(0);
-  const [priceRange, setPriceRange] = useState<string>('');
   const [openingFilter, setOpeningFilter] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   // View state
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -86,6 +86,9 @@ export default function PubDataLoader() {
   const [currentInfoWindow, setCurrentInfoWindow] = useState<google.maps.InfoWindow | null>(null);
   const mapDivRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+
+  // Random picker state
+  const [showRandomPicker, setShowRandomPicker] = useState(false);
 
   // Filter options - dynamically generated from pubData
   const areas = useMemo(() => {
@@ -269,9 +272,7 @@ export default function PubDataLoader() {
     return filtered;
   }, [amenitiesByCategory, amenitySearchTerm]);
 
-  const pubTypes = ['All Types', 'Traditional', 'Modern', 'Sports Bar', 'Craft Beer', 'Gastro Pub', 'Cocktail Bar', 'Wine Bar', 'Irish Pub', 'Student Pub', 'Rooftop Bar', 'Speakeasy', 'Brewery Taproom'];
   const features = ['Live Music', 'Outdoor Seating', 'Food Served', 'Sports TV', 'Real Ale', 'Cocktails', 'Wine Bar', 'Quiz Night', 'Karaoke', 'Board Games', 'Darts', 'Pool Table', 'Garden', 'Terrace', 'Fireplace', 'Dog Friendly', 'Child Friendly', 'Wheelchair Accessible'];
-  const priceRanges = ['Any Price', 'Budget (£)', 'Mid-Range (££)', 'Premium (£££)', 'Luxury (££££)'];
   const openingFilters = ['Any Time', 'Open Now', 'Late Night (After 11pm)', 'Early Bird (Before 6pm)', 'Weekend Only', 'Breakfast Available'];
   const sortOptions = [
     { value: 'name', label: 'Name' },
@@ -282,26 +283,7 @@ export default function PubDataLoader() {
   ];
 
   // Filter presets
-  const filterPresets = [
-    { name: 'Traditional Pubs', filters: { type: 'Traditional', features: ['Real Ale', 'Food Served'] } },
-    { name: 'Sports Bars', filters: { type: 'Sports Bar', features: ['Sports TV'] } },
-    { name: 'Craft Beer', filters: { type: 'Craft Beer', features: ['Craft Beer', 'Craft Ales'] } },
-    { name: 'Live Music', filters: { features: ['Live Music'] } },
-    { name: 'Outdoor Seating', filters: { features: ['Outdoor Seating', 'Garden'] } },
-    { name: 'Food Focused', filters: { features: ['Food Served'] } },
-    { name: 'Late Night', filters: { openingFilter: 'Late Night (After 11pm)' } },
-    { name: 'Dog Friendly', filters: { features: ['Dog Friendly'] } },
-    { name: 'Family Friendly', filters: { features: ['Child Friendly'] } },
-    { name: 'Budget Friendly', filters: { priceRange: 'Budget (£)' } }
-  ];
 
-  // Apply filter preset
-  const applyFilterPreset = useCallback((preset: any) => {
-    if (preset.filters.type) setSelectedType(preset.filters.type);
-    if (preset.filters.features) setSelectedFeatures(preset.filters.features);
-    if (preset.filters.openingFilter) setOpeningFilter(preset.filters.openingFilter);
-    if (preset.filters.priceRange) setPriceRange(preset.filters.priceRange);
-  }, []);
 
   // Filter pubs based on all criteria
   const filteredPubs = useMemo(() => {
@@ -323,15 +305,11 @@ export default function PubDataLoader() {
       filtered = filtered.filter(pub => pub.area === selectedArea);
       }
 
-      // Type filter
-    if (selectedType && selectedType !== 'All Types') {
-      filtered = filtered.filter(pub => pub.type === selectedType);
-      }
 
       // Features filter
     if (selectedFeatures.length > 0) {
       filtered = filtered.filter(pub => 
-        selectedFeatures.some(feature => 
+        selectedFeatures.every(feature => 
           pub.features?.includes(feature)
         )
       );
@@ -345,14 +323,14 @@ export default function PubDataLoader() {
         
         const beforeFilter = filtered.length;
         filtered = filtered.filter(pub => {
-          // Check both amenities and features fields
-          const hasAmenity = selectedAmenities.some(amenity => 
+          // Check both amenities and features fields - ALL selected amenities must be present
+          const hasAllAmenities = selectedAmenities.every(amenity => 
             pub.amenities?.includes(amenity) || pub.features?.includes(amenity)
           );
           if (selectedAmenities.includes('TNT Sports')) {
-            console.log(`Pub "${pub.name}" - hasAmenities: ${!!pub.amenities}, amenities:`, pub.amenities, 'hasFeatures: ${!!pub.features}, features:', pub.features, 'has TNT Sports:', hasAmenity);
+            console.log(`Pub "${pub.name}" - hasAmenities: ${!!pub.amenities}, amenities:`, pub.amenities, 'hasFeatures: ${!!pub.features}, features:', pub.features, 'has ALL amenities:', hasAllAmenities);
           }
-          return hasAmenity;
+          return hasAllAmenities;
         });
         
         console.log('Pubs after amenities filter:', filtered.length);
@@ -364,27 +342,34 @@ export default function PubDataLoader() {
       filtered = filtered.filter(pub => (pub.rating || 0) >= minRating);
       }
 
-    // Price filter (simplified based on rating)
-    if (priceRange && priceRange !== 'Any Price') {
-      filtered = filtered.filter(pub => {
-        const rating = pub.rating;
-        if (priceRange === 'Budget (£)' && rating >= 4) return false;
-        if (priceRange === 'Mid-Range (££)' && (rating < 4 || rating >= 4.5)) return false;
-        if (priceRange === 'Premium (£££)' && (rating < 4.5 || rating >= 4.8)) return false;
-        if (priceRange === 'Luxury (££££)' && rating < 4.8) return false;
-        return true;
-      });
-    }
 
     // Opening hours filter
-      if (openingFilter && openingFilter !== 'Any Time') {
-      // This is a placeholder - you'd implement actual opening hours logic
+    if (openingFilter && openingFilter !== 'Any Time') {
       if (openingFilter === 'Open Now') {
-        const now = new Date();
-        const currentTime = now.getHours() * 100 + now.getMinutes();
         filtered = filtered.filter(pub => {
-          // Simplified logic - you'd want more sophisticated opening hours checking
-          return true; // Placeholder
+          return isPubOpenNow(pub.openingHours);
+        });
+      } else if (openingFilter === 'Late Night (After 11pm)') {
+        filtered = filtered.filter(pub => {
+          // For now, just return pubs that are generally open late
+          // This could be enhanced with more sophisticated logic
+          return pub.openingHours?.includes('11:00 PM') || pub.openingHours?.includes('12:00 AM');
+        });
+      } else if (openingFilter === 'Early Bird (Before 6pm)') {
+        filtered = filtered.filter(pub => {
+          // Pubs that open early (before 6pm typically means they open early)
+          return pub.openingHours?.includes('11:00 AM') || pub.openingHours?.includes('12:00');
+        });
+      } else if (openingFilter === 'Weekend Only') {
+        const currentDay = getCurrentUKDayName();
+        const isWeekend = currentDay === 'Saturday' || currentDay === 'Sunday';
+        if (!isWeekend) {
+          filtered = []; // No results on weekdays for weekend-only filter
+        }
+      } else if (openingFilter === 'Breakfast Available') {
+        filtered = filtered.filter(pub => {
+          // Pubs that open early (likely serve breakfast)
+          return pub.openingHours?.includes('11:00 AM') || pub.openingHours?.includes('12:00');
         });
       }
     }
@@ -408,7 +393,7 @@ export default function PubDataLoader() {
     });
 
     return filtered;
-  }, [searchTerm, selectedArea, selectedType, selectedFeatures, selectedAmenities, minRating, priceRange, openingFilter, sortBy, sortOrder]);
+  }, [searchTerm, selectedArea, selectedFeatures, selectedAmenities, minRating, openingFilter, sortBy, sortOrder]);
 
   // Get all pubs up to the current page (accumulative)
   const displayedPubs = useMemo(() => {
@@ -565,7 +550,7 @@ export default function PubDataLoader() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, amenitySearchTerm, selectedArea, selectedType, selectedFeatures, selectedAmenities, minRating, priceRange, openingFilter, sortBy, sortOrder]);
+  }, [searchTerm, amenitySearchTerm, selectedArea, selectedFeatures, selectedAmenities, minRating, openingFilter, sortBy, sortOrder]);
 
   // Handle pub click on map
   const handlePubClick = useCallback((pub: any) => {
@@ -575,6 +560,12 @@ export default function PubDataLoader() {
       setSelectedPub(fullPub);
     }
   }, [filteredPubs]);
+
+  // Random picker handlers
+  const handleViewPub = useCallback((pub: Pub) => {
+    window.open(`/pubs/${generatePubSlug(pub.name, pub.id)}`, '_blank');
+  }, []);
+
 
   return (
     <>
@@ -615,51 +606,7 @@ export default function PubDataLoader() {
             </div>
           </div>
 
-          {/* Filter Presets */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Quick Filters
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {filterPresets.map((preset, index) => (
-                <button
-                  key={index}
-                  onClick={() => applyFilterPreset(preset)}
-                  className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-sm font-medium transition-colors duration-200"
-                >
-                  {preset.name}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          {/* Popular Amenities Quick Filters */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Popular Features
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {['Sky Sports', 'Fish and Chips', 'Live Music', 'Beer Garden', 'Real Ale', 'Cocktails', 'Pool Table', 'Quiz Night'].map((amenity) => (
-                <button
-                  key={amenity}
-                  onClick={() => {
-                    if (selectedAmenities.includes(amenity)) {
-                      setSelectedAmenities(prev => prev.filter(a => a !== amenity));
-                    } else {
-                      setSelectedAmenities(prev => [...prev, amenity]);
-                    }
-                  }}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors duration-200 ${
-                    selectedAmenities.includes(amenity)
-                      ? 'bg-[#08d78c] text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  {amenity}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* View Mode Toggle */}
           <div className="mb-6" data-view-mode-section>
@@ -690,18 +637,8 @@ export default function PubDataLoader() {
             </div>
           </div>
 
-          {/* Advanced Filters Toggle */}
-          <div className="mb-6">
-            <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className="text-[#08d78c] hover:text-[#06b876] font-medium flex items-center gap-2"
-            >
-              {showAdvancedFilters ? '▼' : '▶'} Advanced Filters
-            </button>
-          </div>
-
-          {/* Advanced Filters */}
-          {showAdvancedFilters && (
+          {/* Filters */}
+          <div className="max-w-4xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             {/* Area Filter */}
             <div>
@@ -721,23 +658,6 @@ export default function PubDataLoader() {
               </select>
             </div>
 
-            {/* Type Filter */}
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pub Type
-                </label>
-              <select
-                  value={selectedArea}
-                  onChange={(e) => setSelectedArea(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
-              >
-                {pubTypes.map((type) => (
-                    <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             {/* Rating Filter */}
             <div>
@@ -757,28 +677,14 @@ export default function PubDataLoader() {
               </select>
             </div>
 
-              {/* Price Filter */}
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Price Range
-                </label>
-              <select
-                value={priceRange}
-                onChange={(e) => setPriceRange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
-                >
-                  {priceRanges.map((range) => (
-                    <option key={range} value={range}>
-                      {range}
-                  </option>
-                ))}
-              </select>
-          </div>
 
               {/* Opening Hours Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Opening Hours
+                  <span className="text-xs text-gray-500 ml-2">
+                    (Current UK time: {getCurrentUKTimeString()})
+                  </span>
                 </label>
                 <select
                   value={openingFilter}
@@ -819,10 +725,11 @@ export default function PubDataLoader() {
               </div>
               </div>
             </div>
-          )}
+            </div>
+          </div>
 
           {/* Amenities Search */}
-          <div className="mb-6">
+          <div className="mb-6 max-w-4xl mx-auto">
             <label htmlFor="amenity-search" className="block text-sm font-medium text-gray-700 mb-2">
               Search Amenities
             </label>
@@ -837,14 +744,14 @@ export default function PubDataLoader() {
           </div>
 
           {/* Amenities Categories */}
-          <div className="mb-6">
+          <div className="mb-6 max-w-4xl mx-auto">
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Select Amenities
             </label>
             {Object.entries(filteredAmenitiesByCategory).map(([category, amenities]) => (
               <div key={category} className="mb-4">
                 <h4 className="font-medium text-gray-800 mb-2">{category}</h4>
-            <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {amenities.map((amenity) => (
                 <button
                   key={amenity}
@@ -871,7 +778,7 @@ export default function PubDataLoader() {
 
           {/* Results Summary */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col items-center gap-4">
               <div className="text-sm text-gray-600">
                 Showing <span className="font-medium">{displayedPubs.length}</span> of{' '}
                 <span className="font-medium">{filteredPubs.length}</span> pubs
@@ -892,11 +799,9 @@ export default function PubDataLoader() {
                     setSearchTerm('');
                     setAmenitySearchTerm('');
                     setSelectedArea('');
-                    setSelectedType('');
                     setSelectedFeatures([]);
                     setSelectedAmenities([]);
                     setMinRating(0);
-                    setPriceRange('');
                     setOpeningFilter('');
                     setSortBy('name');
                     setSortOrder('asc');
@@ -909,14 +814,31 @@ export default function PubDataLoader() {
             </div>
             </div>
           </div>
-        </div>
+
+          {/* Spin the Wheel Button */}
+          {filteredPubs.length > 0 && (
+            <div className="mb-6 text-center">
+              <button
+                onClick={() => setShowRandomPicker(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white font-bold text-lg rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
+              >
+                🎡 Spin the Wheel
+                <span className="text-sm opacity-90">
+                  ({filteredPubs.length} pubs)
+                </span>
+              </button>
+              <p className="text-sm text-gray-600 mt-2">
+                Let us pick a random pub from your current filters!
+              </p>
+            </div>
+          )}
       </section>
 
       {/* Results */}
       <section className="py-8 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {viewMode === 'list' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
                 {displayedPubs.map((pub) => (
                   <PubCard
                     key={pub.id}
@@ -989,11 +911,9 @@ export default function PubDataLoader() {
                   setSearchTerm('');
                   setAmenitySearchTerm('');
                   setSelectedArea('');
-                  setSelectedType('');
                   setSelectedFeatures([]);
                   setSelectedAmenities([]);
                   setMinRating(0);
-                  setPriceRange('');
                   setOpeningFilter('');
                   setSortBy('name');
                   setSortOrder('asc');
@@ -1007,6 +927,19 @@ export default function PubDataLoader() {
           )}
         </div>
       </section>
+
+      {/* Random Picker Modal */}
+      <RandomPicker
+        isOpen={showRandomPicker}
+        onClose={() => setShowRandomPicker(false)}
+        filters={{
+          area: selectedArea === 'All Areas' ? undefined : selectedArea,
+          amenities: selectedAmenities,
+          openNow: openingFilter === 'Open Now',
+          minRating: minRating > 0 ? minRating : 3.5, // Default to 3.5+ rating
+        }}
+        onViewPub={handleViewPub}
+      />
     </>
   );
 } 
