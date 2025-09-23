@@ -162,11 +162,39 @@ function RandomPageContent() {
 export default function RandomPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#08d78c] mx-auto mb-4"></div>
-          <div className="text-gray-600">Loading random pub picker...</div>
-        </div>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header Skeleton */}
+        <section className="bg-black text-white py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <div className="animate-pulse">
+                <div className="h-12 bg-gray-700 rounded w-96 mx-auto mb-4"></div>
+                <div className="h-6 bg-gray-600 rounded w-2/3 mx-auto mb-8"></div>
+                <div className="h-12 bg-gray-700 rounded w-48 mx-auto"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        {/* Content Skeleton */}
+        <section className="py-12 bg-white">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <div className="animate-pulse">
+                <div className="h-8 bg-gray-200 rounded w-48 mx-auto mb-6"></div>
+                <div className="grid md:grid-cols-3 gap-8">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="text-center">
+                      <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4"></div>
+                      <div className="h-6 bg-gray-200 rounded w-32 mx-auto mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-48 mx-auto"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     }>
       <RandomPageContent />

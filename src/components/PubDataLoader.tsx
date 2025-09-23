@@ -72,6 +72,35 @@ export default function PubDataLoader() {
   const [openingFilter, setOpeningFilter] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Parse URL parameters on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Parse amenities parameter
+      const amenitiesParam = urlParams.get('amenities');
+      if (amenitiesParam) {
+        const amenities = amenitiesParam.split(',').map(a => a.trim()).filter(Boolean);
+        setSelectedAmenities(amenities);
+        console.log('Set amenities from URL:', amenities);
+      }
+      
+      // Parse area parameter
+      const areaParam = urlParams.get('area');
+      if (areaParam) {
+        setSelectedArea(areaParam);
+        console.log('Set area from URL:', areaParam);
+      }
+      
+      // Parse search parameter
+      const searchParam = urlParams.get('search');
+      if (searchParam) {
+        setSearchTerm(searchParam);
+        console.log('Set search term from URL:', searchParam);
+      }
+    }
+  }, []);
   
   // View state
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');

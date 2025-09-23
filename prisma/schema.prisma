@@ -334,3 +334,49 @@ model Checkin {
   @@index([pubId])
   @@map("checkins")
 }
+
+// Homepage Trending Tiles
+model HomepageSlot {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String
+  href        String
+  icon        String
+  areaSlug    String
+  amenitySlug String?
+  pubCount    Int
+  score       Float
+  isSeasonal  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  position    Int?     // 1-6 for homepage display order
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Analytics tracking
+  views       Int      @default(0)
+  clicks      Int      @default(0)
+  lastViewed  DateTime?
+
+  // Relations
+  interactions HomepageSlotInteraction[]
+
+  @@unique([areaSlug, amenitySlug])
+  @@index([score])
+  @@index([isActive, position])
+  @@map("homepage_slots")
+}
+
+// Track homepage slot interactions
+model HomepageSlotInteraction {
+  id        String   @id @default(cuid())
+  slotId    String
+  sessionId String
+  type      String   // 'view', 'click'
+  createdAt DateTime @default(now())
+
+  slot      HomepageSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@index([slotId])
+  @@index([sessionId])
+  @@map("homepage_slot_interactions")
+}

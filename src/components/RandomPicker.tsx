@@ -4,9 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, MapPin, Star, Clock, RotateCcw, ExternalLink } from 'lucide-react';
-import { pubData } from '@/data/pubData';
 import { Pub } from '@/data/types';
-import { isPubOpenNow } from '@/utils/openingHours';
 
 interface RandomPickerProps {
   isOpen: boolean;
@@ -31,7 +29,7 @@ export default function RandomPicker({
   filters, 
   onViewPub 
 }: RandomPickerProps) {
-  const [candidates, setCandidates] = useState<CandidatePub[]>([]);
+  const [candidateCount, setCandidateCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<CandidatePub | null>(null);
@@ -40,115 +38,80 @@ export default function RandomPicker({
   const [winningSlice, setWinningSlice] = useState<number | null>(null);
   const [finalRotation, setFinalRotation] = useState(0);
 
-  // Fetch candidates based on filters
-  const fetchCandidates = useCallback(async () => {
+  // Fetch candidate count based on filters
+  const fetchCandidateCount = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Filter pubs based on current filters
-      let filteredPubs = pubData.filter(pub => {
-        // Area filter
-        if (filters.area && !pub.area?.toLowerCase().includes(filters.area.toLowerCase())) {
-          return false;
-        }
-        
-        // Amenity filters (AND logic)
-        if (filters.amenities && filters.amenities.length > 0) {
-          const hasAllAmenities = filters.amenities.every(amenity => 
-            pub.amenities?.includes(amenity)
-          );
-          if (!hasAllAmenities) return false;
-        }
-        
-        // Rating filter
-        if (filters.minRating && pub.rating < filters.minRating) {
-          return false;
-        }
-        
-        // Open now filter (use actual opening hours)
-        if (filters.openNow && !isPubOpenNow(pub.openingHours)) {
-          return false;
-        }
-        
-        return true;
-      });
-
-      // Remove last 5 winners to avoid repeats
-      const availablePubs = filteredPubs.filter(pub => !lastWinners.has(pub.id));
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (filters.area) params.append('area', filters.area);
+      if (filters.amenities && filters.amenities.length > 0) {
+        params.append('amenities', filters.amenities.join(','));
+      }
+      if (filters.openNow) params.append('open_now', 'true');
+      if (filters.minRating) params.append('min_rating', filters.minRating.toString());
+      if (lastWinners.size > 0) {
+        params.append('exclude_ids', Array.from(lastWinners).join(','));
+      }
       
-      if (availablePubs.length === 0) {
+      const response = await fetch(`/api/random-pub/candidates?${params.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch candidate count');
+      }
+      
+      const data = await response.json();
+      
+      if (data.availableCandidates === 0) {
         setError('No pubs match your current filters. Try removing some filters or widening your search area.');
-        setCandidates([]);
+        setCandidateCount(0);
         return;
       }
-
-      // Use all available pubs (remove artificial limit)
-      const limitedPubs = availablePubs;
       
-      // Calculate weights for each pub
-      const weightedPubs: CandidatePub[] = limitedPubs.map(pub => {
-        let weight = 1.0; // Base weight
-        
-        // Rating boost
-        if (pub.rating >= 4.5) weight += 0.05;
-        else if (pub.rating >= 4.0) weight += 0.03;
-        else if (pub.rating >= 3.5) weight += 0.01;
-        
-        // Review count boost
-        if (pub.reviewCount && pub.reviewCount >= 100) weight += 0.02;
-        else if (pub.reviewCount && pub.reviewCount >= 50) weight += 0.01;
-        
-        // Sponsored boost (if we add this feature later)
-        if (pub.isSponsored) weight += 0.08;
-        
-        return {
-          ...pub,
-          weight,
-          isSponsored: pub.isSponsored || false
-        };
-      });
-
-      setCandidates(weightedPubs);
+      setCandidateCount(data.availableCandidates);
     } catch (err) {
       setError('Failed to load pubs. Please try again.');
-      console.error('Error fetching candidates:', err);
+      console.error('Error fetching candidate count:', err);
     } finally {
       setIsLoading(false);
     }
   }, [filters, lastWinners]);
 
-  // Weighted random selection using crypto RNG
-  const selectWinner = useCallback(() => {
-    if (candidates.length === 0) return null;
-    
-    // Calculate total weight
-    const totalWeight = candidates.reduce((sum, pub) => sum + pub.weight, 0);
-    
-    // Generate random number using crypto RNG
-    const array = new Uint32Array(1);
-    crypto.getRandomValues(array);
-    const random = array[0] / (0xffffffff + 1);
-    
-    // Roulette wheel selection
-    let currentWeight = 0;
-    const target = random * totalWeight;
-    
-    for (const pub of candidates) {
-      currentWeight += pub.weight;
-      if (currentWeight >= target) {
-        return pub;
+  // Fetch random pub from API
+  const fetchRandomPub = useCallback(async (): Promise<CandidatePub | null> => {
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (filters.area) params.append('area', filters.area);
+      if (filters.amenities && filters.amenities.length > 0) {
+        params.append('amenities', filters.amenities.join(','));
       }
+      if (filters.openNow) params.append('open_now', 'true');
+      if (filters.minRating) params.append('min_rating', filters.minRating.toString());
+      if (lastWinners.size > 0) {
+        params.append('exclude_ids', Array.from(lastWinners).join(','));
+      }
+      
+      const response = await fetch(`/api/random-pub?${params.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch random pub');
+      }
+      
+      const data = await response.json();
+      return data.pub as CandidatePub;
+    } catch (err) {
+      console.error('Error fetching random pub:', err);
+      return null;
     }
-    
-    // Fallback to last pub
-    return candidates[candidates.length - 1];
-  }, [candidates]);
+  }, [filters, lastWinners]);
 
   // Handle spin
   const handleSpin = useCallback(async () => {
-    if (candidates.length === 0) {
-      await fetchCandidates();
+    if (candidateCount === 0) {
+      await fetchCandidateCount();
       return;
     }
     
@@ -165,8 +128,8 @@ export default function RandomPicker({
     setFinalRotation(finalRotationDegrees);
     
     // Simulate spinning animation
-    setTimeout(() => {
-      const selectedWinner = selectWinner();
+    setTimeout(async () => {
+      const selectedWinner = await fetchRandomPub();
       if (selectedWinner) {
         setWinner(selectedWinner);
         setWinningSlice(randomSlice);
@@ -198,14 +161,14 @@ export default function RandomPicker({
             open_now: filters.openNow || false,
             min_rating: filters.minRating || 0,
             seeded: false,
-            candidates_count: candidates.length,
+            candidates_count: candidateCount,
             session_id: Date.now().toString()
           });
         }
       }
       setIsSpinning(false);
     }, 3000); // 3 second animation to match CSS duration
-  }, [candidates, selectWinner, fetchCandidates, filters]);
+  }, [candidateCount, fetchRandomPub, fetchCandidateCount, filters]);
 
   // Handle view pub
   const handleViewPub = useCallback(() => {
@@ -246,10 +209,10 @@ export default function RandomPicker({
     }
   }, [winner]);
 
-  // Fetch candidates when filters change
+  // Fetch candidate count when filters change
   useEffect(() => {
     if (isOpen) {
-      fetchCandidates();
+      fetchCandidateCount();
       
       // Track analytics event
       if (typeof window !== 'undefined' && (window as any).gtag) {
@@ -259,12 +222,12 @@ export default function RandomPicker({
           amenities_count: filters.amenities?.length || 0,
           open_now: filters.openNow || false,
           min_rating: filters.minRating || 0,
-          candidates_count: candidates.length,
+          candidates_count: candidateCount,
           session_id: Date.now().toString()
         });
       }
     }
-  }, [isOpen, filters, fetchCandidates]);
+  }, [isOpen, filters, fetchCandidateCount]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -273,7 +236,7 @@ export default function RandomPicker({
           <DialogTitle className="flex items-center gap-2 text-2xl">
             Spin the Wheel
             <span className="text-sm font-normal text-gray-500">
-              ({candidates.length} pubs available)
+              ({candidateCount} pubs available)
             </span>
           </DialogTitle>
         </DialogHeader>
@@ -283,7 +246,7 @@ export default function RandomPicker({
           {error && (
             <div className="text-center py-8">
               <div className="text-red-600 mb-4">{error}</div>
-              <Button onClick={fetchCandidates} variant="outline">
+              <Button onClick={fetchCandidateCount} variant="outline">
                 Try Again
               </Button>
             </div>
@@ -298,7 +261,7 @@ export default function RandomPicker({
           )}
 
           {/* Wheel Animation */}
-          {!isLoading && !error && candidates.length > 0 && (
+          {!isLoading && !error && candidateCount > 0 && (
             <div className="text-center">
               <div className="relative w-64 h-64 mx-auto mb-6 md:w-80 md:h-80">
                 {/* SVG Wheel */}
@@ -531,7 +494,7 @@ export default function RandomPicker({
           {/* Filter Info */}
           <div className="text-sm text-gray-500 text-center">
             <p>
-              Spinning from {candidates.length} pubs matching your current filters
+              Spinning from {candidateCount} pubs matching your current filters
               {lastWinners.size > 0 && ` (avoiding ${lastWinners.size} recent picks)`}
             </p>
           </div>

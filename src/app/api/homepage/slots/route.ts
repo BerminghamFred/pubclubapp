@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { pubData } from '@/data/pubData';
 
 interface TrendingTile {
@@ -177,20 +178,56 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const location = searchParams.get('location');
     
-    // Generate trending tiles
-    const tiles = generateTrendingTiles();
+    // Try to get slots from database first
+    const dbSlots = await prisma.homepageSlot.findMany({
+      where: { isActive: true },
+      orderBy: [
+        { position: 'asc' },
+        { score: 'desc' }
+      ]
+    });
     
-    // Apply diversity rules
+    if (dbSlots.length > 0) {
+      // Convert database slots to tile format
+      const tiles = dbSlots.map(slot => ({
+        id: slot.id,
+        title: slot.title,
+        subtitle: slot.subtitle,
+        href: slot.href,
+        icon: slot.icon,
+        city: slot.areaSlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        amenity: slot.amenitySlug ? slot.amenitySlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'All Pubs',
+        pubCount: slot.pubCount,
+        score: slot.score,
+        isSeasonal: slot.isSeasonal
+      }));
+      
+      const response = NextResponse.json({
+        tiles,
+        total: tiles.length,
+        source: 'database',
+        generated_at: new Date().toISOString()
+      });
+      
+      // Add appropriate caching headers
+      response.headers.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+      
+      return response;
+    }
+    
+    // Fallback to generated tiles if no database slots
+    const tiles = generateTrendingTiles();
     const diversifiedTiles = applyDiversityRules(tiles, location);
     
     const response = NextResponse.json({
       tiles: diversifiedTiles,
       total: diversifiedTiles.length,
+      source: 'generated',
       generated_at: new Date().toISOString()
     });
     
-    // Add caching headers
-    response.headers.set('Cache-Control', 'public, max-age=900, stale-while-revalidate=3600'); // 15 min cache
+    // Add appropriate caching headers for generated content
+    response.headers.set('Cache-Control', 'public, max-age=180, stale-while-revalidate=300');
     
     return response;
   } catch (error) {

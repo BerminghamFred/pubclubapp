@@ -32,8 +32,10 @@ export default function TrendingTiles() {
       const response = await fetch('/api/homepage/slots');
       if (response.ok) {
         const data = await response.json();
+        console.log('Homepage slots API response:', data);
         setTiles(data.tiles || []);
       } else {
+        console.log('API response not ok, using fallback tiles');
         // Fallback to static tiles
         setTiles(getFallbackTiles());
       }
@@ -48,9 +50,9 @@ export default function TrendingTiles() {
   const getFallbackTiles = (): TrendingTile[] => [
     {
       id: '1',
-      title: 'Best Dog-Friendly Pubs in Brixton',
+      title: 'Dog Friendly Pubs in Wandsworth',
       subtitle: 'Pubs where your furry friend is welcome',
-      href: '/area/brixton?amenities=Dog Friendly',
+      href: '/area/wandsworth/dog-friendly',
       icon: '🐕',
       city: 'London',
       amenity: 'Dog Friendly',
@@ -59,80 +61,58 @@ export default function TrendingTiles() {
     },
     {
       id: '2',
-      title: 'Beer Gardens in Manchester',
-      subtitle: 'Sunny terraces & cold pints',
-      href: '/area/manchester?amenities=Beer Garden',
-      icon: '🌳',
-      city: 'Manchester',
-      amenity: 'Beer Garden',
-      pubCount: 18,
+      title: 'Cocktails in Sutton',
+      subtitle: 'Creative drinks & mixology',
+      href: '/area/sutton/cocktails',
+      icon: '🍸',
+      city: 'London',
+      amenity: 'Cocktails',
+      pubCount: 12,
       score: 0.92
     },
     {
       id: '3',
-      title: 'Sunday Roast in Edinburgh',
-      subtitle: 'Traditional Sunday dinners',
-      href: '/area/edinburgh?amenities=Sunday Roast',
-      icon: '🍖',
-      city: 'Edinburgh',
-      amenity: 'Sunday Roast',
+      title: 'Real Ale & Craft Beer in Croydon',
+      subtitle: 'Local brews & independent taps',
+      href: '/area/croydon/real-ale-craft-beer',
+      icon: '🍺',
+      city: 'London',
+      amenity: 'Real Ale & Craft Beer',
       pubCount: 15,
       score: 0.89
     },
     {
       id: '4',
-      title: 'Sky Sports in Birmingham',
-      subtitle: 'Watch the game with great atmosphere',
-      href: '/area/birmingham?amenities=Sky Sports',
-      icon: '📺',
-      city: 'Birmingham',
-      amenity: 'Sky Sports',
-      pubCount: 22,
+      title: 'Great Food in Bromley',
+      subtitle: 'Delicious meals & pub classics',
+      href: '/area/bromley/food-served',
+      icon: '🍽️',
+      city: 'London',
+      amenity: 'Food Served',
+      pubCount: 18,
       score: 0.87
     },
     {
       id: '5',
-      title: 'Pub Quiz in Bristol',
-      subtitle: 'Test your knowledge & win prizes',
-      href: '/area/bristol?amenities=Pub Quiz',
-      icon: '🧠',
-      city: 'Bristol',
-      amenity: 'Pub Quiz',
-      pubCount: 14,
+      title: 'Cocktails in Kingston upon Thames',
+      subtitle: 'Creative drinks & mixology',
+      href: '/area/kingston-upon-thames/cocktails',
+      icon: '🍸',
+      city: 'London',
+      amenity: 'Cocktails',
+      pubCount: 6,
       score: 0.85
     },
     {
       id: '6',
-      title: 'Live Music in Camden',
+      title: 'Live Music in Sutton',
       subtitle: 'Bands, DJs & acoustic nights',
-      href: '/area/camden?amenities=Live Music',
+      href: '/area/sutton/live-music',
       icon: '🎵',
       city: 'London',
       amenity: 'Live Music',
-      pubCount: 20,
+      pubCount: 10,
       score: 0.83
-    },
-    {
-      id: '7',
-      title: 'Craft Beer in Leeds',
-      subtitle: 'Local brews & independent taps',
-      href: '/area/leeds?amenities=Craft Beer',
-      icon: '🍺',
-      city: 'Leeds',
-      amenity: 'Craft Beer',
-      pubCount: 16,
-      score: 0.81
-    },
-    {
-      id: '8',
-      title: 'WiFi-Friendly in Liverpool',
-      subtitle: 'Work-friendly pubs with good internet',
-      href: '/area/liverpool?amenities=WiFi',
-      icon: '📶',
-      city: 'Liverpool',
-      amenity: 'WiFi',
-      pubCount: 19,
-      score: 0.79
     }
   ];
 

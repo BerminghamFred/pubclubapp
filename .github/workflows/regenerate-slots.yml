@@ -1,0 +1,19 @@
+name: Regenerate Homepage Slots
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  regenerate-slots:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Regenerate Homepage Slots
+        run: |
+          curl -X POST "${{ secrets.SITE_URL }}/api/admin/homepage-slots" \
+            -H "Content-Type: application/json" \
+            -d '{"action": "regenerate"}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

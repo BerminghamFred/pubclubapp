@@ -16,14 +16,14 @@ export default function HeroSection() {
   };
 
   const quickChips = [
-    { label: 'Dog Friendly', href: '/pubs?amenities=Dog Friendly', icon: '🐕' },
-    { label: 'Beer Garden', href: '/pubs?amenities=Beer Garden', icon: '🌳' },
-    { label: 'Sunday Roast', href: '/pubs?amenities=Sunday Roast', icon: '🍖' },
-    { label: 'Sky Sports', href: '/pubs?amenities=Sky Sports', icon: '📺' },
-    { label: 'Pub Quiz', href: '/pubs?amenities=Pub Quiz', icon: '🧠' },
-    { label: 'Live Music', href: '/pubs?amenities=Live Music', icon: '🎵' },
-    { label: 'Craft Beer', href: '/pubs?amenities=Craft Beer', icon: '🍺' },
-    { label: 'WiFi', href: '/pubs?amenities=WiFi', icon: '📶' }
+    { label: 'Dog Friendly', href: '/vibe/dog-friendly', icon: '🐕' },
+    { label: 'Beer Garden', href: '/vibe/beer-garden', icon: '🌳' },
+    { label: 'Sunday Roast', href: '/vibe/sunday-roast', icon: '🍖' },
+    { label: 'Sky Sports', href: '/vibe/sky-sports', icon: '📺' },
+    { label: 'Pub Quiz', href: '/vibe/pub-quiz', icon: '🧠' },
+    { label: 'Live Music', href: '/vibe/live-music', icon: '🎵' },
+    { label: 'Craft Beer', href: '/vibe/real-ale-craft-beer', icon: '🍺' },
+    { label: 'Cocktails', href: '/vibe/cocktails', icon: '🍸' }
   ];
 
   return (
