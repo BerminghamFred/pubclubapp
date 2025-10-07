@@ -1,0 +1,26 @@
+{
+  "scripts": {
+    "extract-photos": "node scripts/extract-photo-references.js",
+    "test-photo-proxy": "curl 'http://localhost:3000/api/photo?ref=ATKogpflM67m1jY0iBPhkF9QBbj3gFrD2Rx3AbKnI8V-ro-tYf_RXhS_bDf1h3nBKhr5hH0OZHBUeJJg52158B-pz5IzqliX4P76V40mvUeYGslmx0yi6-5iOkHfxKqTChhDDcj4IPwrOQstR8SlSEF79wyn2s5faZiAdysRNntb-eR_OrHlFAABCFTTjAuHfscHXtgaCwkPdlbSSpbZmH4P89HdX3SnPcEpOt-4_pumzixm5Uvuo77FjSrgNTwq1Ku9XWhCQmXRaIyy9hk5HkBc0sOHcF6XmPe8W-oEEIaXUn8PDA&w=480' -I",
+    "validate-photos": "node scripts/validate-photo-references.js",
+    "cache-warmup": "node scripts/cache-warmup.js",
+    "photo-stats": "node scripts/photo-stats.js"
+  }
+}
+
+# Add these scripts to your existing package.json scripts section:
+
+# "extract-photos": "node scripts/extract-photo-references.js"
+# - Extracts photo references from existing Google Places photo URLs
+
+# "test-photo-proxy": "curl 'http://localhost:3000/api/photo?ref=...&w=480' -I"
+# - Tests the photo proxy endpoint
+
+# "validate-photos": "node scripts/validate-photo-references.js"
+# - Validates all photo references in your data
+
+# "cache-warmup": "node scripts/cache-warmup.js"
+# - Pre-warms the cache with popular photos
+
+# "photo-stats": "node scripts/photo-stats.js"
+# - Shows statistics about photo usage and cache performance

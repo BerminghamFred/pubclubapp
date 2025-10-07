@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Heart, MapPin, Star, MessageSquare, CheckCircle, Plus, Minus } from 'lucide-react';
 import LoginModal from '@/components/LoginModal';
+import PubPhoto from '@/components/PubPhoto';
 
 interface Pub {
   id: string;
@@ -21,7 +22,10 @@ interface Pub {
   openingHours?: string;
   amenities?: string[];
   _internal?: {
+    place_id?: string;
     photo_url?: string;
+    photo_reference?: string; // Old format
+    photo_name?: string; // New format
     lat?: number;
     lng?: number;
   };
@@ -59,6 +63,17 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
     isWishlisted: false,
     hasCheckedIn: false,
   });
+
+  // Debug: Log the pub data being received
+  useEffect(() => {
+    console.log('[PubPageClient] Received pub data:', {
+      name: pub.name,
+      hasInternal: !!pub._internal,
+      photoName: pub._internal?.photo_name ? 'exists' : 'missing',
+      placeId: pub._internal?.place_id ? 'exists' : 'missing',
+      internalKeys: pub._internal ? Object.keys(pub._internal) : 'no _internal'
+    });
+  }, [pub]);
   const [userReviews, setUserReviews] = useState<UserReview[]>([]);
   const [userData, setUserData] = useState({
     userReviewCount: 0,
@@ -304,15 +319,18 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
           <div className="lg:col-span-2 space-y-8">
             
             {/* Photo */}
-            {pub._internal?.photo_url && (
-              <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
-                <img 
-                  src={pub._internal.photo_url} 
-                  alt={pub.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
+            <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
+              <PubPhoto
+                photoName={pub._internal?.photo_name}
+                placeId={pub._internal?.place_id}
+                alt={`${pub.name} pub`}
+                width={480}
+                height={360}
+                className="w-full h-full"
+                priority={true}
+                fallbackIcon="🍺"
+              />
+            </div>
             
             {/* Description */}
             <div>

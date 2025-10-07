@@ -22,5 +22,6 @@ export interface Pub {
     lng?: number;
     types?: string;
     photo_url?: string;
+    photo_reference?: string; // Google Places photo reference for caching
   };
 } 

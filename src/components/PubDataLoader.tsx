@@ -17,27 +17,15 @@ declare global {
 }
 
 export default function PubDataLoader() {
-  // TEMPORARY DEBUG: Log the first few pubs to see their structure
+  // Debug: Log pub data structure (can be removed later)
   useEffect(() => {
-    console.log('=== TEMPORARY DEBUG ===');
-    console.log('First 3 pubs from pubData:', pubData.slice(0, 3).map(pub => ({
-      id: pub.id,
+    console.log('=== PUB DATA DEBUG ===');
+    console.log('pubData type:', typeof pubData);
+    console.log('pubData length:', pubData?.length);
+    console.log('First 3 pubs have _internal:', pubData.slice(0, 3).map(pub => ({
       name: pub.name,
-      hasAmenities: !!pub.amenities,
-      amenities: pub.amenities,
-      hasFeatures: !!pub.features,
-      features: pub.features,
-      // Check if TNT Sports exists anywhere in the pub object
-      hasTntSports: pub.amenities?.includes('TNT Sports') || pub.features?.includes('TNT Sports'),
-      // Log all properties to see what's actually there
-      allProperties: Object.keys(pub),
-      // Check for any property that contains TNT Sports
-      anyPropertyWithTntSports: Object.entries(pub).filter(([key, value]) => {
-        if (Array.isArray(value)) {
-          return value.includes('TNT Sports');
-        }
-        return false;
-      })
+      hasInternal: !!pub._internal,
+      photoName: pub._internal?.photo_name ? 'exists' : 'missing'
     })));
     
     // Check how many pubs actually have TNT Sports in any array property
@@ -887,7 +875,8 @@ export default function PubDataLoader() {
                       phone: pub.phone,
                       website: pub.website,
                       openingHours: pub.openingHours,
-                      photoUrl: pub._internal?.photo_url
+                      photoUrl: pub._internal?.photo_url,
+                      _internal: pub._internal  // CRITICAL: Pass the entire _internal object
                     }}
                     onPubClick={handlePubClick}
                   />

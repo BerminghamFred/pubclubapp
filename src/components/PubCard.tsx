@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { generatePubSlug } from '@/utils/slugUtils';
 import { Heart, CheckCircle } from 'lucide-react';
 import LoginModal from './LoginModal';
+import { ClickablePubPhoto } from './PubPhoto';
 
 interface PubCardProps {
   pub: {
@@ -24,7 +25,16 @@ interface PubCardProps {
     phone?: string;
     website?: string;
     openingHours: string;
-    photoUrl?: string;
+    photoUrl?: string; // Keep for backward compatibility
+    _internal?: {
+      place_id?: string;
+      lat?: number;
+      lng?: number;
+      types?: string;
+      photo_url?: string;
+      photo_reference?: string; // Old format
+      photo_name?: string; // New format
+    };
   };
   onPubClick?: (pub: any) => void;
 }
@@ -141,32 +151,24 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
       {/* Pub Image - Clickable */}
-      <a href={pubUrl}>
-        <div className="h-48 relative overflow-hidden cursor-pointer">
-        {pub.photoUrl ? (
-          <img
-            src={pub.photoUrl}
-            alt={`${pub.name} pub`}
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              // Fallback to placeholder if image fails to load
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              const fallback = target.nextElementSibling as HTMLElement;
-              if (fallback) fallback.style.display = 'flex';
-            }}
-          />
-        ) : null}
-        {/* Fallback placeholder */}
-        <div 
-          className={`w-full h-full flex items-center justify-center ${
-            pub.photoUrl ? 'hidden' : 'flex'
-          } bg-[#08d78c]/20`}
-        >
-          <div className="text-[#08d78c] text-4xl">🍺</div>
-        </div>
-        </div>
-      </a>
+      <div className="w-full h-48 overflow-hidden">
+        <ClickablePubPhoto
+          href={pubUrl}
+          photoName={pub._internal?.photo_name}
+          placeId={pub._internal?.place_id}
+          alt={`${pub.name} pub`}
+          width={480}
+          height={320}
+          className="w-full h-full"
+          fallbackIcon="🍺"
+        />
+      </div>
+            {/* Debug: Log pub data structure */}
+            {typeof window !== 'undefined' && console.log('[PubCard]', pub.name, ':', {
+              hasInternal: !!pub._internal,
+              photoName: pub._internal?.photo_name ? 'exists' : 'missing',
+              placeId: pub._internal?.place_id ? 'exists' : 'missing'
+            })}
       
       <div className="p-6 flex flex-col flex-grow">
         <div className="flex items-center justify-between mb-3">
@@ -279,7 +281,7 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
             </div>
             
             <div className="flex items-center gap-4 text-xs text-gray-500">
-              {pub.photoUrl && <span>📷 Photos</span>}
+              {(pub.photoUrl || pub._internal?.photo_url) && <span>📷 Photos</span>}
               {pub.website && <span>🌐 Website</span>}
               {pub.phone && <span>📞 Phone</span>}
             </div>

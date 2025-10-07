@@ -1,0 +1,62 @@
+# Docker Compose configuration for photo proxy with CDN caching
+# This sets up a complete stack with Nginx as a reverse proxy and cache
+
+version: '3.8'
+
+services:
+  # Your Next.js application
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - PHOTO_CACHE_TTL_SECONDS=604800
+      - PHOTO_CACHE_MAXWIDTH_DEFAULT=480
+      - PHOTO_CACHE_MAXWIDTH_MAX=1280
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped
+
+  # Nginx reverse proxy with caching
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-photo-proxy.conf:/etc/nginx/conf.d/default.conf
+      - /var/cache/nginx/photo_cache:/var/cache/nginx/photo_cache
+      - ./ssl:/etc/nginx/ssl  # Add SSL certificates here
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  # Redis for additional caching layer (optional)
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+
+  # Monitoring with Prometheus (optional)
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+
+# Usage:
+# 1. Copy nginx-photo-proxy.conf to your nginx config
+# 2. Update the cache path in nginx.conf:
+#    proxy_cache_path /var/cache/nginx/photo_cache levels=1:2 keys_zone=photo_cache:10m max_size=1g inactive=7d use_temp_path=off;
+# 3. Run: docker-compose -f docker-compose.cdn.yml up -d

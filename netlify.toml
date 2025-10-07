@@ -1,0 +1,25 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Photo proxy caching configuration
+[[headers]]
+  for = "/api/photo"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+
+# Redirect rules for API routes
+[[redirects]]
+  from = "/api/photo"
+  to = "/api/photo"
+  status = 200
+
+# Edge functions for photo proxy (if using Netlify Edge Functions)
+[functions."src/app/api/photo/route.ts"]
+  runtime = "edge"

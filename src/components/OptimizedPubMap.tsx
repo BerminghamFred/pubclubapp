@@ -56,7 +56,7 @@ export default function OptimizedPubMap({
         setError(null);
 
         const loader = new Loader({
-          apiKey: 'AIzaSyAJC2FaVnXp8HQO6OvMLwmvLCsCAeD1xQo',
+          apiKey: 'AIzaSyCUMtS8YR9mG1Phzlq2Z15WEIAe-ePYD28',
           version: 'weekly',
           libraries: ['places']
         });
