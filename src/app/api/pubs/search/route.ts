@@ -14,6 +14,24 @@ function hashFilters(filters: any): string {
   return JSON.stringify(filters);
 }
 
+// Map amenity slug to actual amenity name in pub data
+function mapAmenitySlugToName(slug: string): string {
+  const mapping: Record<string, string> = {
+    'sunday-roast': 'Sunday Roast',
+    'dog-friendly': 'Dog Friendly',
+    'beer-garden': 'Beer Garden',
+    'sky-sports': 'Sky Sports',
+    'bottomless-brunch': 'Bottomless Brunch',
+    'cocktails': 'Cocktails',
+    'pub-quiz': 'Pub Quiz',
+    'live-music': 'Live Music',
+    'real-ale-craft-beer': 'Real Ale',
+    'pool-table-darts': 'Pool Table'
+  };
+  
+  return mapping[slug] || slug;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -67,9 +85,11 @@ export async function GET(req: NextRequest) {
     // Apply amenities filter
     if (filters.selectedAmenities && filters.selectedAmenities.length > 0) {
       filtered = filtered.filter(pub => {
-        return filters.selectedAmenities.every((amenity: string) => 
-          pub.amenities?.includes(amenity) || pub.features?.includes(amenity)
-        );
+        return filters.selectedAmenities.every((amenitySlug: string) => {
+          // Map amenity slug to actual amenity name in pub data
+          const amenityName = mapAmenitySlugToName(amenitySlug);
+          return pub.amenities?.includes(amenityName) || pub.features?.includes(amenityName);
+        });
       });
     }
 

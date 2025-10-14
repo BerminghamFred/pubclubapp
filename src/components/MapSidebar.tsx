@@ -20,45 +20,34 @@ interface MapSidebarProps {
 
 // Category icons and grouping
 const categoryIcons = {
-  'Music': '🎵',
-  'Drinks': '🍸',
-  'Food': '🍔',
-  'Outdoor': '🌳',
-  'Sport Viewing': '📺',
-  'Accessibility': '♿',
-  'Affordability': '💷',
-  'Activities': '🎯',
-  'Comfort': '💺',
-  'General': '📍'
+  'Food & Dining': '🍔',
+  'Drinks & Beer': '🍺',
+  'Entertainment': '🎵',
+  'Sports & Games': '⚽',
+  'Outdoor & Space': '🌳',
+  'Special Features': '⭐'
 };
 
-// Group amenities by category
+// Group amenities by category with proper mapping
 function groupAmenitiesByCategory() {
   const categories: Record<string, string[]> = {};
   
+  // Define explicit mappings for each amenity
+  const amenityCategories: Record<string, string> = {
+    'sunday-roast': 'Food & Dining',
+    'bottomless-brunch': 'Food & Dining',
+    'beer-garden': 'Outdoor & Space',
+    'dog-friendly': 'Special Features',
+    'cocktails': 'Drinks & Beer',
+    'real-ale-craft-beer': 'Drinks & Beer',
+    'live-music': 'Entertainment',
+    'pub-quiz': 'Entertainment',
+    'sky-sports': 'Sports & Games',
+    'pool-table-darts': 'Sports & Games'
+  };
+  
   AMENITY_FILTERS.forEach(amenity => {
-    let category = 'General';
-    
-    const title = amenity.title.toLowerCase();
-    if (title.includes('music') || title.includes('dj') || title.includes('live') || title.includes('karaoke')) {
-      category = 'Music';
-    } else if (title.includes('beer') || title.includes('cocktail') || title.includes('wine') || title.includes('ale')) {
-      category = 'Drinks';
-    } else if (title.includes('food') || title.includes('kitchen') || title.includes('menu') || title.includes('dining')) {
-      category = 'Food';
-    } else if (title.includes('garden') || title.includes('outdoor') || title.includes('terrace') || title.includes('patio')) {
-      category = 'Outdoor';
-    } else if (title.includes('sport') || title.includes('pool') || title.includes('football') || title.includes('rugby') || title.includes('viewing')) {
-      category = 'Sport Viewing';
-    } else if (title.includes('wheelchair') || title.includes('accessible') || title.includes('disabled')) {
-      category = 'Accessibility';
-    } else if (title.includes('cheap') || title.includes('affordable') || title.includes('budget')) {
-      category = 'Affordability';
-    } else if (title.includes('game') || title.includes('quiz') || title.includes('event') || title.includes('party')) {
-      category = 'Activities';
-    } else if (title.includes('comfort') || title.includes('cozy') || title.includes('seating')) {
-      category = 'Comfort';
-    }
+    const category = amenityCategories[amenity.slug] || 'Special Features';
     
     if (!categories[category]) {
       categories[category] = [];
@@ -71,7 +60,7 @@ function groupAmenitiesByCategory() {
 
 export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['Music', 'Drinks', 'Food']) // Start with popular categories expanded
+    new Set(['Food & Dining', 'Drinks & Beer', 'Entertainment']) // Start with popular categories expanded
   );
 
   const amenityCategories = groupAmenitiesByCategory();
