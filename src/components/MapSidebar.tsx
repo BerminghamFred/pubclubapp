@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { AMENITY_FILTERS } from '@/data/amenityData';
 
 interface Filters {
   searchTerm: string;
@@ -18,52 +17,23 @@ interface MapSidebarProps {
   areas: string[];
 }
 
-// Category icons and grouping
-const categoryIcons = {
-  'Food & Dining': '🍔',
-  'Drinks & Beer': '🍺',
-  'Entertainment': '🎵',
-  'Sports & Games': '⚽',
-  'Outdoor & Space': '🌳',
-  'Special Features': '⭐'
+// Use the exact same amenity categories as the list view
+const amenitiesByCategory = {
+  '🎵 Music': ['DJs', 'Jukebox', 'Karaoke', 'Live Music'],
+  '🍸 Drinks': ['Cocktails', 'Craft Beer', 'Craft Ales', 'Draught', 'Non-Alcoholic', 'Real Ale', 'Spirits', 'Taproom', 'Wine'],
+  '🍔 Food': ['Bar Snacks', 'Bottomless Brunch', 'Bring Your Own Food', 'Burgers', 'Chips', 'English Breakfast', 'Fish and Chips', 'Gluten-Free Options', 'Kids Menu', 'Outdoor Food Service', 'Pie', 'Pizza', 'Sandwiches', 'Steak', 'Street Food Vendor', 'Sunday Roast', 'Thai', 'Vegetarian Options', 'Wings'],
+  '🌳 Outdoor Space': ['Beer Garden', 'Heating', 'In the Sun', 'Large Space (20+ People)', 'Outdoor Viewing', 'Outside Bar', 'River View', 'Rooftop', 'Small Space (<20 People)', 'Street Seating', 'Under Cover'],
+  '📺 Sport Viewing': ['Amazon Sports', 'Outdoor Viewing', 'Six Nations', 'Sky Sports', 'TNT Sports', 'Terrestrial TV'],
+  '♿ Accessibility': ['Car Park', 'Child Friendly', 'Dance Floor', 'Disabled Access', 'Dog Friendly', 'Open Past Midnight', 'Open Past Midnight (Weekends)', 'Table Booking'],
+  '💷 Affordability': ['Bargain', 'Premium', 'The Norm'],
+  '🎯 Activities': ['Beer Pong', 'Billiards', 'Board Games', 'Darts', 'Game Machines', 'Ping Pong', 'Pool Table', 'Pub Quiz', 'Shuffleboard', 'Slot Machines', 'Table Football'],
+  '💺 Comfort': ['Booths', 'Fireplace', 'Sofas', 'Stools at the Bar']
 };
-
-// Group amenities by category with proper mapping
-function groupAmenitiesByCategory() {
-  const categories: Record<string, string[]> = {};
-  
-  // Define explicit mappings for each amenity
-  const amenityCategories: Record<string, string> = {
-    'sunday-roast': 'Food & Dining',
-    'bottomless-brunch': 'Food & Dining',
-    'beer-garden': 'Outdoor & Space',
-    'dog-friendly': 'Special Features',
-    'cocktails': 'Drinks & Beer',
-    'real-ale-craft-beer': 'Drinks & Beer',
-    'live-music': 'Entertainment',
-    'pub-quiz': 'Entertainment',
-    'sky-sports': 'Sports & Games',
-    'pool-table-darts': 'Sports & Games'
-  };
-  
-  AMENITY_FILTERS.forEach(amenity => {
-    const category = amenityCategories[amenity.slug] || 'Special Features';
-    
-    if (!categories[category]) {
-      categories[category] = [];
-    }
-    categories[category].push(amenity.slug);
-  });
-  
-  return categories;
-}
 
 export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['Food & Dining', 'Drinks & Beer', 'Entertainment']) // Start with popular categories expanded
+    new Set(['🎵 Music', '🍸 Drinks', '🍔 Food']) // Start with popular categories expanded
   );
-
-  const amenityCategories = groupAmenitiesByCategory();
 
   const toggleCategory = (category: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -161,14 +131,13 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
       {/* Amenity Categories */}
       <div className="flex-1 overflow-auto p-4">
         <div className="space-y-2">
-          {Object.entries(amenityCategories).map(([category, amenities]) => (
+          {Object.entries(amenitiesByCategory).map(([category, amenities]) => (
             <div key={category} className="border border-gray-200 rounded-lg">
               <button
                 onClick={() => toggleCategory(category)}
                 className="w-full px-3 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg transition-colors"
               >
                 <span className="flex items-center gap-2 font-medium text-gray-700 text-sm">
-                  <span>{categoryIcons[category as keyof typeof categoryIcons] || '📍'}</span>
                   {category}
                 </span>
                 {expandedCategories.has(category) ? (
@@ -182,7 +151,6 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
                 <div className="px-3 py-3 space-y-2 border-t border-gray-100">
                   <div className="grid grid-cols-2 gap-2">
                     {amenities.map(amenity => {
-                      const amenityInfo = AMENITY_FILTERS.find(a => a.slug === amenity);
                       const isSelected = filters.selectedAmenities.includes(amenity);
                       
                       return (
@@ -197,7 +165,7 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
                             className="rounded border-gray-300 text-[#08d78c] focus:ring-[#08d78c]"
                           />
                           <span className="text-gray-700 leading-tight">
-                            {amenityInfo?.title || amenity.replace(/-/g, ' ')}
+                            {amenity}
                           </span>
                         </label>
                       );
