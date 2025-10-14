@@ -341,14 +341,62 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
             {/* Features & Amenities */}
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Features & Amenities</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {pub.amenities?.map((amenity, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-2 h-2 bg-[#08d78c] rounded-full"></div>
-                    <span className="text-gray-700">{amenity}</span>
+              {(() => {
+                // Use the same categorization system as the find pubs and map pages
+                const categorizedAmenities = {
+                  '🎵 Music': ['DJs', 'Jukebox', 'Karaoke', 'Live Music'],
+                  '🍸 Drinks': ['Cocktails', 'Craft Beer', 'Craft Ales', 'Draught', 'Non-Alcoholic', 'Real Ale', 'Spirits', 'Taproom', 'Wine'],
+                  '🍔 Food': ['Bar Snacks', 'Bottomless Brunch', 'Bring Your Own Food', 'Burgers', 'Chips', 'English Breakfast', 'Fish and Chips', 'Gluten-Free Options', 'Kids Menu', 'Outdoor Food Service', 'Pie', 'Pizza', 'Sandwiches', 'Steak', 'Street Food Vendor', 'Sunday Roast', 'Thai', 'Vegetarian Options', 'Wings'],
+                  '🌳 Outdoor Space': ['Beer Garden', 'Heating', 'In the Sun', 'Large Space (20+ People)', 'Outdoor Viewing', 'Outside Bar', 'River View', 'Rooftop', 'Small Space (<20 People)', 'Street Seating', 'Under Cover'],
+                  '📺 Sport Viewing': ['Amazon Sports', 'Outdoor Viewing', 'Six Nations', 'Sky Sports', 'TNT Sports', 'Terrestrial TV'],
+                  '♿ Accessibility': ['Car Park', 'Child Friendly', 'Dance Floor', 'Disabled Access', 'Dog Friendly', 'Open Past Midnight', 'Open Past Midnight (Weekends)', 'Table Booking'],
+                  '💷 Affordability': ['Bargain', 'Premium', 'The Norm'],
+                  '🎯 Activities': ['Beer Pong', 'Billiards', 'Board Games', 'Darts', 'Game Machines', 'Ping Pong', 'Pool Table', 'Pub Quiz', 'Shuffleboard', 'Slot Machines', 'Table Football'],
+                  '💺 Comfort': ['Booths', 'Fireplace', 'Sofas', 'Stools at the Bar']
+                };
+
+                // Group amenities by category
+                const groupedAmenities: { [key: string]: string[] } = {};
+                
+                pub.amenities?.forEach(amenity => {
+                  for (const [category, items] of Object.entries(categorizedAmenities)) {
+                    if (items.includes(amenity)) {
+                      if (!groupedAmenities[category]) {
+                        groupedAmenities[category] = [];
+                      }
+                      groupedAmenities[category].push(amenity);
+                      return;
+                    }
+                  }
+                  // If amenity doesn't match any category, put it in "Other"
+                  if (!groupedAmenities['🏷️ Other']) {
+                    groupedAmenities['🏷️ Other'] = [];
+                  }
+                  groupedAmenities['🏷️ Other'].push(amenity);
+                });
+
+                return (
+                  <div className="space-y-6">
+                    {Object.entries(groupedAmenities).map(([category, amenities]) => (
+                      <div key={category} className="space-y-3">
+                        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                          {category}
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {amenities.map((amenity, index) => (
+                            <div 
+                              key={index} 
+                              className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm hover:shadow-md transition-shadow duration-200"
+                            >
+                              <span className="text-gray-700 text-sm font-medium">{amenity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
 
             {/* User Reviews Section */}

@@ -4,6 +4,8 @@ export const pubData: Pub[] = [
   {
     "id": "ChIJg-M6qNHhdUgRvqvNsEqoB-4",
     "name": "The Shy Horse",
+    "manager_email": "freddie@pubclubapp.co.uk",
+    "manager_password": "$2b$12$PmL6RwuCdnruuCpMp2tPuuoAj4q/824pcdy8rNSGD4GFnfj57caJG",
     "description": "A great pub in Kingston upon Thames",
     "area": "Kingston upon Thames",
     "type": "Gastro Pub",
