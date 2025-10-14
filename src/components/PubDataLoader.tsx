@@ -14,6 +14,10 @@ import { Filter, Search, MapIcon, List, Loader2, AlertCircle } from 'lucide-reac
 import { useUrlState } from '@/hooks/useUrlState';
 import { useMapLoader } from '@/hooks/useMapLoader';
 import { useMapPins } from '@/hooks/useMapPins';
+import { MapSidebar } from './MapSidebar';
+import { MapCanvas } from './MapCanvas';
+import { ResultDrawer } from './ResultDrawer';
+import { useMapUrlState } from '@/hooks/useMapUrlState';
 
 // Google Maps types
 declare global {
@@ -23,7 +27,7 @@ declare global {
 }
 
 export default function PubDataLoader() {
-  // URL state management
+  // URL state management for list view (original)
   const urlState = useUrlState();
   const {
     state: {
@@ -42,6 +46,34 @@ export default function PubDataLoader() {
     setOpeningFilter,
   } = urlState;
 
+  // Map-specific state management
+  const mapState = useMapUrlState();
+  const {
+    listOpen,
+    filters: mapFilters,
+    updateListOpen,
+    updateFilters: updateMapFilters
+  } = mapState;
+
+  // State for map data
+  const [mapPubs, setMapPubs] = useState<any[]>([]);
+  const [mapTotal, setMapTotal] = useState(0);
+
+  // Get unique areas for the dropdown
+  const areas = useMemo(() => {
+    const uniqueAreas = Array.from(new Set(pubData.map(pub => pub.area).filter(Boolean)));
+    return uniqueAreas.sort();
+  }, []);
+
+  // Handle map data updates
+  const handleMarkersUpdate = useCallback((markers: any[]) => {
+    setMapPubs(markers);
+  }, []);
+
+  const handleTotalUpdate = useCallback((total: number) => {
+    setMapTotal(total);
+  }, []);
+
   // UI state
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [showRandomPicker, setShowRandomPicker] = useState(false);
@@ -56,7 +88,7 @@ export default function PubDataLoader() {
   const mapInitializedRef = useRef(false);
 
   // Load map only when view is 'map'
-  const { isLoaded: isMapLoaded, error: mapLoadError } = useMapLoader(view === 'map');
+  const { isLoaded: isMapLoaded, error: mapLoadError } = useMapLoader(view === 'map' as const);
 
   // Prepare filters for API
   const filters = useMemo(() => ({
@@ -69,12 +101,12 @@ export default function PubDataLoader() {
 
   // Use map pins hook (only active when map is loaded)
   const { loading: pinsLoading, error: pinsError, totalPubs: mapTotalPubs, markerCount } = useMapPins(
-    view === 'map' ? map : null,
+    view === 'map' as const ? map : null,
     filters
   );
 
-  // Filter options
-  const areas = useMemo(() => {
+  // Filter options (for list view)
+  const listAreas = useMemo(() => {
     const uniqueAreas = [...new Set(pubData.map(pub => pub.area).filter(Boolean))];
     return ['All Areas', ...uniqueAreas.sort()];
   }, []);
@@ -153,7 +185,7 @@ export default function PubDataLoader() {
 
   // Initialize map when loaded and view is map
   useEffect(() => {
-    if (view === 'map' && isMapLoaded && mapDivRef.current && !mapInitializedRef.current) {
+    if (view === 'map' as const && isMapLoaded && mapDivRef.current && !mapInitializedRef.current) {
       const timer = setTimeout(() => {
         if (mapDivRef.current && !map) {
           try {
@@ -206,6 +238,73 @@ export default function PubDataLoader() {
     window.open(`/pubs/${generatePubSlug(pub.name, pub.id)}`, '_blank');
   }, []);
 
+  // If in map view, use the new full-screen map layout
+  if (view === 'map' as const) {
+    return (
+      <>
+        {/* Full-screen Map Layout */}
+        <div className="grid h-[calc(100vh-var(--header-h))] grid-cols-[360px_1fr] lg:grid-cols-[360px_1fr] relative">
+          {/* Map Sidebar */}
+          <MapSidebar
+            filters={mapFilters}
+            onFiltersChange={updateMapFilters}
+            areas={areas}
+          />
+
+          {/* Main Map Area */}
+          <main className="relative">
+            <MapCanvas
+              filters={mapFilters}
+              onMarkersUpdate={handleMarkersUpdate}
+              onTotalUpdate={handleTotalUpdate}
+            />
+
+            {/* Floating Action Buttons */}
+            {/* Spin the Wheel Button */}
+            <button
+              onClick={() => setShowRandomPicker(true)}
+              className="fixed bottom-6 right-6 bg-[#08d78c] text-white p-4 rounded-full shadow-lg hover:bg-[#07c47a] transition-colors z-20"
+              title="Spin the Wheel"
+            >
+              <span className="text-2xl">🎡</span>
+            </button>
+
+            {/* Toggle List Button */}
+            <button
+              onClick={() => updateListOpen(!listOpen)}
+              className="fixed bottom-6 right-20 bg-white text-gray-700 p-4 rounded-full shadow-lg hover:bg-gray-50 transition-colors z-20 border border-gray-200"
+              title={listOpen ? "Hide List" : "Show List"}
+            >
+              <List className="w-5 h-5" />
+            </button>
+          </main>
+
+          {/* Result Drawer */}
+          <ResultDrawer
+            isOpen={listOpen}
+            onClose={() => updateListOpen(false)}
+            pubs={mapPubs}
+            total={mapTotal}
+          />
+        </div>
+
+        {/* Random Picker Modal */}
+        <RandomPicker
+          isOpen={showRandomPicker}
+          onClose={() => setShowRandomPicker(false)}
+          filters={{
+            area: mapFilters.selectedArea !== 'All Areas' ? mapFilters.selectedArea : undefined,
+            amenities: mapFilters.selectedAmenities,
+            openNow: mapFilters.openingFilter === 'Open Now',
+            minRating: mapFilters.minRating > 0 ? mapFilters.minRating : undefined,
+          }}
+          onViewPub={handleViewPub}
+        />
+      </>
+    );
+  }
+
+  // Original List View (unchanged)
   return (
     <>
       {/* Sticky Search Header */}
@@ -234,7 +333,7 @@ export default function PubDataLoader() {
                 onChange={(e) => setSelectedArea(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
               >
-                {areas.map((area) => (
+                {listAreas.map((area) => (
                     <option key={area} value={area}>
                     {area === 'All Areas' ? '📍 All Areas' : `📍 ${area}`}
                   </option>
@@ -321,7 +420,7 @@ export default function PubDataLoader() {
               <button
                 onClick={() => setView('map')}
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-                  view === 'map'
+                  (view as 'list' | 'map') === 'map'
                     ? 'bg-[#08d78c] text-white shadow-md'
                     : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
                 }`}
