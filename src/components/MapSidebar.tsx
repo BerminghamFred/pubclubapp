@@ -130,47 +130,48 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
 
       {/* Amenity Categories */}
       <div className="flex-1 overflow-auto p-4">
-        <div className="space-y-2">
+        <div className="space-y-6">
           {Object.entries(amenitiesByCategory).map(([category, amenities]) => (
-            <div key={category} className="border border-gray-200 rounded-lg">
+            <div key={category} className="border-b border-gray-100 pb-6 last:border-b-0">
               <button
                 onClick={() => toggleCategory(category)}
-                className="w-full px-3 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg transition-colors"
+                className="w-full flex items-center justify-between text-left hover:bg-gray-50 p-2 rounded-lg transition-colors mb-3"
               >
-                <span className="flex items-center gap-2 font-medium text-gray-700 text-sm">
-                  {category}
-                </span>
+                <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">{category.split(' ')[0]}</span>
+                  <span>{category.split(' ').slice(1).join(' ')}</span>
+                </h3>
                 {expandedCategories.has(category) ? (
-                  <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+                  <ChevronDownIcon className="w-5 h-5 text-gray-500" />
                 ) : (
-                  <ChevronRightIcon className="w-4 h-4 text-gray-500" />
+                  <ChevronRightIcon className="w-5 h-5 text-gray-500" />
                 )}
               </button>
               
               {expandedCategories.has(category) && (
-                <div className="px-3 py-3 space-y-2 border-t border-gray-100">
-                  <div className="grid grid-cols-2 gap-2">
-                    {amenities.map(amenity => {
-                      const isSelected = filters.selectedAmenities.includes(amenity);
-                      
-                      return (
-                        <label
-                          key={amenity}
-                          className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleAmenity(amenity)}
-                            className="rounded border-gray-300 text-[#08d78c] focus:ring-[#08d78c]"
-                          />
-                          <span className="text-gray-700 leading-tight">
-                            {amenity}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {amenities.map(amenity => {
+                    const isSelected = filters.selectedAmenities.includes(amenity);
+                    
+                    return (
+                      <button
+                        key={amenity}
+                        onClick={() => toggleAmenity(amenity)}
+                        className={`px-4 py-3 rounded-lg text-left text-sm font-medium transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-[#08d78c] text-white shadow-md transform scale-[1.02]'
+                            : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{amenity}</span>
+                          {isSelected && (
+                            <span className="text-white">✓</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -179,21 +180,34 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
       </div>
 
       {/* Footer Row */}
-      <div className="p-4 border-t border-gray-100 bg-white/90">
-        <div className="flex gap-3">
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
+        <div className="flex gap-3 mb-3">
           <button
             onClick={clearAllFilters}
             disabled={!hasActiveFilters}
-            className="flex-1 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Clear
+            Clear All
           </button>
           <button
             onClick={() => {/* Filters auto-apply on change */}}
-            className="flex-1 px-3 py-2 text-sm font-medium text-white bg-[#08d78c] rounded-lg hover:bg-[#07c47a] transition-colors"
+            className="flex-1 px-6 py-3 bg-[#08d78c] hover:bg-[#06b875] text-white font-semibold rounded-lg transition-colors shadow-lg"
           >
-            Apply
+            Apply Filters
           </button>
+        </div>
+        
+        {/* Active Filters Count */}
+        <div className="text-sm text-gray-600 text-center">
+          {filters.selectedAmenities.length + 
+           (filters.searchTerm ? 1 : 0) + 
+           (filters.selectedArea !== 'All Areas' ? 1 : 0) + 
+           (filters.minRating > 0 ? 1 : 0) + 
+           (filters.openingFilter !== 'Any Time' ? 1 : 0)} filter{(filters.selectedAmenities.length + 
+           (filters.searchTerm ? 1 : 0) + 
+           (filters.selectedArea !== 'All Areas' ? 1 : 0) + 
+           (filters.minRating > 0 ? 1 : 0) + 
+           (filters.openingFilter !== 'Any Time' ? 1 : 0)) !== 1 ? 's' : ''} selected
         </div>
       </div>
     </aside>
