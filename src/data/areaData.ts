@@ -16,6 +16,11 @@ export interface Area {
     badges: string[];
     lat?: number;
     lng?: number;
+    _internal?: {
+      place_id?: string;
+      photo_name?: string;
+      photo_reference?: string;
+    };
   }[];
   bounds: {
     north: number;
@@ -130,7 +135,12 @@ export function generateAreaData(areaName: string): Area {
       priceRange: '££', // Default for now
       badges: pub.amenities?.slice(0, 5) || [],
       lat: pub._internal?.lat,
-      lng: pub._internal?.lng
+      lng: pub._internal?.lng,
+      _internal: {
+        place_id: pub._internal?.place_id,
+        photo_name: pub._internal?.photo_name,
+        photo_reference: pub._internal?.photo_reference
+      }
     })),
     bounds: calculateAreaBounds(areaName),
     summary,
@@ -171,7 +181,12 @@ export function getAllPubsForArea(areaName: string) {
       priceRange: '££', // Default for now
       badges: pub.amenities?.slice(0, 5) || [],
       lat: pub._internal?.lat,
-      lng: pub._internal?.lng
+      lng: pub._internal?.lng,
+      _internal: {
+        place_id: pub._internal?.place_id,
+        photo_name: pub._internal?.photo_name,
+        photo_reference: pub._internal?.photo_reference
+      }
     }));
 }
 

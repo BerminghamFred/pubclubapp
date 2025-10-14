@@ -26,6 +26,11 @@ export interface AreaAmenityPage {
     badges: string[];
     lat?: number;
     lng?: number;
+    _internal?: {
+      place_id?: string;
+      photo_name?: string;
+      photo_reference?: string;
+    };
   }[];
   totalPubs: number;
   matchingCount: number;
@@ -202,7 +207,12 @@ export function generateAreaAmenityData(areaName: string, amenitySlug: string): 
       priceRange: '££', // Default for now
       badges: pub.amenities?.slice(0, 5) || [],
       lat: pub._internal?.lat,
-      lng: pub._internal?.lng
+      lng: pub._internal?.lng,
+      _internal: {
+        place_id: pub._internal?.place_id,
+        photo_name: pub._internal?.photo_name,
+        photo_reference: pub._internal?.photo_reference
+      }
     })),
     totalPubs: areaPubs.length,
     matchingCount: matchingPubs.length,

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import PubPhoto from './PubPhoto';
 
 interface Pub {
   id: string;
@@ -12,6 +13,11 @@ interface Pub {
   reviewCount: number;
   priceRange: string;
   badges: string[];
+  _internal?: {
+    place_id?: string;
+    photo_name?: string;
+    photo_reference?: string;
+  };
 }
 
 interface AreaPubsGridWithPaginationProps {
@@ -66,18 +72,15 @@ export default function AreaPubsGridWithPagination({
           >
             {/* Pub Image */}
             <div className="h-48 relative overflow-hidden">
-              {pub.image ? (
-                <img 
-                  src={pub.image} 
-                  alt={pub.name}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-full h-full bg-[#08d78c]/20 flex items-center justify-center">
-                  <div className="text-[#08d78c] text-4xl">🍺</div>
-                </div>
-              )}
+              <PubPhoto
+                photoName={pub._internal?.photo_name}
+                placeId={pub._internal?.place_id}
+                alt={pub.name}
+                width={480}
+                height={320}
+                className="w-full h-full"
+                fallbackIcon="🍺"
+              />
               
               {/* Rank Badge */}
               <div className="absolute top-3 left-3 bg-black/80 text-white text-sm font-bold px-2 py-1 rounded-full">
