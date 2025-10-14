@@ -9,9 +9,11 @@ import FilterDrawer from '@/components/FilterDrawer';
 import FilterChips from '@/components/FilterChips';
 import RandomPicker from '@/components/RandomPicker';
 import { generatePubSlug } from '@/utils/slugUtils';
-import { loadGoogleMaps } from '@/utils/googleMapsLoader';
-import { isPubOpenNow, getCurrentUKTimeString } from '@/utils/openingHours';
-import { Filter, Search, MapIcon, List } from 'lucide-react';
+import { isPubOpenNow } from '@/utils/openingHours';
+import { Filter, Search, MapIcon, List, Loader2, AlertCircle } from 'lucide-react';
+import { useUrlState } from '@/hooks/useUrlState';
+import { useMapLoader } from '@/hooks/useMapLoader';
+import { useMapPins } from '@/hooks/useMapPins';
 
 // Google Maps types
 declare global {
@@ -21,50 +23,55 @@ declare global {
 }
 
 export default function PubDataLoader() {
-  // Filter state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedArea, setSelectedArea] = useState('');
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [minRating, setMinRating] = useState<number>(0);
-  const [openingFilter, setOpeningFilter] = useState<string>('');
-  
+  // URL state management
+  const urlState = useUrlState();
+  const {
+    state: {
+      view,
+      searchTerm,
+      selectedArea,
+      selectedAmenities,
+      minRating,
+      openingFilter,
+    },
+    setView,
+    setSearchTerm,
+    setSelectedArea,
+    setSelectedAmenities,
+    setMinRating,
+    setOpeningFilter,
+  } = urlState;
+
   // UI state
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [showRandomPicker, setShowRandomPicker] = useState(false);
   
-  // Pagination state
+  // Pagination state (for list view)
   const [currentPage, setCurrentPage] = useState(1);
-  const pubsPerPage = 12; // Show 12 pubs per page (3x4 grid on desktop)
+  const pubsPerPage = 12;
   
   // Map state
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [currentInfoWindow, setCurrentInfoWindow] = useState<google.maps.InfoWindow | null>(null);
   const mapDivRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
+  const mapInitializedRef = useRef(false);
 
-  // Parse URL parameters on component mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      
-      const amenitiesParam = urlParams.get('amenities');
-      if (amenitiesParam) {
-        const amenities = amenitiesParam.split(',').map(a => a.trim()).filter(Boolean);
-        setSelectedAmenities(amenities);
-      }
-      
-      const areaParam = urlParams.get('area');
-      if (areaParam) {
-        setSelectedArea(areaParam);
-      }
-      
-      const searchParam = urlParams.get('search');
-      if (searchParam) {
-        setSearchTerm(searchParam);
-      }
-    }
-  }, []);
+  // Load map only when view is 'map'
+  const { isLoaded: isMapLoaded, error: mapLoadError } = useMapLoader(view === 'map');
+
+  // Prepare filters for API
+  const filters = useMemo(() => ({
+    searchTerm,
+    selectedArea: selectedArea === 'All Areas' ? undefined : selectedArea,
+    selectedAmenities,
+    minRating,
+    openingFilter: openingFilter === 'Any Time' ? undefined : openingFilter,
+  }), [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter]);
+
+  // Use map pins hook (only active when map is loaded)
+  const { loading: pinsLoading, error: pinsError, totalPubs: mapTotalPubs, markerCount } = useMapPins(
+    view === 'map' ? map : null,
+    filters
+  );
 
   // Filter options
   const areas = useMemo(() => {
@@ -87,11 +94,10 @@ export default function PubDataLoader() {
     };
   }, []);
 
-  // Filter pubs based on all criteria
+  // Filter pubs for list view (client-side)
   const filteredPubs = useMemo(() => {
     let filtered = pubData;
 
-    // Text search
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(pub => 
@@ -102,12 +108,10 @@ export default function PubDataLoader() {
       );
     }
 
-    // Area filter
     if (selectedArea && selectedArea !== 'All Areas') {
       filtered = filtered.filter(pub => pub.area === selectedArea);
     }
 
-    // Amenities filter
     if (selectedAmenities.length > 0) {
       filtered = filtered.filter(pub => {
         return selectedAmenities.every(amenity => 
@@ -116,19 +120,17 @@ export default function PubDataLoader() {
       });
     }
 
-    // Rating filter
     if (minRating > 0) {
       filtered = filtered.filter(pub => (pub.rating || 0) >= minRating);
     }
 
-    // Opening hours filter
     if (openingFilter && openingFilter !== 'Any Time') {
       if (openingFilter === 'Open Now') {
         filtered = filtered.filter(pub => isPubOpenNow(pub.openingHours));
       }
     }
 
-    // Sort by rating (best first)
+    // Sort by rating
     filtered.sort((a, b) => {
       if (b.rating !== a.rating) return b.rating - a.rating;
       if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
@@ -138,7 +140,7 @@ export default function PubDataLoader() {
     return filtered;
   }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter]);
 
-  // Get pubs for current page
+  // Pagination for list view
   const displayedPubs = useMemo(() => {
     const startIndex = (currentPage - 1) * pubsPerPage;
     const endIndex = startIndex + pubsPerPage;
@@ -149,176 +151,37 @@ export default function PubDataLoader() {
   const hasMore = currentPage < totalPages;
   const hasPrevious = currentPage > 1;
 
-  // Initialize map when view mode changes to map
+  // Initialize map when loaded and view is map
   useEffect(() => {
-    if (viewMode === 'map' && mapDivRef.current && !map) {
-      const timer = setTimeout(async () => {
-        if (mapDivRef.current && document.contains(mapDivRef.current) && !map) {
+    if (view === 'map' && isMapLoaded && mapDivRef.current && !mapInitializedRef.current) {
+      const timer = setTimeout(() => {
+        if (mapDivRef.current && !map) {
           try {
-            if (typeof google === 'undefined' || !google.maps) {
-              await loadGoogleMaps();
-            }
-            if (mapDivRef.current && document.contains(mapDivRef.current) && !map) {
-              createMap();
-            }
+            const newMap = new window.google.maps.Map(mapDivRef.current, {
+              center: { lat: 51.5074, lng: -0.1278 }, // London center
+              zoom: 11,
+              styles: [
+                { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+                { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+              ],
+              streetViewControl: false,
+              mapTypeControl: false,
+              fullscreenControl: true,
+              gestureHandling: 'greedy', // Allow smooth panning
+            });
+
+            setMap(newMap);
+            mapInitializedRef.current = true;
+            console.log('Map initialized successfully');
           } catch (error) {
-            console.error('Failed to load Google Maps:', error);
+            console.error('Error creating map:', error);
           }
         }
       }, 100);
 
       return () => clearTimeout(timer);
     }
-  }, [viewMode, map]);
-
-  const createMap = () => {
-    if (!mapDivRef.current || map) return;
-
-    try {
-      if (!document.contains(mapDivRef.current)) {
-        console.warn('Map div no longer in DOM, skipping map creation');
-        return;
-      }
-
-      const newMap = new google.maps.Map(mapDivRef.current, {
-        center: { lat: 51.5074, lng: -0.1278 },
-        zoom: 11,
-        styles: [
-          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-          { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-        ],
-        streetViewControl: false,
-        mapTypeControl: false,
-        fullscreenControl: false,
-      });
-
-      setMap(newMap);
-    } catch (error) {
-      console.error('Error creating map:', error);
-    }
-  };
-
-  // Cleanup markers
-  useEffect(() => {
-    return () => {
-      try {
-        if (markersRef.current.length > 0) {
-          markersRef.current.forEach(marker => {
-            try {
-              if (marker && typeof marker.setMap === 'function' && marker.getMap()) {
-                marker.setMap(null);
-              }
-            } catch (error) {
-              console.warn('Error cleaning up marker:', error);
-            }
-          });
-          markersRef.current = [];
-        }
-        
-        if (currentInfoWindow && typeof currentInfoWindow.close === 'function') {
-          try {
-            currentInfoWindow.close();
-          } catch (error) {
-            console.warn('Error closing info window:', error);
-          }
-        }
-      } catch (error) {
-        console.warn('Error during cleanup:', error);
-      }
-    };
-  }, [currentInfoWindow]);
-
-  // Add markers to map
-  useEffect(() => {
-    if (map && displayedPubs.length > 0) {
-      try {
-        if (markersRef.current.length > 0) {
-          markersRef.current.forEach(marker => {
-            try {
-              if (marker && marker.getMap() === map) {
-                marker.setMap(null);
-              }
-            } catch (error) {
-              console.warn('Error clearing marker:', error);
-            }
-          });
-          markersRef.current = [];
-        }
-        
-        const pubsWithCoords = displayedPubs.filter(pub => pub._internal?.lat && pub._internal?.lng);
-        
-        if (pubsWithCoords.length > 0) {
-          const bounds = new google.maps.LatLngBounds();
-          
-          pubsWithCoords.forEach(pub => {
-            try {
-              const marker = new google.maps.Marker({
-                position: { 
-                  lat: pub._internal!.lat!, 
-                  lng: pub._internal!.lng! 
-                },
-                map: map,
-                title: pub.name,
-                icon: {
-                  url: `data:image/svg+xml,${encodeURIComponent(`
-                    <svg width="37" height="37" viewBox="0 0 37 37" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="18.5" cy="18.5" r="16" fill="#08d78c" stroke="white" stroke-width="2"/>
-                      <text x="18.5" y="25" text-anchor="middle" fill="white" font-size="16" font-weight="bold">🍺</text>
-                    </svg>
-                  `)}`,
-                  scaledSize: new google.maps.Size(37, 37),
-                  anchor: new google.maps.Point(18.5, 18.5)
-                }
-              });
-
-              markersRef.current.push(marker);
-
-              marker.addListener('click', () => {
-                try {
-                  if (currentInfoWindow) {
-                    currentInfoWindow.close();
-                  }
-
-                  const infoWindow = new google.maps.InfoWindow({
-                    content: `
-                      <div style="padding: 12px; min-width: 250px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                        <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">${pub.name}</h3>
-                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; margin-bottom: 12px;">
-                          <span style="font-size: 14px; color: #6b7280;">Rating:</span>
-                          <span style="font-size: 16px; font-weight: 600; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 12px;">${pub.rating || 'N/A'}</span>
-                        </div>
-                        <a href="/pubs/${generatePubSlug(pub.name, pub.id)}" style="display: block; width: 100%; background: #08d78c; color: white; text-align: center; padding: 8px; border-radius: 6px; text-decoration: none; font-weight: 600;">View Pub</a>
-                      </div>
-                    `
-                  });
-                  
-                  infoWindow.open(map, marker);
-                  setCurrentInfoWindow(infoWindow);
-                } catch (error) {
-                  console.error('Error handling marker click:', error);
-                }
-              });
-
-              bounds.extend({ 
-                lat: pub._internal!.lat!, 
-                lng: pub._internal!.lng! 
-              });
-            } catch (error) {
-              console.error('Error creating marker for pub:', pub.name, error);
-            }
-          });
-
-          try {
-            map.fitBounds(bounds);
-          } catch (error) {
-            console.warn('Error fitting bounds:', error);
-          }
-        }
-      } catch (error) {
-        console.error('Error updating map markers:', error);
-      }
-    }
-  }, [map, displayedPubs, currentInfoWindow]);
+  }, [view, isMapLoaded, map]);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -328,9 +191,9 @@ export default function PubDataLoader() {
   // Handler functions
   const handleAmenityToggle = (amenity: string) => {
     if (selectedAmenities.includes(amenity)) {
-      setSelectedAmenities(prev => prev.filter(a => a !== amenity));
+      setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
     } else {
-      setSelectedAmenities(prev => [...prev, amenity]);
+      setSelectedAmenities([...selectedAmenities, amenity]);
     }
   };
 
@@ -421,7 +284,7 @@ export default function PubDataLoader() {
             minRating={minRating}
             openingFilter={openingFilter}
             onRemoveArea={() => setSelectedArea('')}
-            onRemoveAmenity={(amenity) => setSelectedAmenities(prev => prev.filter(a => a !== amenity))}
+            onRemoveAmenity={(amenity) => setSelectedAmenities(selectedAmenities.filter(a => a !== amenity))}
             onRemoveRating={() => setMinRating(0)}
             onRemoveOpening={() => setOpeningFilter('')}
             onClearAll={handleClearAllFilters}
@@ -434,20 +297,33 @@ export default function PubDataLoader() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-gray-700">
-              <span className="font-semibold">{filteredPubs.length}</span> pubs found
-              {filteredPubs.length !== pubData.length && (
-                <span className="text-gray-500 ml-1">
-                  (filtered from {pubData.length} total)
-                </span>
+              {view === 'list' ? (
+                <>
+                  <span className="font-semibold">{filteredPubs.length}</span> pubs found
+                  {filteredPubs.length !== pubData.length && (
+                    <span className="text-gray-500 ml-1">
+                      (filtered from {pubData.length} total)
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">{markerCount}</span> pubs visible on map
+                  {mapTotalPubs > markerCount && (
+                    <span className="text-gray-500 ml-1">
+                      (total: {mapTotalPubs} - zoom in to see more)
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
             {/* View Mode Toggle */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => setView('list')}
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-                  viewMode === 'list'
+                  view === 'list'
                     ? 'bg-[#08d78c] text-white shadow-md'
                     : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
                 }`}
@@ -456,9 +332,9 @@ export default function PubDataLoader() {
                 List
               </button>
               <button
-                onClick={() => setViewMode('map')}
+                onClick={() => setView('map')}
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-                  viewMode === 'map'
+                  view === 'map'
                     ? 'bg-[#08d78c] text-white shadow-md'
                     : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
                 }`}
@@ -474,7 +350,7 @@ export default function PubDataLoader() {
       {/* Results Content */}
       <section className="py-8 bg-gray-50 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {viewMode === 'list' ? (
+          {view === 'list' ? (
             <>
               {filteredPubs.length > 0 ? (
                 <>
@@ -540,22 +416,67 @@ export default function PubDataLoader() {
               )}
             </>
           ) : (
-            <div className="h-[calc(100vh-300px)] min-h-[500px] w-full rounded-lg overflow-hidden shadow-lg">
-              <div 
-                ref={mapDivRef}
-                className="h-full w-full bg-gray-100"
-                style={{ isolation: 'isolate' }}
-              >
-                {!map && (
-                  <div className="h-full flex items-center justify-center">
+            <div className="relative">
+              {/* Map Container */}
+              <div className="h-[calc(100vh-300px)] min-h-[500px] w-full rounded-lg overflow-hidden shadow-lg relative">
+                {mapLoadError ? (
+                  <div className="h-full flex items-center justify-center bg-red-50">
+                    <div className="text-center p-8">
+                      <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Map</h3>
+                      <p className="text-red-700 mb-4">{mapLoadError.message}</p>
+                      <p className="text-sm text-red-600">
+                        Please ensure NEXT_PUBLIC_GMAPS_BROWSER_KEY is set in your .env.local file
+                      </p>
+                    </div>
+                  </div>
+                ) : !isMapLoaded ? (
+                  <div className="h-full flex items-center justify-center bg-gray-100">
                     <div className="text-center">
-                      <div className="text-4xl mb-4">🗺️</div>
+                      <Loader2 className="w-12 h-12 text-[#08d78c] animate-spin mx-auto mb-4" />
                       <div className="text-lg font-medium mb-2">Loading Map...</div>
                       <div className="text-sm text-gray-600">
-                        Please wait while the map loads
+                        Downloading Google Maps
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <>
+                    <div 
+                      ref={mapDivRef}
+                      className="h-full w-full"
+                      style={{ isolation: 'isolate' }}
+                    />
+                    
+                    {/* Loading Overlay */}
+                    {pinsLoading && (
+                      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white shadow-lg rounded-lg px-4 py-2 flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#08d78c]" />
+                        <span className="text-sm font-medium">Loading pubs...</span>
+                      </div>
+                    )}
+
+                    {/* Error Overlay */}
+                    {pinsError && (
+                      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-50 border border-red-200 rounded-lg px-4 py-2 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span className="text-sm font-medium text-red-700">Error loading pins</span>
+                      </div>
+                    )}
+
+                    {/* Map Info */}
+                    <div className="absolute bottom-4 right-4 bg-white shadow-lg rounded-lg px-4 py-3">
+                      <div className="text-xs text-gray-600">
+                        Showing <span className="font-semibold text-gray-900">{markerCount}</span> pubs
+                        {mapTotalPubs > 500 && (
+                          <div className="mt-1 text-amber-700">
+                            <AlertCircle className="w-3 h-3 inline mr-1" />
+                            Zoom in to see more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
