@@ -198,6 +198,9 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
   useEffect(() => {
     if (!map) return;
 
+    // Fetch pins immediately on mount
+    fetchPins();
+
     // Fetch pins on initial idle
     const idleListener = map.addListener('idle', () => {
       debouncedFetch();
@@ -212,7 +215,7 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
       google.maps.event.removeListener(idleListener);
       google.maps.event.removeListener(boundsListener);
     };
-  }, [map, debouncedFetch]);
+  }, [map, debouncedFetch, fetchPins]);
 
   // Cleanup on unmount
   useEffect(() => {
