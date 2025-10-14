@@ -376,7 +376,7 @@ export default function PubDataLoader() {
                   <span className="font-semibold">{markerCount}</span> pubs visible on map
                   {mapTotalPubs > markerCount && (
                     <span className="text-gray-500 ml-1">
-                      (total: {mapTotalPubs} - zoom in to see more)
+                      (total: {mapTotalPubs} pubs)
                     </span>
                   )}
                 </>
@@ -536,7 +536,7 @@ export default function PubDataLoader() {
                         {mapTotalPubs > 500 && (
                           <div className="mt-1 text-amber-700">
                             <AlertCircle className="w-3 h-3 inline mr-1" />
-                            Zoom in to see more
+                            All pubs visible
                           </div>
                         )}
                       </div>

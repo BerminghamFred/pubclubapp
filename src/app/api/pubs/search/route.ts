@@ -83,11 +83,8 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter(pub => isPubOpenNow(pub.openingHours));
     }
 
-    // Limit results
-    const limitedResults = filtered.slice(0, limit);
-
-    // Transform to lightweight pin format
-    const items = limitedResults.map(pub => ({
+    // Transform to lightweight pin format - show ALL pubs
+    const items = filtered.map(pub => ({
       id: pub.id,
       name: pub.name,
       lat: pub._internal!.lat!,
@@ -110,7 +107,7 @@ export async function GET(req: NextRequest) {
       total: filtered.length,
       items,
       nextCursor: null, // For future pagination support
-      hasMore: filtered.length > limit
+      hasMore: false // Show all pubs, no pagination needed
     }, {
       headers: {
         'Cache-Control': 'public, max-age=300, s-maxage=300', // 5 min cache
