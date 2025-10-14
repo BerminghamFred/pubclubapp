@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { MarkerClusterer } from '@googlemaps/markerclusterer';
+import { MarkerClusterer, GridAlgorithm } from '@googlemaps/markerclusterer';
 
 interface PubPin {
   id: string;
@@ -182,7 +182,7 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
         clustererRef.current = new MarkerClusterer({
           map,
           markers: markersRef.current,
-          algorithm: new MarkerClusterer.GridAlgorithm({ maxZoom: 15 }),
+          algorithm: new GridAlgorithm({ maxZoom: 15 }),
         });
       } else {
         clustererRef.current.addMarkers(newMarkers);
