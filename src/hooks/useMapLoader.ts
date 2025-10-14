@@ -27,10 +27,10 @@ export function useMapLoader(shouldLoad: boolean) {
 
     // Initialize loader only once
     if (!loaderInstance) {
-      const apiKey = process.env.NEXT_PUBLIC_GMAPS_BROWSER_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_MAPS_BROWSER_KEY;
       
       if (!apiKey) {
-        setError(new Error('Missing NEXT_PUBLIC_GMAPS_BROWSER_KEY'));
+        setError(new Error('Missing NEXT_PUBLIC_MAPS_BROWSER_KEY'));
         return;
       }
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { MarkerClusterer, GridAlgorithm } from '@googlemaps/markerclusterer';
 
 interface PubPin {
   id: string;
@@ -50,7 +49,6 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
   const [totalPubs, setTotalPubs] = useState(0);
   
   const markersRef = useRef<google.maps.Marker[]>([]);
-  const clustererRef = useRef<MarkerClusterer | null>(null);
   const loadedAreasRef = useRef<Set<string>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
@@ -113,6 +111,7 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
       const newMarkers: google.maps.Marker[] = items.map((pub: PubPin) => {
         const marker = new google.maps.Marker({
           position: { lat: pub.lat, lng: pub.lng },
+          map: map, // Add marker directly to map
           title: pub.name,
           icon: {
             url: `data:image/svg+xml,${encodeURIComponent(`
@@ -177,20 +176,6 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
       // Add to markers array
       markersRef.current = [...markersRef.current, ...newMarkers];
 
-      // Update clusterer
-      if (!clustererRef.current) {
-        clustererRef.current = new MarkerClusterer({
-          map,
-          markers: markersRef.current,
-          algorithm: new GridAlgorithm({ 
-            maxZoom: 15,
-            minPoints: 50, // Only cluster if 50+ pubs in area
-          }),
-        });
-      } else {
-        clustererRef.current.addMarkers(newMarkers);
-      }
-
       // Mark this area as loaded
       loadedAreasRef.current.add(cacheKey);
 
@@ -236,12 +221,6 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
       markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
       
-      // Clean up clusterer
-      if (clustererRef.current) {
-        clustererRef.current.clearMarkers();
-        clustererRef.current = null;
-      }
-      
       // Close info window
       if (infoWindowRef.current) {
         infoWindowRef.current.close();
@@ -263,10 +242,6 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
     // Clear all markers and reset loaded areas
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
-    
-    if (clustererRef.current) {
-      clustererRef.current.clearMarkers();
-    }
     
     loadedAreasRef.current.clear();
     
