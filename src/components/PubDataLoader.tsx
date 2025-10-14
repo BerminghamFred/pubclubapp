@@ -110,19 +110,19 @@ export default function PubDataLoader() {
 
     if (selectedArea && selectedArea !== 'All Areas') {
       filtered = filtered.filter(pub => pub.area === selectedArea);
-    }
+      }
 
-    if (selectedAmenities.length > 0) {
-      filtered = filtered.filter(pub => {
+      if (selectedAmenities.length > 0) {
+        filtered = filtered.filter(pub => {
         return selectedAmenities.every(amenity => 
-          pub.amenities?.includes(amenity) || pub.features?.includes(amenity)
-        );
-      });
-    }
+            pub.amenities?.includes(amenity) || pub.features?.includes(amenity)
+          );
+        });
+      }
 
     if (minRating > 0) {
       filtered = filtered.filter(pub => (pub.rating || 0) >= minRating);
-    }
+      }
 
     if (openingFilter && openingFilter !== 'Any Time') {
       if (openingFilter === 'Open Now') {
@@ -157,13 +157,78 @@ export default function PubDataLoader() {
       const timer = setTimeout(() => {
         if (mapDivRef.current && !map) {
           try {
+            // Monochrome map style
+            const monoStyle = [
+              { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+              { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+              { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+              { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
+              {
+                featureType: "administrative.land_parcel",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#bdbdbd" }],
+              },
+              {
+                featureType: "poi",
+                elementType: "geometry",
+                stylers: [{ color: "#eeeeee" }],
+              },
+              {
+                featureType: "poi",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#757575" }],
+              },
+              {
+                featureType: "poi",
+                elementType: "labels",
+                stylers: [{ visibility: "off" }],
+              },
+              {
+                featureType: "road",
+                elementType: "geometry",
+                stylers: [{ color: "#ffffff" }],
+              },
+              {
+                featureType: "road.arterial",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#757575" }],
+              },
+              {
+                featureType: "road.highway",
+                elementType: "geometry",
+                stylers: [{ color: "#dadada" }],
+              },
+              {
+                featureType: "road.highway",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#616161" }],
+              },
+              {
+                featureType: "transit",
+                elementType: "geometry",
+                stylers: [{ color: "#e5e5e5" }],
+              },
+              {
+                featureType: "transit",
+                elementType: "labels",
+                stylers: [{ visibility: "off" }],
+              },
+              {
+                featureType: "water",
+                elementType: "geometry",
+                stylers: [{ color: "#c9c9c9" }],
+              },
+              {
+                featureType: "water",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#9e9e9e" }],
+              },
+            ];
+
             const newMap = new window.google.maps.Map(mapDivRef.current, {
               center: { lat: 51.5074, lng: -0.1278 }, // London center
               zoom: 11,
-              styles: [
-                { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-                { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-              ],
+              styles: monoStyle,
               streetViewControl: false,
               mapTypeControl: false,
               fullscreenControl: true,
@@ -219,17 +284,17 @@ export default function PubDataLoader() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
             {/* Search Bar */}
             <div className="md:col-span-5">
-              <div className="relative">
+            <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
+              <input
+                type="text"
                   placeholder="Search pubs..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
-                />
-              </div>
+              />
             </div>
+          </div>
 
             {/* Area Dropdown */}
             <div className="md:col-span-3">
@@ -239,7 +304,7 @@ export default function PubDataLoader() {
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
               >
                 {areas.map((area) => (
-                  <option key={area} value={area}>
+                    <option key={area} value={area}>
                     {area === 'All Areas' ? '📍 All Areas' : `📍 ${area}`}
                   </option>
                 ))}
@@ -273,7 +338,7 @@ export default function PubDataLoader() {
                     {selectedAmenities.length}
                   </span>
                 )}
-              </button>
+                  </button>
             </div>
           </div>
 
@@ -288,9 +353,9 @@ export default function PubDataLoader() {
             onRemoveRating={() => setMinRating(0)}
             onRemoveOpening={() => setOpeningFilter('')}
             onClearAll={handleClearAllFilters}
-          />
-        </div>
-      </div>
+            />
+          </div>
+          </div>
 
       {/* Results Summary Bar */}
       <div className="bg-gray-50 border-b border-gray-200">
@@ -300,10 +365,10 @@ export default function PubDataLoader() {
               {view === 'list' ? (
                 <>
                   <span className="font-semibold">{filteredPubs.length}</span> pubs found
-                  {filteredPubs.length !== pubData.length && (
+                {filteredPubs.length !== pubData.length && (
                     <span className="text-gray-500 ml-1">
-                      (filtered from {pubData.length} total)
-                    </span>
+                    (filtered from {pubData.length} total)
+                  </span>
                   )}
                 </>
               ) : (
@@ -315,12 +380,12 @@ export default function PubDataLoader() {
                     </span>
                   )}
                 </>
-              )}
-            </div>
+                )}
+              </div>
 
             {/* View Mode Toggle */}
             <div className="flex items-center gap-2">
-              <button
+                <button 
                 onClick={() => setView('list')}
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
                   view === 'list'
@@ -356,23 +421,23 @@ export default function PubDataLoader() {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     <AnimatePresence mode="popLayout">
-                      {displayedPubs.map((pub) => (
+                {displayedPubs.map((pub) => (
                         <PubResultCard
-                          key={pub.id}
-                          pub={{
-                            id: pub.id,
-                            name: pub.name,
+                    key={pub.id}
+                    pub={{
+                      id: pub.id,
+                      name: pub.name,
                             area: pub.area,
-                            rating: pub.rating,
+                      rating: pub.rating,
                             reviewCount: pub.reviewCount,
-                            type: pub.type,
-                            amenities: pub.amenities || [],
-                            address: pub.address,
-                            description: pub.description,
+                      type: pub.type,
+                      amenities: pub.amenities || [],
+                      address: pub.address,
+                      description: pub.description,
                             _internal: pub._internal
                           }}
-                        />
-                      ))}
+                  />
+                ))}
                     </AnimatePresence>
                   </div>
 
@@ -396,7 +461,7 @@ export default function PubDataLoader() {
                       >
                         Next →
                       </button>
-                    </div>
+              </div>
                   )}
                 </>
               ) : (
@@ -479,7 +544,7 @@ export default function PubDataLoader() {
                   </>
                 )}
               </div>
-            </div>
+              </div>
           )}
         </div>
       </section>
@@ -527,4 +592,4 @@ export default function PubDataLoader() {
       />
     </>
   );
-}
+} 

@@ -116,13 +116,13 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
           title: pub.name,
           icon: {
             url: `data:image/svg+xml,${encodeURIComponent(`
-              <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="15" cy="15" r="12" fill="#08d78c" stroke="white" stroke-width="2"/>
-                <text x="15" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">🍺</text>
+              <svg width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="22.5" cy="22.5" r="18" fill="#08d78c" stroke="white" stroke-width="3"/>
+                <text x="22.5" y="30" text-anchor="middle" fill="white" font-size="18" font-weight="bold">🍺</text>
               </svg>
             `)}`,
-            scaledSize: new google.maps.Size(30, 30),
-            anchor: new google.maps.Point(15, 15),
+            scaledSize: new google.maps.Size(45, 45),
+            anchor: new google.maps.Point(22.5, 22.5),
           },
         });
 
@@ -182,7 +182,10 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
         clustererRef.current = new MarkerClusterer({
           map,
           markers: markersRef.current,
-          algorithm: new GridAlgorithm({ maxZoom: 15 }),
+          algorithm: new GridAlgorithm({ 
+            maxZoom: 15,
+            minPoints: 50, // Only cluster if 50+ pubs in area
+          }),
         });
       } else {
         clustererRef.current.addMarkers(newMarkers);
