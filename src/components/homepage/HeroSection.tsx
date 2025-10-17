@@ -2,16 +2,23 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, MapPin, Clock } from 'lucide-react';
+import { MapPin, Clock } from 'lucide-react';
+import SearchBar from '@/components/SearchBar';
+import { SearchSuggestion } from '@/utils/searchUtils';
 
 export default function HeroSection() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchSelections, setSearchSelections] = useState<SearchSuggestion[]>([]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      // Navigate to search results
-      window.location.href = `/pubs?search=${encodeURIComponent(searchQuery.trim())}`;
+  const handleSearch = (selections: SearchSuggestion[]) => {
+    setSearchSelections(selections);
+    // Analytics tracking
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'home_search', {
+        event_category: 'homepage',
+        event_label: 'search_bar',
+        selections_count: selections.length,
+        selection_types: selections.map(s => s.type).join(',')
+      });
     }
   };
 
@@ -40,24 +47,11 @@ export default function HeroSection() {
 
         {/* Main Search Bar */}
         <div className="max-w-2xl mx-auto mb-8">
-          <form onSubmit={handleSearch} className="relative">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by pub name, area, or features..."
-                className="w-full pl-12 pr-4 py-4 text-lg rounded-lg border-0 focus:outline-none focus:ring-4 focus:ring-white/20 text-gray-900 placeholder-gray-500"
-              />
-            </div>
-            <button
-              type="submit"
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#08d78c] hover:bg-[#06b875] text-black px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
-            >
-              Search
-            </button>
-          </form>
+          <SearchBar
+            placeholder="Search by pub name, area, or features..."
+            onSearch={handleSearch}
+            variant="hero"
+          />
         </div>
 
         {/* Quick Chips */}
