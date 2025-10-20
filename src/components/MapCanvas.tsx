@@ -10,6 +10,11 @@ interface PubPin {
   lng: number;
   rating: number;
   reviewCount: number;
+  area: string;
+  type: string;
+  address: string;
+  phone?: string;
+  website?: string;
   amenities: string[];
   photo: string;
 }
@@ -160,227 +165,284 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
 
         // Add click listener
         marker.addListener('click', () => {
-          // Close any existing info window
+          // Close any existing info window without panning the map
           if (infoWindowRef.current) {
             infoWindowRef.current.close();
           }
           
-          // Recenter map to ensure the info window is visible
           const map = marker.getMap() as google.maps.Map;
-          if (map) {
-            // Pan to marker and recenter if needed to avoid clipping
-            const position = marker.getPosition()!;
-            map.panTo(position);
-            
-            // Add small offset to ensure info window is fully visible
-            const offset = 100; // pixels
-            const point = map.getProjection()?.fromLatLngToPoint(position);
-            if (point) {
-              const pixelOffset = new google.maps.Point(0, -offset);
-              const newPoint = new google.maps.Point(point.x + pixelOffset.x, point.y + pixelOffset.y);
-              const newPosition = map.getProjection()?.fromPointToLatLng(newPoint);
-              if (newPosition) {
-                map.panTo(newPosition);
-              }
-            }
-          }
-          infoWindowRef.current = new google.maps.InfoWindow({
-            content: `
-              <div class="custom-info-window" role="dialog" aria-labelledby="pub-name-${pub.id}" aria-describedby="pub-rating-${pub.id}">
-                <style>
-                  .custom-info-window {
-                    width: 360px;
-                    max-width: 90vw;
-                    background: white;
-                    border-radius: 16px;
-                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-                    border: 1px solid rgba(0, 0, 0, 0.06);
-                    position: relative;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    overflow: hidden;
-                    animation: fadeInScale 0.1s ease-out;
-                  }
-                  @keyframes fadeInScale {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
-                  }
-                  .custom-info-window::after {
-                    content: '';
-                    position: absolute;
-                    bottom: -8px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: 0;
-                    height: 0;
-                    border-left: 8px solid transparent;
-                    border-right: 8px solid transparent;
-                    border-top: 8px solid white;
-                  }
-                  .info-window-close {
-                    position: absolute;
-                    top: 12px;
-                    right: 12px;
-                    width: 32px;
-                    height: 32px;
-                    border: none;
-                    background: none;
-                    font-size: 20px;
-                    color: #666;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                    transition: all 0.15s ease;
-                    z-index: 10;
-                  }
-                  .info-window-close:hover { background: #f5f5f5; color: #333; }
-                  .info-window-header {
-                    display: flex;
-                    gap: 12px;
-                    padding: 20px 20px 16px 20px;
-                    padding-top: 52px;
-                  }
-                  .info-window-thumbnail {
-                    width: 72px;
-                    height: 72px;
-                    border-radius: 8px;
-                    object-fit: cover;
-                    flex-shrink: 0;
-                    background: #f5f5f5;
-                  }
-                  .info-window-content {
-                    flex: 1;
-                    min-width: 0;
-                  }
-                  .info-window-title {
-                    font-size: 18px;
-                    font-weight: 600;
-                    margin: 0 0 6px 0;
-                    color: #1a1a1a;
-                    line-height: 1.3;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                  }
-                  .info-window-rating {
-                    font-size: 13px;
-                    color: #666;
-                    margin: 0 0 8px 0;
-                    line-height: 1.4;
-                  }
-                  .info-window-amenities {
-                    display: flex;
-                    gap: 6px;
-                    flex-wrap: wrap;
-                  }
-                  .info-window-chip {
-                    background: rgba(8, 215, 140, 0.12);
-                    color: #08d78c;
-                    font-size: 12px;
-                    padding: 4px 8px;
-                    border-radius: 12px;
-                    font-weight: 500;
-                  }
-                  .info-window-actions {
-                    padding: 0 20px 16px 20px;
-                  }
-                  .info-window-btn {
-                    width: 100%;
-                    background: #08d78c;
-                    color: black;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 12px 16px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.15s ease;
-                    margin-bottom: 12px;
-                  }
-                  .info-window-btn:hover { background: #06b875; }
-                  .info-window-secondary {
-                    display: flex;
-                    gap: 16px;
-                  }
-                  .info-window-link {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    color: #666;
-                    text-decoration: none;
-                    font-size: 13px;
-                    cursor: pointer;
-                    transition: color 0.15s ease;
-                  }
-                  .info-window-link:hover { color: #333; }
-                  @media (max-width: 640px) {
-                    .custom-info-window {
-                      width: 100%;
-                      max-width: 100%;
-                      border-radius: 16px 16px 0 0;
-                    }
-                    .custom-info-window::after { display: none; }
-                    .info-window-header { padding: 16px 16px 12px 16px; padding-top: 48px; }
-                    .info-window-actions { padding: 0 16px 16px 16px; }
-                  }
-                </style>
-                
-                <button class="info-window-close" onclick="window.closeInfoWindow && window.closeInfoWindow()" aria-label="Close">×</button>
-                  
-                  <div class="info-window-header">
-                    <img 
-                      src="${pub.photo || '/images/placeholders/thumb.webp'}" 
-                      alt="${pub.name}"
-                      class="info-window-thumbnail"
-                    />
-                    <div class="info-window-content">
-                      <h3 id="pub-name-${pub.id}" class="info-window-title" title="${pub.name}">
-                        ${pub.name}
-                      </h3>
-                      <p id="pub-rating-${pub.id}" class="info-window-rating">
-                        ${!pub.rating || pub.rating === 0 ? '⭐ New' : `⭐ ${pub.rating}${pub.reviewCount > 0 ? ` · ${pub.reviewCount} reviews` : ''}`}
-                      </p>
-                      ${(pub.amenities?.slice(0, 2) || []).length > 0 ? `
-                        <div class="info-window-amenities">
-                          ${(pub.amenities?.slice(0, 2) || []).map((amenity: string) => `<span class="info-window-chip">${amenity}</span>`).join('')}
-                        </div>
-                      ` : ''}
-                    </div>
-                  </div>
+          if (!map) return;
 
-                  <div class="info-window-actions">
-                    <button 
-                      class="info-window-btn" 
-                      onclick="window.location.href='/pubs/${pub.id}'"
-                      tabindex="0"
-                    >
-                      View details
-                    </button>
-                    <div class="info-window-secondary">
-                      <a 
-                        href="https://www.google.com/maps/dir/?api=1&destination=${pub.lat},${pub.lng}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="info-window-link"
-                        tabindex="0"
-                      >
-                        📍 Directions
-                      </a>
-                    </div>
+          // Format rating display
+          const formatRating = () => {
+            if (!pub.rating || pub.rating === 0) {
+              return '⭐ New';
+            }
+            return `⭐ ${pub.rating}${pub.reviewCount > 0 ? ` · ${pub.reviewCount} reviews` : ''}`;
+          };
+
+          // Show first 3-4 amenities and count remaining
+          const showAmenities = () => {
+            if (!pub.amenities || pub.amenities.length === 0) return '';
+            
+            const visibleAmenities = pub.amenities.slice(0, 4);
+            const remainingCount = pub.amenities.length - visibleAmenities.length;
+            
+            const amenityChips = visibleAmenities.map(amenity => 
+              `<span class="amenity-chip">${amenity}</span>`
+            ).join('');
+            
+            const moreIndicator = remainingCount > 0 ? 
+              `<span class="amenity-more">+${remainingCount} more</span>` : '';
+              
+            return `<div class="amenities-container">${amenityChips}${moreIndicator}</div>`;
+          };
+
+          // Format contact details
+          const formatContact = () => {
+            const contactItems = [];
+            if (pub.address) {
+              contactItems.push(`<div class="contact-item"><strong>📍</strong> ${pub.address}</div>`);
+            }
+            if (pub.phone) {
+              contactItems.push(`<div class="contact-item"><strong>📞</strong> <a href="tel:${pub.phone}">${pub.phone}</a></div>`);
+            }
+            return contactItems.length > 0 ? `<div class="contact-details">${contactItems.join('')}</div>` : '';
+          };
+
+          // Create beautiful popup without Google Maps wrapper styling
+          const popupContent = `
+            <div class="pub-popup-container">
+              <style>
+                /* Override Google Maps InfoWindow default styling */
+                .gm-style-iw, .gm-style-iw-d, .gm-style-iw-c {
+                  padding: 0 !important;
+                  background: transparent !important;
+                  border-radius: 0 !important;
+                  box-shadow: none !important;
+                }
+                
+                .pub-popup {
+                  width: 420px;
+                  max-width: 90vw;
+                  background: white;
+                  border-radius: 20px;
+                  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+                  border: 1px solid rgba(0, 0, 0, 0.08);
+                  position: relative;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  overflow: hidden;
+                  animation: popupIn 0.15s ease-out;
+                }
+                
+                @keyframes popupIn {
+                  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+                  to { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                
+                .pub-popup::after {
+                  content: '';
+                  position: absolute;
+                  bottom: -12px;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  width: 0;
+                  height: 0;
+                  border-left: 12px solid transparent;
+                  border-right: 12px solid transparent;
+                  border-top: 12px solid white;
+                  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+                }
+                
+                .popup-close {
+                  position: absolute;
+                  top: 16px;
+                  right: 16px;
+                  width: 36px;
+                  height: 36px;
+                  border: none;
+                  background: rgba(255, 255, 255, 0.9);
+                  backdrop-filter: blur(10px);
+                  font-size: 22px;
+                  color: #666;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border-radius: 50%;
+                  transition: all 0.2s ease;
+                  z-index: 10;
+                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                }
+                
+                .popup-close:hover { 
+                  background: white; 
+                  color: #333; 
+                  transform: scale(1.05);
+                }
+                
+                .popup-image {
+                  width: 100%;
+                  height: 200px;
+                  object-fit: cover;
+                  display: block;
+                }
+                
+                .popup-content {
+                  padding: 24px;
+                }
+                
+                .popup-header {
+                  margin-bottom: 16px;
+                }
+                
+                .popup-title {
+                  font-size: 24px;
+                  font-weight: 700;
+                  margin: 0 0 8px 0;
+                  color: #1a1a1a;
+                  line-height: 1.2;
+                }
+                
+                .popup-rating {
+                  font-size: 15px;
+                  color: #666;
+                  margin: 0 0 12px 0;
+                }
+                
+                .amenities-container {
+                  display: flex;
+                  gap: 8px;
+                  flex-wrap: wrap;
+                  margin-bottom: 16px;
+                }
+                
+                .amenity-chip {
+                  background: rgba(8, 215, 140, 0.15);
+                  color: #08d78c;
+                  font-size: 13px;
+                  padding: 6px 12px;
+                  border-radius: 16px;
+                  font-weight: 600;
+                }
+                
+                .amenity-more {
+                  background: rgba(102, 102, 102, 0.15);
+                  color: #666;
+                  font-size: 13px;
+                  padding: 6px 12px;
+                  border-radius: 16px;
+                  font-weight: 500;
+                }
+                
+                .contact-details {
+                  margin-bottom: 20px;
+                  padding: 16px;
+                  background: #f8f9fa;
+                  border-radius: 12px;
+                }
+                
+                .contact-item {
+                  display: flex;
+                  align-items: flex-start;
+                  gap: 8px;
+                  margin-bottom: 8px;
+                  font-size: 14px;
+                  line-height: 1.4;
+                }
+                
+                .contact-item:last-child {
+                  margin-bottom: 0;
+                }
+                
+                .contact-item a {
+                  color: #08d78c;
+                  text-decoration: none;
+                }
+                
+                .contact-item a:hover {
+                  text-decoration: underline;
+                }
+                
+                .popup-actions {
+                  margin-top: 20px;
+                }
+                
+                .popup-btn {
+                  width: 100%;
+                  background: #08d78c;
+                  color: black;
+                  border: none;
+                  border-radius: 12px;
+                  padding: 16px 24px;
+                  font-size: 16px;
+                  font-weight: 700;
+                  cursor: pointer;
+                  transition: all 0.2s ease;
+                  text-decoration: none;
+                  display: block;
+                  text-align: center;
+                }
+                
+                .popup-btn:hover { 
+                  background: #06b875;
+                  transform: translateY(-1px);
+                  box-shadow: 0 4px 12px rgba(8, 215, 140, 0.3);
+                }
+                
+                @media (max-width: 640px) {
+                  .pub-popup {
+                    width: 100%;
+                    max-width: 100%;
+                    border-radius: 20px 20px 0 0;
+                    margin: 0;
+                  }
+                  .pub-popup::after { display: none; }
+                  .popup-content { padding: 20px; }
+                  .popup-title { font-size: 20px; }
+                }
+              </style>
+              
+              <div class="pub-popup" role="dialog" aria-labelledby="popup-title-${pub.id}" aria-describedby="popup-rating-${pub.id}">
+                <button class="popup-close" onclick="window.closeInfoWindow && window.closeInfoWindow()" aria-label="Close">×</button>
+                
+                <img 
+                  src="${pub.photo || '/images/placeholders/thumb.webp'}" 
+                  alt="${pub.name}"
+                  class="popup-image"
+                />
+                
+                <div class="popup-content">
+                  <div class="popup-header">
+                    <h2 id="popup-title-${pub.id}" class="popup-title">${pub.name}</h2>
+                    <p id="popup-rating-${pub.id}" class="popup-rating">${formatRating()}</p>
+                    ${showAmenities()}
+                  </div>
+                  
+                  ${formatContact()}
+                  
+                  <div class="popup-actions">
+                    <a href="/pubs/${pub.id}" class="popup-btn">View Pub</a>
                   </div>
                 </div>
-            `,
+              </div>
+            </div>
+          `;
+
+          // Create and open info window with custom styling
+          infoWindowRef.current = new google.maps.InfoWindow({
+            content: popupContent,
+            disableAutoPan: true, // Prevent map from panning
+            pixelOffset: new google.maps.Size(0, -20)
           });
           
-          infoWindowRef.current.open({ 
-            anchor: marker, 
-            shouldFocus: false, 
+          infoWindowRef.current.open({
+            anchor: marker,
             map: map,
-            pixelOffset: new google.maps.Size(0, -10)
+            shouldFocus: false
           });
           
-          // Add global close function for the info window
+          // Add global close function
           (window as any).closeInfoWindow = () => {
             if (infoWindowRef.current) {
               infoWindowRef.current.close();

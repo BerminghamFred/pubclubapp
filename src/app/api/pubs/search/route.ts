@@ -94,12 +94,15 @@ export async function GET(req: NextRequest) {
       reviewCount: pub.reviewCount,
       area: pub.area,
       type: pub.type,
-      amenities: pub.amenities?.slice(0, 5) || [], // Only send first 5 for efficiency
-      // Use cached photo proxy URL
+      address: pub.address,
+      phone: pub.phone,
+      website: pub.website,
+      amenities: pub.amenities || [],
+      // Use larger photo for info window
       photo: pub._internal?.photo_name 
-        ? `/api/photo-by-place?photo_name=${encodeURIComponent(pub._internal.photo_name)}&w=160`
+        ? `/api/photo-by-place?photo_name=${encodeURIComponent(pub._internal.photo_name)}&w=320`
         : pub._internal?.place_id
-        ? `/api/photo-by-place?place_id=${encodeURIComponent(pub._internal.place_id)}&w=160`
+        ? `/api/photo-by-place?place_id=${encodeURIComponent(pub._internal.place_id)}&w=320`
         : null
     }));
 
