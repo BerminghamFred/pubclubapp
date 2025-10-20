@@ -45,6 +45,11 @@ function toBbox(bounds: google.maps.LatLngBounds): string {
   return `${sw.lng()},${sw.lat()},${ne.lng()},${ne.lat()}`;
 }
 
+function isPinInBounds(pin: PubPin, bounds: google.maps.LatLngBounds | null): boolean {
+  if (!bounds || !pin.lat || !pin.lng) return true; // Show all if no bounds
+  return bounds.contains(new google.maps.LatLng(pin.lat, pin.lng));
+}
+
 function openInfoWindow(marker: google.maps.Marker, pub: PubPin) {
   const infoWindow = new google.maps.InfoWindow({
     content: `
@@ -84,7 +89,8 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   const markersRef = useRef<google.maps.Marker[]>([]);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const lastBoundsRef = useRef<string | null>(null);
+  const allPinsRef = useRef<PubPin[]>([]);
+  const pinsLoadedRef = useRef<boolean>(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -98,34 +104,30 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   const actualReady = isMapLoaded !== undefined ? isMapLoaded : ready;
   const actualError = mapLoadError !== undefined ? mapLoadError : scriptError;
 
-  // Fetch pins based on current map bounds and filters
-  const fetchPins = useCallback(async (map: google.maps.Map) => {
+  // Update marker visibility based on current map bounds (client-side only)
+  const updateMarkerVisibility = useCallback((map: google.maps.Map) => {
+    if (!pinsLoadedRef.current || markersRef.current.length === 0) return;
+
     const bounds = map.getBounds();
+    console.log('Updating marker visibility for bounds');
+
+    let visibleCount = 0;
     
-    // If bounds are not available yet, use default London bounds or current center
-    let bbox: string;
-    if (!bounds) {
-      const center = map.getCenter();
-      if (center) {
-        // Use a default bounding box around London if no bounds available yet
-        const lat = center.lat();
-        const lng = center.lng();
-        const delta = 0.1; // ~11km radius
-        bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
-      } else {
-        // Fallback to London bounds if no center either
-        bbox = '-0.5,51.3,0.3,51.7';
+    // Show/hide markers based on current bounds
+    markersRef.current.forEach((marker, index) => {
+      const pin = allPinsRef.current[index];
+      if (pin && marker) {
+        const isVisible = isPinInBounds(pin, bounds);
+        marker.setMap(isVisible ? map : null);
+        if (isVisible) visibleCount++;
       }
-    } else {
-      bbox = toBbox(bounds);
-    }
-    
-    // Skip fetch if bounds haven't changed significantly (avoid excessive API calls)
-    if (lastBoundsRef.current === bbox) {
-      console.log('Skipping fetch - bounds unchanged:', bbox);
-      return;
-    }
-    
+    });
+
+    console.log(`Showing ${visibleCount} visible markers out of ${markersRef.current.length} total`);
+  }, []);
+
+  // Load ALL pins once on initial load and when filters change
+  const loadAllPins = useCallback(async (map: google.maps.Map, isInitialLoad = false) => {
     // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -134,13 +136,16 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
-    setLoading(true);
+    if (isInitialLoad) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const filtersParam = encodeURIComponent(JSON.stringify(filters));
-      const url = `/api/pubs/search?bbox=${bbox}&filters=${filtersParam}&limit=500`;
-      console.log('Fetching pins:', { bbox, filters, url });
+      // Don't include bbox parameter to get ALL pins
+      const url = `/api/pubs/search?filters=${filtersParam}&limit=2000`;
+      console.log('Loading all pins:', { filters, url, isInitialLoad });
       
       const response = await fetch(url, { signal: abortController.signal });
 
@@ -149,11 +154,15 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       }
 
       const data = await response.json();
-      console.log('Pins response:', { total: data.total, itemsCount: data.items?.length });
+      console.log('All pins loaded:', { total: data.total, itemsCount: data.items?.length });
       
       // Clear existing markers
       markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
+
+      // Store all pins for client-side filtering
+      allPinsRef.current = data.items || [];
+      pinsLoadedRef.current = true;
 
       // Handle case where no items are returned
       if (!data.items || data.items.length === 0) {
@@ -161,15 +170,13 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         setTotalPubs(0);
         onMarkersUpdate([]);
         onTotalUpdate(0);
-        lastBoundsRef.current = bbox; // Update bounds even for empty results
         return;
       }
 
-      // Create new markers
-      const newMarkers: google.maps.Marker[] = data.items.map((pub: PubPin) => {
+      // Create markers for all pins but don't add them to map yet
+      const allMarkers: google.maps.Marker[] = data.items.map((pub: PubPin) => {
         const marker = new google.maps.Marker({
           position: { lat: pub.lat, lng: pub.lng },
-          map: map,
           title: pub.name,
           icon: {
             url: `data:image/svg+xml,${encodeURIComponent(`
@@ -225,21 +232,23 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         return marker;
       });
 
-      markersRef.current = newMarkers;
+      markersRef.current = allMarkers;
       setTotalPubs(data.total);
       onMarkersUpdate(data.items);
       onTotalUpdate(data.total);
       
-      // Update last bounds to prevent duplicate fetches
-      lastBoundsRef.current = bbox;
+      // Now update visibility based on current map bounds
+      updateMarkerVisibility(map);
 
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        console.error('Error fetching pins:', err);
+        console.error('Error loading all pins:', err);
         setError(err);
       }
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      }
     }
   }, [filters, onMarkersUpdate, onTotalUpdate]);
 
@@ -270,14 +279,12 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
 
         mapObj.current = map;
 
-        // Debounced fetch function with longer delay to reduce refresh frequency
-        const debouncedFetch = debounce(() => fetchPins(map), 1000);
-
-        // Initial fetch immediately when map is ready
-        fetchPins(map);
+        // Load all pins initially (no API calls on map movement)
+        loadAllPins(map, true);
         
-        // Only listen to 'idle' event (when user stops moving map) to avoid excessive refreshing
-        const idleListener = map.addListener('idle', debouncedFetch);
+        // Update visibility when map moves (client-side only, no API calls)
+        const debouncedUpdateVisibility = debounce(() => updateMarkerVisibility(map), 300);
+        const idleListener = map.addListener('idle', debouncedUpdateVisibility);
 
         return () => {
           if (idleListener) google.maps.event.removeListener(idleListener);
@@ -297,16 +304,15 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         clearTimeout(retryTimeout);
       }
     };
-  }, [actualReady, actualError, fetchPins]);
+  }, [actualReady, actualError, loadAllPins]);
 
   // Update pins when filters change
   useEffect(() => {
-    if (mapObj.current) {
-      // Reset bounds reference when filters change to allow new fetch
-      lastBoundsRef.current = null;
-      fetchPins(mapObj.current);
+    if (mapObj.current && pinsLoadedRef.current) {
+      // Load new pins based on updated filters
+      loadAllPins(mapObj.current, false);
     }
-  }, [filters, fetchPins]);
+  }, [filters, loadAllPins]);
 
   // Cleanup on unmount
   useEffect(() => {
