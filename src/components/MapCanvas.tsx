@@ -110,7 +110,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
     abortControllerRef.current = abortController;
     
     if (isInitialLoad) {
-      setLoading(true);
+    setLoading(true);
     }
     setError(null);
 
@@ -214,19 +214,30 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
           const popupContent = `
             <div class="pub-popup-container">
               <style>
-                /* Override Google Maps InfoWindow default styling */
-                .gm-style-iw, .gm-style-iw-d, .gm-style-iw-c {
+                /* Completely override Google Maps InfoWindow styling to eliminate nested boxes */
+                .gm-style-iw, .gm-style-iw-d, .gm-style-iw-c, .gm-style-iw-t {
                   padding: 0 !important;
                   background: transparent !important;
                   border-radius: 0 !important;
                   box-shadow: none !important;
+                  border: none !important;
+                  margin: 0 !important;
+                  overflow: visible !important;
+                }
+                
+                .gm-style-iw-t::after, .gm-style-iw-t::before {
+                  display: none !important;
+                }
+                
+                .gm-style-iw + div {
+                  display: none !important;
                 }
                 
                 .pub-popup {
-                  width: 210px;
+                  width: 300px;
                   max-width: 90vw;
                   background: white;
-                  border-radius: 20px;
+                  border-radius: 16px;
                   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
                   border: 1px solid rgba(0, 0, 0, 0.08);
                   position: relative;
@@ -283,17 +294,17 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                 
                 .popup-image {
                   width: 100%;
-                  height: 120px;
+                  height: 80px;
                   object-fit: cover;
                   display: block;
                 }
                 
                 .popup-content {
-                  padding: 16px;
+                  padding: 12px;
                 }
                 
                 .popup-header {
-                  margin-bottom: 12px;
+                  margin-bottom: 8px;
                 }
                 
                 .popup-title {
@@ -312,43 +323,43 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                 
                 .amenities-container {
                   display: flex;
-                  gap: 6px;
+                  gap: 4px;
                   flex-wrap: wrap;
-                  margin-bottom: 12px;
+                  margin-bottom: 8px;
                 }
                 
                 .amenity-chip {
                   background: rgba(8, 215, 140, 0.15);
                   color: #08d78c;
-                  font-size: 11px;
-                  padding: 4px 8px;
-                  border-radius: 12px;
+                  font-size: 10px;
+                  padding: 3px 6px;
+                  border-radius: 10px;
                   font-weight: 600;
                 }
                 
                 .amenity-more {
                   background: rgba(102, 102, 102, 0.15);
                   color: #666;
-                  font-size: 11px;
-                  padding: 4px 8px;
-                  border-radius: 12px;
+                  font-size: 10px;
+                  padding: 3px 6px;
+                  border-radius: 10px;
                   font-weight: 500;
                 }
                 
                 .contact-details {
-                  margin-bottom: 16px;
-                  padding: 12px;
+                  margin-bottom: 12px;
+                  padding: 8px;
                   background: #f8f9fa;
-                  border-radius: 8px;
+                  border-radius: 6px;
                 }
                 
                 .contact-item {
                   display: flex;
                   align-items: flex-start;
-                  gap: 6px;
-                  margin-bottom: 6px;
-                  font-size: 12px;
-                  line-height: 1.3;
+                  gap: 4px;
+                  margin-bottom: 4px;
+                  font-size: 11px;
+                  line-height: 1.2;
                 }
                 
                 .contact-item:last-child {
@@ -365,7 +376,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                 }
                 
                 .popup-actions {
-                  margin-top: 16px;
+                  margin-top: 12px;
                 }
                 
                 .popup-btn {
@@ -394,11 +405,11 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                   .pub-popup {
                     width: 100%;
                     max-width: 100%;
-                    border-radius: 20px 20px 0 0;
+                    border-radius: 16px 16px 0 0;
                     margin: 0;
                   }
                   .pub-popup::after { display: none; }
-                  .popup-content { padding: 16px; }
+                  .popup-content { padding: 12px; }
                   .popup-title { font-size: 18px; }
                 }
               </style>
@@ -406,9 +417,9 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
               <div class="pub-popup" role="dialog" aria-labelledby="popup-title-${pub.id}" aria-describedby="popup-rating-${pub.id}">
                 <button class="popup-close" onclick="window.closeInfoWindow && window.closeInfoWindow()" aria-label="Close">×</button>
                 
-                <img 
-                  src="${pub.photo || '/images/placeholders/thumb.webp'}" 
-                  alt="${pub.name}"
+                  <img 
+                    src="${pub.photo || '/images/placeholders/thumb.webp'}" 
+                    alt="${pub.name}"
                   class="popup-image"
                 />
                 
@@ -436,8 +447,8 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
             pixelOffset: new google.maps.Size(0, -20)
           });
           
-          infoWindowRef.current.open({
-            anchor: marker,
+          infoWindowRef.current.open({ 
+            anchor: marker, 
             map: map,
             shouldFocus: false
           });
@@ -468,7 +479,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       }
     } finally {
       if (isInitialLoad) {
-        setLoading(false);
+      setLoading(false);
       }
     }
   }, [filters, onMarkersUpdate, onTotalUpdate]);
@@ -488,17 +499,17 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         return;
       }
 
-      try {
-        const map = new google.maps.Map(mapRef.current, {
-          center: { lat: 51.5074, lng: -0.1278 }, // London center
-          zoom: 11,
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: true,
-          gestureHandling: 'greedy',
-        });
+    try {
+      const map = new google.maps.Map(mapRef.current, {
+        center: { lat: 51.5074, lng: -0.1278 }, // London center
+        zoom: 11,
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: true,
+        gestureHandling: 'greedy',
+      });
 
-        mapObj.current = map;
+      mapObj.current = map;
 
         // Load all pins initially (no API calls on map movement)
         loadAllPins(map, true);
@@ -507,13 +518,13 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         const debouncedUpdateVisibility = debounce(() => updateMarkerVisibility(map), 300);
         const idleListener = map.addListener('idle', debouncedUpdateVisibility);
 
-        return () => {
+      return () => {
           if (idleListener) google.maps.event.removeListener(idleListener);
-        };
-      } catch (err) {
-        console.error('Error initializing map:', err);
-        setError(err instanceof Error ? err : new Error('Failed to initialize map'));
-      }
+      };
+    } catch (err) {
+      console.error('Error initializing map:', err);
+      setError(err instanceof Error ? err : new Error('Failed to initialize map'));
+    }
     };
 
     // Start the initialization
