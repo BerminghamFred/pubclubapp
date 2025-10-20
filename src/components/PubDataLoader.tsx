@@ -281,6 +281,7 @@ export default function PubDataLoader() {
                 onTotalUpdate={handleTotalUpdate}
                 isMapLoaded={isMapLoaded}
                 mapLoadError={mapLoadError}
+                onSwitchToListView={() => setView('list')}
               />
             </div>
 

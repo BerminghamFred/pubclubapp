@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useGoogleMapScript } from '@/hooks/useGoogleMapScript';
+import { List } from 'lucide-react';
 
 interface PubPin {
   id: string;
@@ -33,6 +34,7 @@ interface MapCanvasProps {
   onTotalUpdate: (total: number) => void;
   isMapLoaded?: boolean;
   mapLoadError?: Error | null;
+  onSwitchToListView?: () => void;
 }
 
 // Helper functions
@@ -56,7 +58,7 @@ function isPinInBounds(pin: PubPin, bounds: google.maps.LatLngBounds | null): bo
 }
 
 
-export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded, mapLoadError }: MapCanvasProps) {
+export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded, mapLoadError, onSwitchToListView }: MapCanvasProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -64,6 +66,8 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   const abortControllerRef = useRef<AbortController | null>(null);
   const allPinsRef = useRef<PubPin[]>([]);
   const pinsLoadedRef = useRef<boolean>(false);
+  const filtersRef = useRef(filters);
+  const mapInitializedRef = useRef<boolean>(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -76,6 +80,11 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   // Determine the actual loading state - prefer props over hook
   const actualReady = isMapLoaded !== undefined ? isMapLoaded : ready;
   const actualError = mapLoadError !== undefined ? mapLoadError : scriptError;
+
+  // Update filters ref whenever filters change
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   // Update marker visibility based on current map bounds (client-side only)
   const updateMarkerVisibility = useCallback((map: google.maps.Map) => {
@@ -115,10 +124,10 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
     setError(null);
 
     try {
-      const filtersParam = encodeURIComponent(JSON.stringify(filters));
+      const filtersParam = encodeURIComponent(JSON.stringify(filtersRef.current));
       // Don't include bbox parameter to get ALL pins
       const url = `/api/pubs/search?filters=${filtersParam}&limit=2000`;
-      console.log('Loading all pins:', { filters, url, isInitialLoad });
+      console.log('Loading all pins:', { filters: filtersRef.current, url, isInitialLoad });
       
       const response = await fetch(url, { signal: abortController.signal });
 
@@ -146,10 +155,11 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         return;
       }
 
-      // Create markers for all pins but don't add them to map yet
+      // Create markers for all pins and add them to map initially
       const allMarkers: google.maps.Marker[] = data.items.map((pub: PubPin) => {
         const marker = new google.maps.Marker({
           position: { lat: pub.lat, lng: pub.lng },
+          map: map, // Add to map initially
           title: pub.name,
           icon: {
             url: `data:image/svg+xml,${encodeURIComponent(`
@@ -482,11 +492,11 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       setLoading(false);
       }
     }
-  }, [filters, onMarkersUpdate, onTotalUpdate]);
+  }, [onMarkersUpdate, onTotalUpdate]);
 
   // Initialize map
   useEffect(() => {
-    if (!actualReady || !mapRef.current || mapObj.current || actualError) return;
+    if (!actualReady || !mapRef.current || mapObj.current || actualError || mapInitializedRef.current) return;
     
     let retryTimeout: NodeJS.Timeout | null = null;
     
@@ -510,16 +520,23 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       });
 
       mapObj.current = map;
+      mapInitializedRef.current = true;
 
-        // Load all pins initially (no API calls on map movement)
-        loadAllPins(map, true);
-        
-        // Update visibility when map moves (client-side only, no API calls)
-        const debouncedUpdateVisibility = debounce(() => updateMarkerVisibility(map), 300);
-        const idleListener = map.addListener('idle', debouncedUpdateVisibility);
+        // Wait for map to be fully initialized before loading pins
+        const initListener = map.addListener('idle', () => {
+          console.log('Map is ready, loading pins...');
+          loadAllPins(map, true);
+          
+          // Update visibility when map moves (client-side only, no API calls)
+          const debouncedUpdateVisibility = debounce(() => updateMarkerVisibility(map), 300);
+          map.addListener('idle', debouncedUpdateVisibility);
+          
+          // Remove the initial listener since we only need it once
+          google.maps.event.removeListener(initListener);
+        });
 
       return () => {
-          if (idleListener) google.maps.event.removeListener(idleListener);
+          if (initListener) google.maps.event.removeListener(initListener);
       };
     } catch (err) {
       console.error('Error initializing map:', err);
@@ -607,6 +624,18 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
             ⚠️ {error.message}
           </div>
         </div>
+      )}
+
+      {/* List View Button - top left */}
+      {onSwitchToListView && (
+        <button
+          onClick={onSwitchToListView}
+          className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-gray-700 p-3 rounded-lg shadow-lg hover:bg-white transition-colors z-20 border border-gray-200 flex items-center gap-2"
+          title="Switch to List View"
+        >
+          <List className="w-5 h-5" />
+          <span className="font-medium">List View</span>
+        </button>
       )}
 
       {/* Status pill - bottom left */}
