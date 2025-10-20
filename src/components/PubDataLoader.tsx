@@ -216,6 +216,16 @@ export default function PubDataLoader() {
     setCurrentPage(1);
   }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter]);
 
+  // Prevent body scrolling when in map view
+  useEffect(() => {
+    if (view === 'map') {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [view]);
+
   // Handler functions
   const handleAmenityToggle = (amenity: string) => {
     if (selectedAmenities.includes(amenity)) {
@@ -242,24 +252,37 @@ export default function PubDataLoader() {
   if (view === 'map' as const) {
     return (
       <>
-        {/* Full-screen Map Layout */}
-        <div className="grid h-[calc(100vh-var(--header-h))] grid-cols-[360px_1fr] lg:grid-cols-[360px_1fr] relative overflow-hidden">
+        {/* Fixed viewport container */}
+        <main
+          id="mapViewport"
+          className="fixed left-0 right-0 top-[var(--header-h,64px)] bottom-0 grid grid-cols-1 lg:grid-cols-[360px_1fr] bg-white"
+        >
           {/* Map Sidebar */}
-          <MapSidebar
-            filters={mapFilters}
-            onFiltersChange={updateMapFilters}
-            areas={areas}
-          />
-
-          {/* Main Map Area */}
-          <main className="relative overflow-hidden">
-            <MapCanvas
+          <aside
+            id="filtersRail"
+            className="hidden lg:block h-full overflow-y-auto overscroll-contain bg-white/92 backdrop-blur-sm border-r"
+          >
+            <MapSidebar
               filters={mapFilters}
-              onMarkersUpdate={handleMarkersUpdate}
-              onTotalUpdate={handleTotalUpdate}
-              isMapLoaded={isMapLoaded}
-              mapLoadError={mapLoadError}
+              onFiltersChange={updateMapFilters}
+              areas={areas}
             />
+          </aside>
+
+          {/* Map Pane */}
+          <section
+            id="mapPane"
+            className="relative h-full w-full overflow-hidden"
+          >
+            <div id="map" className="absolute inset-0">
+              <MapCanvas
+                filters={mapFilters}
+                onMarkersUpdate={handleMarkersUpdate}
+                onTotalUpdate={handleTotalUpdate}
+                isMapLoaded={isMapLoaded}
+                mapLoadError={mapLoadError}
+              />
+            </div>
 
             {/* Floating Action Buttons */}
             {/* Spin the Wheel Button */}
@@ -279,7 +302,7 @@ export default function PubDataLoader() {
             >
               <List className="w-5 h-5" />
             </button>
-          </main>
+          </section>
 
           {/* Result Drawer */}
           <ResultDrawer
@@ -288,7 +311,7 @@ export default function PubDataLoader() {
             pubs={mapPubs}
             total={mapTotal}
           />
-        </div>
+        </main>
 
         {/* Random Picker Modal */}
         <RandomPicker

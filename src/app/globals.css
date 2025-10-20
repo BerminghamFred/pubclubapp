@@ -24,6 +24,7 @@
   --primary: #08d78c;
   --primary-dark: #06b875;
   --primary-light: #0ae89a;
+  --header-h: 64px; /* h-16 = 64px */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -67,3 +68,25 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #06b875;
 }
+
+/* Map viewport styles */
+#mapViewport {
+  height: auto; /* fixed by top/bottom positioning */
+}
+
+#mapPane {
+  position: relative;
+  overscroll-behavior: none; /* avoid bounce scrolling onto body */
+}
+
+#mapPane > #map {
+  position: absolute;
+  inset: 0;
+}
+
+#filtersRail {
+  -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+  overscroll-behavior: contain; /* no scroll chaining to map/page */
+}
+
+/* Mobile behavior handled by Tailwind classes */

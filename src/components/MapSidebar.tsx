@@ -77,7 +77,10 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
     filters.selectedAmenities.length > 0;
 
   return (
-    <aside className="flex flex-col h-full bg-white/95 backdrop-blur-sm border-r border-gray-200 overflow-hidden">
+    <aside 
+      className="flex flex-col h-full"
+      onWheel={(e) => e.stopPropagation()}
+    >
       {/* Search Box */}
       <div className="p-4 border-b border-gray-100">
         <input
@@ -129,13 +132,7 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
       <div className="border-t border-gray-200"></div>
 
       {/* Amenity Categories */}
-      <div 
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4" 
-        style={{ 
-          overscrollBehavior: 'contain',
-          touchAction: 'pan-y'
-        }}
-      >
+      <div className="flex-1 p-4">
         <div className="space-y-6">
           {Object.entries(amenitiesByCategory).map(([category, amenities]) => (
             <div key={category} className="border-b border-gray-100 pb-6 last:border-b-0">
