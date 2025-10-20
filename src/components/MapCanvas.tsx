@@ -223,7 +223,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                 }
                 
                 .pub-popup {
-                  width: 420px;
+                  width: 210px;
                   max-width: 90vw;
                   background: white;
                   border-radius: 20px;
@@ -283,72 +283,72 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                 
                 .popup-image {
                   width: 100%;
-                  height: 200px;
+                  height: 120px;
                   object-fit: cover;
                   display: block;
                 }
                 
                 .popup-content {
-                  padding: 24px;
+                  padding: 16px;
                 }
                 
                 .popup-header {
-                  margin-bottom: 16px;
+                  margin-bottom: 12px;
                 }
                 
                 .popup-title {
-                  font-size: 24px;
+                  font-size: 18px;
                   font-weight: 700;
-                  margin: 0 0 8px 0;
+                  margin: 0 0 6px 0;
                   color: #1a1a1a;
                   line-height: 1.2;
                 }
                 
                 .popup-rating {
-                  font-size: 15px;
+                  font-size: 13px;
                   color: #666;
-                  margin: 0 0 12px 0;
+                  margin: 0 0 8px 0;
                 }
                 
                 .amenities-container {
                   display: flex;
-                  gap: 8px;
+                  gap: 6px;
                   flex-wrap: wrap;
-                  margin-bottom: 16px;
+                  margin-bottom: 12px;
                 }
                 
                 .amenity-chip {
                   background: rgba(8, 215, 140, 0.15);
                   color: #08d78c;
-                  font-size: 13px;
-                  padding: 6px 12px;
-                  border-radius: 16px;
+                  font-size: 11px;
+                  padding: 4px 8px;
+                  border-radius: 12px;
                   font-weight: 600;
                 }
                 
                 .amenity-more {
                   background: rgba(102, 102, 102, 0.15);
                   color: #666;
-                  font-size: 13px;
-                  padding: 6px 12px;
-                  border-radius: 16px;
+                  font-size: 11px;
+                  padding: 4px 8px;
+                  border-radius: 12px;
                   font-weight: 500;
                 }
                 
                 .contact-details {
-                  margin-bottom: 20px;
-                  padding: 16px;
+                  margin-bottom: 16px;
+                  padding: 12px;
                   background: #f8f9fa;
-                  border-radius: 12px;
+                  border-radius: 8px;
                 }
                 
                 .contact-item {
                   display: flex;
                   align-items: flex-start;
-                  gap: 8px;
-                  margin-bottom: 8px;
-                  font-size: 14px;
-                  line-height: 1.4;
+                  gap: 6px;
+                  margin-bottom: 6px;
+                  font-size: 12px;
+                  line-height: 1.3;
                 }
                 
                 .contact-item:last-child {
@@ -365,7 +365,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                 }
                 
                 .popup-actions {
-                  margin-top: 20px;
+                  margin-top: 16px;
                 }
                 
                 .popup-btn {
@@ -373,9 +373,9 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                   background: #08d78c;
                   color: black;
                   border: none;
-                  border-radius: 12px;
-                  padding: 16px 24px;
-                  font-size: 16px;
+                  border-radius: 10px;
+                  padding: 12px 16px;
+                  font-size: 14px;
                   font-weight: 700;
                   cursor: pointer;
                   transition: all 0.2s ease;
@@ -398,8 +398,8 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
                     margin: 0;
                   }
                   .pub-popup::after { display: none; }
-                  .popup-content { padding: 20px; }
-                  .popup-title { font-size: 20px; }
+                  .popup-content { padding: 16px; }
+                  .popup-title { font-size: 18px; }
                 }
               </style>
               
