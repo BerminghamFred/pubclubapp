@@ -50,38 +50,6 @@ function isPinInBounds(pin: PubPin, bounds: google.maps.LatLngBounds | null): bo
   return bounds.contains(new google.maps.LatLng(pin.lat, pin.lng));
 }
 
-function openInfoWindow(marker: google.maps.Marker, pub: PubPin) {
-  const infoWindow = new google.maps.InfoWindow({
-    content: `
-      <div style="width:260px; padding: 8px;">
-        <div style="display:flex; gap:8px; align-items:center;">
-          <img 
-            src="${pub.photo || '/images/placeholders/thumb.webp'}" 
-            width="64" 
-            height="64" 
-            style="border-radius:8px; object-fit:cover;" 
-            alt="${pub.name}"
-          />
-          <div>
-            <div style="font-weight:600; margin-bottom: 4px;">${pub.name}</div>
-            <div style="color: #666;">⭐ ${pub.rating || '—'} (${pub.reviewCount || 0} reviews)</div>
-          </div>
-        </div>
-        <a 
-          href="/pubs/${pub.id}" 
-          style="display:inline-block; margin-top:8px; color:#08d78c; text-decoration:none; font-weight:500;"
-        >
-          View Details →
-        </a>
-      </div>
-    `,
-  });
-  infoWindow.open({ 
-    anchor: marker, 
-    shouldFocus: false, 
-    map: marker.getMap() as google.maps.Map 
-  });
-}
 
 export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded, mapLoadError }: MapCanvasProps) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -196,37 +164,228 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
           if (infoWindowRef.current) {
             infoWindowRef.current.close();
           }
-          openInfoWindow(marker, pub);
+          
+          // Recenter map to ensure the info window is visible
+          const map = marker.getMap() as google.maps.Map;
+          if (map) {
+            // Pan to marker and recenter if needed to avoid clipping
+            const position = marker.getPosition()!;
+            map.panTo(position);
+            
+            // Add small offset to ensure info window is fully visible
+            const offset = 100; // pixels
+            const point = map.getProjection()?.fromLatLngToPoint(position);
+            if (point) {
+              const pixelOffset = new google.maps.Point(0, -offset);
+              const newPoint = new google.maps.Point(point.x + pixelOffset.x, point.y + pixelOffset.y);
+              const newPosition = map.getProjection()?.fromPointToLatLng(newPoint);
+              if (newPosition) {
+                map.panTo(newPosition);
+              }
+            }
+          }
           infoWindowRef.current = new google.maps.InfoWindow({
             content: `
-              <div style="width:260px; padding: 8px;">
-                <div style="display:flex; gap:8px; align-items:center;">
-                  <img 
-                    src="${pub.photo || '/images/placeholders/thumb.webp'}" 
-                    width="64" 
-                    height="64" 
-                    style="border-radius:8px; object-fit:cover;" 
-                    alt="${pub.name}"
-                  />
-                  <div>
-                    <div style="font-weight:600; margin-bottom: 4px;">${pub.name}</div>
-                    <div style="color: #666;">⭐ ${pub.rating || '—'} (${pub.reviewCount || 0} reviews)</div>
+              <div class="custom-info-window" role="dialog" aria-labelledby="pub-name-${pub.id}" aria-describedby="pub-rating-${pub.id}">
+                <style>
+                  .custom-info-window {
+                    width: 360px;
+                    max-width: 90vw;
+                    background: white;
+                    border-radius: 16px;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+                    border: 1px solid rgba(0, 0, 0, 0.06);
+                    position: relative;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    overflow: hidden;
+                    animation: fadeInScale 0.1s ease-out;
+                  }
+                  @keyframes fadeInScale {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                  }
+                  .custom-info-window::after {
+                    content: '';
+                    position: absolute;
+                    bottom: -8px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 0;
+                    height: 0;
+                    border-left: 8px solid transparent;
+                    border-right: 8px solid transparent;
+                    border-top: 8px solid white;
+                  }
+                  .info-window-close {
+                    position: absolute;
+                    top: 12px;
+                    right: 12px;
+                    width: 32px;
+                    height: 32px;
+                    border: none;
+                    background: none;
+                    font-size: 20px;
+                    color: #666;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    transition: all 0.15s ease;
+                    z-index: 10;
+                  }
+                  .info-window-close:hover { background: #f5f5f5; color: #333; }
+                  .info-window-header {
+                    display: flex;
+                    gap: 12px;
+                    padding: 20px 20px 16px 20px;
+                    padding-top: 52px;
+                  }
+                  .info-window-thumbnail {
+                    width: 72px;
+                    height: 72px;
+                    border-radius: 8px;
+                    object-fit: cover;
+                    flex-shrink: 0;
+                    background: #f5f5f5;
+                  }
+                  .info-window-content {
+                    flex: 1;
+                    min-width: 0;
+                  }
+                  .info-window-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin: 0 0 6px 0;
+                    color: #1a1a1a;
+                    line-height: 1.3;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                  }
+                  .info-window-rating {
+                    font-size: 13px;
+                    color: #666;
+                    margin: 0 0 8px 0;
+                    line-height: 1.4;
+                  }
+                  .info-window-amenities {
+                    display: flex;
+                    gap: 6px;
+                    flex-wrap: wrap;
+                  }
+                  .info-window-chip {
+                    background: rgba(8, 215, 140, 0.12);
+                    color: #08d78c;
+                    font-size: 12px;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-weight: 500;
+                  }
+                  .info-window-actions {
+                    padding: 0 20px 16px 20px;
+                  }
+                  .info-window-btn {
+                    width: 100%;
+                    background: #08d78c;
+                    color: black;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 12px 16px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    margin-bottom: 12px;
+                  }
+                  .info-window-btn:hover { background: #06b875; }
+                  .info-window-secondary {
+                    display: flex;
+                    gap: 16px;
+                  }
+                  .info-window-link {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    color: #666;
+                    text-decoration: none;
+                    font-size: 13px;
+                    cursor: pointer;
+                    transition: color 0.15s ease;
+                  }
+                  .info-window-link:hover { color: #333; }
+                  @media (max-width: 640px) {
+                    .custom-info-window {
+                      width: 100%;
+                      max-width: 100%;
+                      border-radius: 16px 16px 0 0;
+                    }
+                    .custom-info-window::after { display: none; }
+                    .info-window-header { padding: 16px 16px 12px 16px; padding-top: 48px; }
+                    .info-window-actions { padding: 0 16px 16px 16px; }
+                  }
+                </style>
+                
+                <button class="info-window-close" onclick="window.closeInfoWindow && window.closeInfoWindow()" aria-label="Close">×</button>
+                  
+                  <div class="info-window-header">
+                    <img 
+                      src="${pub.photo || '/images/placeholders/thumb.webp'}" 
+                      alt="${pub.name}"
+                      class="info-window-thumbnail"
+                    />
+                    <div class="info-window-content">
+                      <h3 id="pub-name-${pub.id}" class="info-window-title" title="${pub.name}">
+                        ${pub.name}
+                      </h3>
+                      <p id="pub-rating-${pub.id}" class="info-window-rating">
+                        ${!pub.rating || pub.rating === 0 ? '⭐ New' : `⭐ ${pub.rating}${pub.reviewCount > 0 ? ` · ${pub.reviewCount} reviews` : ''}`}
+                      </p>
+                      ${(pub.amenities?.slice(0, 2) || []).length > 0 ? `
+                        <div class="info-window-amenities">
+                          ${(pub.amenities?.slice(0, 2) || []).map((amenity: string) => `<span class="info-window-chip">${amenity}</span>`).join('')}
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+
+                  <div class="info-window-actions">
+                    <button 
+                      class="info-window-btn" 
+                      onclick="window.location.href='/pubs/${pub.id}'"
+                      tabindex="0"
+                    >
+                      View details
+                    </button>
+                    <div class="info-window-secondary">
+                      <a 
+                        href="https://www.google.com/maps/dir/?api=1&destination=${pub.lat},${pub.lng}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="info-window-link"
+                        tabindex="0"
+                      >
+                        📍 Directions
+                      </a>
+                    </div>
                   </div>
                 </div>
-                <a 
-                  href="/pubs/${pub.id}" 
-                  style="display:inline-block; margin-top:8px; color:#08d78c; text-decoration:none; font-weight:500;"
-                >
-                  View Details →
-                </a>
-              </div>
             `,
           });
+          
           infoWindowRef.current.open({ 
             anchor: marker, 
             shouldFocus: false, 
-            map: map 
+            map: map,
+            pixelOffset: new google.maps.Size(0, -10)
           });
+          
+          // Add global close function for the info window
+          (window as any).closeInfoWindow = () => {
+            if (infoWindowRef.current) {
+              infoWindowRef.current.close();
+            }
+          };
         });
 
         return marker;
@@ -313,6 +472,20 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       loadAllPins(mapObj.current, false);
     }
   }, [filters, loadAllPins]);
+
+  // Handle keyboard events (ESC to close info window)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && infoWindowRef.current) {
+        infoWindowRef.current.close();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
