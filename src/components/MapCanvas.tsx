@@ -84,6 +84,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   const markersRef = useRef<google.maps.Marker[]>([]);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastBoundsRef = useRef<string | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -117,6 +118,12 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       }
     } else {
       bbox = toBbox(bounds);
+    }
+    
+    // Skip fetch if bounds haven't changed significantly (avoid excessive API calls)
+    if (lastBoundsRef.current === bbox) {
+      console.log('Skipping fetch - bounds unchanged:', bbox);
+      return;
     }
     
     // Cancel previous request
@@ -154,6 +161,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         setTotalPubs(0);
         onMarkersUpdate([]);
         onTotalUpdate(0);
+        lastBoundsRef.current = bbox; // Update bounds even for empty results
         return;
       }
 
@@ -221,6 +229,9 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       setTotalPubs(data.total);
       onMarkersUpdate(data.items);
       onTotalUpdate(data.total);
+      
+      // Update last bounds to prevent duplicate fetches
+      lastBoundsRef.current = bbox;
 
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
@@ -259,25 +270,17 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
 
         mapObj.current = map;
 
-        // Debounced fetch function
-        const debouncedFetch = debounce(() => fetchPins(map), 500);
+        // Debounced fetch function with longer delay to reduce refresh frequency
+        const debouncedFetch = debounce(() => fetchPins(map), 1000);
 
-        let idleListener: google.maps.MapsEventListener;
-        let boundsListener: google.maps.MapsEventListener;
-
-        // Wait for the map to be idle (fully rendered) before fetching pins
-        idleListener = map.addListener('idle', () => {
-          // Fetch pins on first idle and then use debounced version
-          fetchPins(map);
-          // Replace this listener with the debounced version
-          google.maps.event.removeListener(idleListener);
-          map.addListener('idle', debouncedFetch);
-          boundsListener = map.addListener('bounds_changed', debouncedFetch);
-        });
+        // Initial fetch immediately when map is ready
+        fetchPins(map);
+        
+        // Only listen to 'idle' event (when user stops moving map) to avoid excessive refreshing
+        const idleListener = map.addListener('idle', debouncedFetch);
 
         return () => {
           if (idleListener) google.maps.event.removeListener(idleListener);
-          if (boundsListener) google.maps.event.removeListener(boundsListener);
         };
       } catch (err) {
         console.error('Error initializing map:', err);
@@ -299,6 +302,8 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   // Update pins when filters change
   useEffect(() => {
     if (mapObj.current) {
+      // Reset bounds reference when filters change to allow new fetch
+      lastBoundsRef.current = null;
       fetchPins(mapObj.current);
     }
   }, [filters, fetchPins]);
