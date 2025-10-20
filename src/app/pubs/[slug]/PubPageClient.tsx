@@ -289,7 +289,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
             </Link>
             <span className="text-gray-400">|</span>
             <Link 
-              href="/map-live" 
+              href="/pubs?view=map" 
               className="text-[#08d78c] hover:text-[#06b875] transition-colors"
             >
               View on Map
@@ -583,7 +583,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
               <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <Link 
-                  href="/map-live" 
+                  href="/pubs?view=map" 
                   className="w-full bg-[#08d78c] hover:bg-[#06b875] text-black py-3 px-4 rounded-lg font-semibold transition-colors duration-200 text-center block"
                 >
                   <MapPin className="w-5 h-5 inline mr-2" />

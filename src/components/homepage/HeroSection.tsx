@@ -57,7 +57,7 @@ export default function HeroSection() {
         {/* Quick Chips */}
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-6">
-            <h2 className="text-lg font-semibold text-white/90 mb-2">Explore by vibe →</h2>
+            <h2 className="text-lg font-semibold text-white/90 mb-2">Explore →</h2>
           </div>
           <div className="flex flex-wrap justify-center gap-3 mb-8">
             {quickChips.map((chip) => (
@@ -103,7 +103,7 @@ export default function HeroSection() {
               Open now near you →
             </Link>
             <Link
-              href="/map-live"
+              href="/pubs?view=map"
               className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200"
             >
               <MapPin className="w-5 h-5" />

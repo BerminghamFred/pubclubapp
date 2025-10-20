@@ -31,7 +31,7 @@ export function getSearchData(): { areas: string[], amenities: string[], pubs: s
   });
   const amenities = Array.from(allAmenities).sort();
   
-  // Get all pub names
+  // Get all pub names (we'll use the full pub data in searchSuggestions)
   const pubs = pubData.map(pub => pub.name).sort();
   
   return { areas, amenities, pubs };
@@ -73,16 +73,16 @@ export function searchSuggestions(query: string, limit: number = 8): SearchResul
     }));
   
   // Search pubs
-  const matchingPubs = pubs
-    .filter(pub => pub.toLowerCase().includes(searchLower))
+  const matchingPubs = pubData
+    .filter(pub => pub.name.toLowerCase().includes(searchLower))
     .slice(0, Math.ceil(limit / 3))
     .map(pub => ({
-      id: `pub-${pub}`,
-      text: pub,
+      id: `pub-${pub.id}`,
+      text: pub.name,
       type: 'pub' as const,
       icon: '🍺',
       color: 'bg-amber-100 text-amber-800 border-amber-200',
-      data: { pub }
+      data: { pub: pub.name }
     }));
   
   return {

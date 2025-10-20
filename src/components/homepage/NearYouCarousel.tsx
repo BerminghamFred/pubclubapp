@@ -158,12 +158,20 @@ export default function NearYouCarousel() {
                               alt={area.name}
                               className="w-full h-full object-cover"
                               loading="lazy"
+                              onError={(e) => {
+                                // Hide the image and show fallback if it fails to load
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
                             />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
+                          ) : null}
+                          <div 
+                            className="w-full h-full flex items-center justify-center"
+                            style={{ display: area.image ? 'none' : 'flex' }}
+                          >
                               <MapPin className="w-12 h-12 text-[#08d78c]" />
                             </div>
-                          )}
                           {area.isNearby && (
                             <div className="absolute top-2 right-2 bg-[#08d78c] text-black text-xs px-2 py-1 rounded-full font-semibold">
                               Nearby

@@ -26,6 +26,8 @@ interface MapCanvasProps {
   filters: Filters;
   onMarkersUpdate: (markers: PubPin[]) => void;
   onTotalUpdate: (total: number) => void;
+  isMapLoaded?: boolean;
+  mapLoadError?: Error | null;
 }
 
 // Helper functions
@@ -76,7 +78,7 @@ function openInfoWindow(marker: google.maps.Marker, pub: PubPin) {
   });
 }
 
-export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate }: MapCanvasProps) {
+export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded, mapLoadError }: MapCanvasProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -87,15 +89,35 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate }: MapCanvas
   const [error, setError] = useState<Error | null>(null);
   const [totalPubs, setTotalPubs] = useState(0);
   
-  // Load Google Maps script when component is active
-  const { ready, error: scriptError } = useGoogleMapScript(true);
+  // Use loading state from parent or fallback to hook if not provided
+  const shouldLoadScript = isMapLoaded === undefined;
+  const { ready, error: scriptError } = useGoogleMapScript(shouldLoadScript);
+  
+  // Determine the actual loading state - prefer props over hook
+  const actualReady = isMapLoaded !== undefined ? isMapLoaded : ready;
+  const actualError = mapLoadError !== undefined ? mapLoadError : scriptError;
 
   // Fetch pins based on current map bounds and filters
   const fetchPins = useCallback(async (map: google.maps.Map) => {
     const bounds = map.getBounds();
-    if (!bounds) return;
-
-    const bbox = toBbox(bounds);
+    
+    // If bounds are not available yet, use default London bounds or current center
+    let bbox: string;
+    if (!bounds) {
+      const center = map.getCenter();
+      if (center) {
+        // Use a default bounding box around London if no bounds available yet
+        const lat = center.lat();
+        const lng = center.lng();
+        const delta = 0.1; // ~11km radius
+        bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
+      } else {
+        // Fallback to London bounds if no center either
+        bbox = '-0.5,51.3,0.3,51.7';
+      }
+    } else {
+      bbox = toBbox(bounds);
+    }
     
     // Cancel previous request
     if (abortControllerRef.current) {
@@ -110,20 +132,30 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate }: MapCanvas
 
     try {
       const filtersParam = encodeURIComponent(JSON.stringify(filters));
-      const response = await fetch(
-        `/api/pubs/search?bbox=${bbox}&filters=${filtersParam}&limit=500`,
-        { signal: abortController.signal }
-      );
+      const url = `/api/pubs/search?bbox=${bbox}&filters=${filtersParam}&limit=500`;
+      console.log('Fetching pins:', { bbox, filters, url });
+      
+      const response = await fetch(url, { signal: abortController.signal });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('Pins response:', { total: data.total, itemsCount: data.items?.length });
       
       // Clear existing markers
       markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
+
+      // Handle case where no items are returned
+      if (!data.items || data.items.length === 0) {
+        console.warn('No pub pins received from API');
+        setTotalPubs(0);
+        onMarkersUpdate([]);
+        onTotalUpdate(0);
+        return;
+      }
 
       // Create new markers
       const newMarkers: google.maps.Marker[] = data.items.map((pub: PubPin) => {
@@ -202,38 +234,67 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate }: MapCanvas
 
   // Initialize map
   useEffect(() => {
-    if (!ready || !mapRef.current || mapObj.current || scriptError) return;
+    if (!actualReady || !mapRef.current || mapObj.current || actualError) return;
+    
+    let retryTimeout: NodeJS.Timeout | null = null;
+    
+    // Double-check that google.maps.Map is actually available with retry mechanism
+    const initializeMap = () => {
+      if (typeof window === 'undefined' || !window.google?.maps?.Map) {
+        console.warn('google.maps.Map not yet available, retrying...');
+        // Retry after a short delay since the API might still be initializing
+        retryTimeout = setTimeout(initializeMap, 100);
+        return;
+      }
 
-    try {
-      const map = new google.maps.Map(mapRef.current, {
-        center: { lat: 51.5074, lng: -0.1278 }, // London center
-        zoom: 11,
-        streetViewControl: false,
-        mapTypeControl: false,
-        fullscreenControl: true,
-        gestureHandling: 'greedy',
-      });
+      try {
+        const map = new google.maps.Map(mapRef.current, {
+          center: { lat: 51.5074, lng: -0.1278 }, // London center
+          zoom: 11,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: true,
+          gestureHandling: 'greedy',
+        });
 
-      mapObj.current = map;
+        mapObj.current = map;
 
-      // Debounced fetch function
-      const debouncedFetch = debounce(() => fetchPins(map), 500);
+        // Debounced fetch function
+        const debouncedFetch = debounce(() => fetchPins(map), 500);
 
-      // Fetch pins immediately and on map events
-      fetchPins(map);
+        let idleListener: google.maps.MapsEventListener;
+        let boundsListener: google.maps.MapsEventListener;
 
-      const idleListener = map.addListener('idle', debouncedFetch);
-      const boundsListener = map.addListener('bounds_changed', debouncedFetch);
+        // Wait for the map to be idle (fully rendered) before fetching pins
+        idleListener = map.addListener('idle', () => {
+          // Fetch pins on first idle and then use debounced version
+          fetchPins(map);
+          // Replace this listener with the debounced version
+          google.maps.event.removeListener(idleListener);
+          map.addListener('idle', debouncedFetch);
+          boundsListener = map.addListener('bounds_changed', debouncedFetch);
+        });
 
-      return () => {
-        google.maps.event.removeListener(idleListener);
-        google.maps.event.removeListener(boundsListener);
-      };
-    } catch (err) {
-      console.error('Error initializing map:', err);
-      setError(err instanceof Error ? err : new Error('Failed to initialize map'));
-    }
-  }, [ready, scriptError, fetchPins]);
+        return () => {
+          if (idleListener) google.maps.event.removeListener(idleListener);
+          if (boundsListener) google.maps.event.removeListener(boundsListener);
+        };
+      } catch (err) {
+        console.error('Error initializing map:', err);
+        setError(err instanceof Error ? err : new Error('Failed to initialize map'));
+      }
+    };
+
+    // Start the initialization
+    initializeMap();
+
+    // Cleanup function
+    return () => {
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+    };
+  }, [actualReady, actualError, fetchPins]);
 
   // Update pins when filters change
   useEffect(() => {
@@ -255,13 +316,13 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate }: MapCanvas
     };
   }, []);
 
-  if (scriptError) {
+  if (actualError) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-100">
         <div className="text-center p-6">
           <div className="text-red-500 mb-2">⚠️</div>
           <div className="text-gray-700">Error loading map</div>
-          <div className="text-sm text-gray-500">{scriptError.message}</div>
+          <div className="text-sm text-gray-500">{actualError.message}</div>
         </div>
       </div>
     );

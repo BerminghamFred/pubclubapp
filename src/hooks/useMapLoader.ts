@@ -14,31 +14,34 @@ export function useMapLoader(shouldLoad: boolean) {
     if (!shouldLoad) return;
 
     // Return early if already loaded
-    if (typeof window !== 'undefined' && window.google?.maps) {
+    if (typeof window !== 'undefined' && window.google?.maps?.Map) {
       setIsLoaded(true);
       return;
     }
 
     // Return early if already loading
     if (loadPromise) {
-      loadPromise.then(() => setIsLoaded(true)).catch(setError);
+      loadPromise
+        .then(() => {
+          if (typeof window !== 'undefined' && window.google?.maps?.Map) {
+            setIsLoaded(true);
+          } else {
+            setError(new Error('Google Maps loaded but Map constructor not available'));
+          }
+        })
+        .catch(setError);
       return;
     }
 
     // Initialize loader only once
     if (!loaderInstance) {
-      const apiKey = process.env.NEXT_PUBLIC_MAPS_BROWSER_KEY;
+      // Use the Google Maps API key
+      const apiKey = 'AIzaSyCUMtS8YR9mG1Phzlq2Z15WEIAe-ePYD28';
       
-      if (!apiKey) {
-        setError(new Error('Missing NEXT_PUBLIC_MAPS_BROWSER_KEY'));
-        return;
-      }
-
       loaderInstance = new Loader({
         apiKey,
         version: 'weekly',
-        // Do NOT include places library to save costs
-        libraries: [], // Only load base Maps JS API
+        libraries: ['places'], // Include places library for full functionality
       });
     }
 
@@ -47,8 +50,14 @@ export function useMapLoader(shouldLoad: boolean) {
     
     loadPromise
       .then(() => {
-        setIsLoaded(true);
-        console.log('Google Maps loaded successfully');
+        // Double-check that Map constructor is available
+        if (typeof window !== 'undefined' && window.google?.maps?.Map) {
+          setIsLoaded(true);
+          console.log('Google Maps loaded successfully');
+        } else {
+          console.error('Google Maps loaded but Map constructor not available');
+          setError(new Error('Google Maps Map constructor not available after loading'));
+        }
       })
       .catch((err) => {
         console.error('Error loading Google Maps:', err);

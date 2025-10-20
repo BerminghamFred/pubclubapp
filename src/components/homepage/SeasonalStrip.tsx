@@ -48,7 +48,7 @@ export default function SeasonalStrip() {
     if (month >= 9 || month <= 2) {
       return [
         {
-          label: 'Sunday Roasts',
+          label: 'Sunday Roast',
           href: '/pubs?amenities=Sunday Roast',
           icon: '🍖',
           description: 'Traditional Sunday dinners'
@@ -60,16 +60,16 @@ export default function SeasonalStrip() {
           description: 'Cozy spots to warm up'
         },
         {
-          label: 'Open Late',
-          href: '/pubs?amenities=Open Late',
-          icon: '🌙',
-          description: 'Late night drinking spots'
+          label: 'Sports Viewing',
+          href: '/pubs?amenities=Sky Sports,TNT Sports,Terrestrial TV',
+          icon: '📺',
+          description: 'Sky Sports, TNT Sports & Terrestrial TV'
         },
         {
-          label: 'Hot Food',
-          href: '/pubs?amenities=Hot Food',
-          icon: '🍲',
-          description: 'Warming comfort food'
+          label: 'Activities',
+          href: '/pubs?amenities=Pool Table,Darts,Board Games',
+          icon: '🎯',
+          description: 'Pool table, darts & board games'
         }
       ];
     }
@@ -126,7 +126,7 @@ export default function SeasonalStrip() {
           <div className="flex items-center justify-center gap-2 mb-3">
             <Calendar className="w-6 h-6 text-orange-600" />
             <h2 className="text-2xl font-bold text-gray-900">
-              {getSeasonName()} Favorites
+              {getSeasonName()} Favourites
             </h2>
             {getSeasonIcon()}
           </div>
@@ -165,17 +165,18 @@ export default function SeasonalStrip() {
           ))}
         </div>
 
-        <div className="text-center mt-6">
+        {/* Temporarily hidden - may bring back when we have selected seasonal pub filters */}
+        {/* <div className="text-center mt-6">
           <Link
             href="/pubs"
             className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 font-semibold transition-colors"
           >
-            View all seasonal pubs
+            View seasonal pubs
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
-        </div>
+        </div> */}
       </div>
     </section>
   );

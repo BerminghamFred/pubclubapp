@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import DownloadButton from './DownloadButton';
 
 export default function Footer() {
   return (
@@ -71,9 +74,12 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/download" className="text-gray-300 hover:text-white transition-colors duration-200">
-                  Download App
-                </Link>
+                <div className="text-gray-300 hover:text-white transition-colors duration-200">
+                  <DownloadButton 
+                    className="text-gray-300 hover:text-white transition-colors duration-200 bg-transparent border-none p-0 cursor-pointer" 
+                    children="Download App"
+                  />
+                </div>
               </li>
             </ul>
           </div>
@@ -83,13 +89,13 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-4">Contact</h3>
             <ul className="space-y-2">
               <li className="text-gray-300">
-                <a href="mailto:hello@pubclub.co.uk" className="hover:text-white transition-colors duration-200">
-                  hello@pubclub.co.uk
+                <a href="mailto:enquiries@pubclubapp.co.uk" className="hover:text-white transition-colors duration-200">
+                  enquiries@pubclubapp.co.uk
                 </a>
               </li>
               <li className="text-gray-300">
-                <a href="tel:+44123456789" className="hover:text-white transition-colors duration-200">
-                  +44 123 456 789
+                <a href="tel:+447513506399" className="hover:text-white transition-colors duration-200">
+                  +447513506399
                 </a>
               </li>
             </ul>

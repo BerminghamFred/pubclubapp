@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { TrendingUp, Users, Eye, Search, Filter, Building, Settings, BarChart3, Layout } from 'lucide-react';
+import { TrendingUp, Users, Eye, Search, Filter, Building, Settings, BarChart3, Layout, MapPin } from 'lucide-react';
 
 interface AnalyticsOverview {
   totalViews: number;
@@ -192,6 +192,14 @@ export default function AdminDashboard() {
             >
               <Layout className="w-4 h-4 mr-2" />
               Homepage Slots
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="text-gray-600 hover:text-gray-900"
+              onClick={() => router.push('/admin/area-featured-pubs')}
+            >
+              <MapPin className="w-4 h-4 mr-2" />
+              Area Featured Pubs
             </Button>
           </nav>
         </div>

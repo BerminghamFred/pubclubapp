@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import DownloadButton from './DownloadButton';
 
 export default function Navigation() {
   const { data: session, status } = useSession();
@@ -49,17 +50,15 @@ export default function Navigation() {
               Find Pubs
             </Link>
             <Link 
-              href="/map-live" 
+              href="/pubs?view=map" 
               className="hover:text-[#08d78c] transition-colors duration-200"
             >
-              🗺️ Map
+              Map
             </Link>
-            <Link 
-              href="/download" 
-              className="hover:text-[#08d78c] transition-colors duration-200"
-            >
-              Download App
-            </Link>
+            <DownloadButton 
+              className="text-white bg-transparent border-none p-0 cursor-pointer hover:text-[#08d78c] transition-colors duration-200"
+              children="Download App"
+            />
             <Link 
               href="/pub-manager/login" 
               className="text-[#08d78c] hover:text-[#06b875] transition-colors duration-200"
@@ -140,19 +139,17 @@ export default function Navigation() {
                 Find Pubs
               </Link>
               <Link 
-                href="/map-live" 
+                href="/pubs?view=map" 
                 className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
                 onClick={() => setIsMenuOpen(false)}
               >
-                🗺️ Map
+                Map
               </Link>
-              <Link 
-                href="/download" 
-                className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Download App
-              </Link>
+              <DownloadButton 
+                className="block w-full px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200 cursor-pointer text-white bg-transparent border-none"
+                onDownloadClick={() => setIsMenuOpen(false)}
+                children="Download App"
+              />
               <Link 
                 href="/pub-manager/login" 
                 className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"

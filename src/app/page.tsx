@@ -4,6 +4,7 @@ import NearYouCarousel from '@/components/homepage/NearYouCarousel';
 import TrendingTiles from '@/components/homepage/TrendingTiles';
 import SeasonalStrip from '@/components/homepage/SeasonalStrip';
 import SpinWheelTeaser from '@/components/homepage/SpinWheelTeaser';
+import DownloadButton from '@/components/DownloadButton';
 
 export default function HomePage() {
   return (
@@ -14,7 +15,7 @@ export default function HomePage() {
       {/* Near You Areas Carousel */}
       <NearYouCarousel />
 
-      {/* Trending Area×Filter Tiles */}
+      {/* Trending Area & Filter Tiles */}
       <TrendingTiles />
 
       {/* Seasonal Strip */}
@@ -86,12 +87,9 @@ export default function HomePage() {
             Available on iOS and Android devices.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              href="/download" 
+            <DownloadButton 
               className="bg-[#08d78c] hover:bg-[#06b875] text-black px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-200"
-            >
-              Download Now
-            </Link>
+            />
             <Link 
               href="/pubs" 
               className="border-2 border-[#08d78c] text-[#08d78c] hover:bg-[#08d78c] hover:text-black px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-200"

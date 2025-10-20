@@ -180,4 +180,4 @@ This project is licensed under the MIT License.
 
 ## Contact
 
-For questions or support, contact: hello@pubclub.co.uk
+For questions or support, contact: enquiries@pubclubapp.co.uk

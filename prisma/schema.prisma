@@ -78,6 +78,9 @@ model Pub {
   reviews   Review[]
   wishlist  Wishlist[]
   checkins  Checkin[]
+  
+  // Admin relations
+  // Note: AreaFeaturedPub relation removed since we're using pubData IDs
 
   @@map("pubs")
 }
@@ -379,4 +382,16 @@ model HomepageSlotInteraction {
   @@index([slotId])
   @@index([sessionId])
   @@map("homepage_slot_interactions")
+}
+
+// Area Featured Pubs for homepage carousel
+model AreaFeaturedPub {
+  id        String   @id @default(cuid())
+  areaName  String   @unique // e.g. "Camden", "Islington"
+  pubId     String   // Google Place ID from pubData
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("area_featured_pubs")
 }

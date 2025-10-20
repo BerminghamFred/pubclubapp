@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pubData } from '@/data/pubData';
+import fs from 'fs';
+import path from 'path';
 
 interface Area {
   slug: string;
@@ -31,7 +33,7 @@ async function getLocationFromCoords(lat: number, lng: number): Promise<string |
   return null;
 }
 
-function generateAreas(): Area[] {
+async function generateAreas(): Promise<Area[]> {
   const areaCounts = new Map<string, number>();
   
   // Count pubs per area
@@ -41,15 +43,52 @@ function generateAreas(): Area[] {
     }
   });
   
+  // Get featured pubs from file
+  const FEATURED_PUBS_FILE = path.join(process.cwd(), 'data', 'featured-pubs.json');
+  let featuredPubsData = {};
+  
+  try {
+    if (fs.existsSync(FEATURED_PUBS_FILE)) {
+      const data = fs.readFileSync(FEATURED_PUBS_FILE, 'utf8');
+      featuredPubsData = JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error reading featured pubs file:', error);
+  }
+  
+  const featuredPubMap = new Map<string, string>();
+  Object.entries(featuredPubsData).forEach(([areaName, pubId]) => {
+    // Find the pub in pubData to get the photo
+    const pubFromData = pubData.find(pub => pub.id === pubId);
+    if (pubFromData) {
+      // Construct proper photo URL using the photo API
+      const photoUrl = pubFromData._internal?.photo_name 
+        ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
+        : pubFromData._internal?.place_id
+        ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
+        : null;
+      
+      if (photoUrl) {
+        featuredPubMap.set(areaName, photoUrl);
+      }
+    }
+  });
+  
   // Convert to areas array
   const areas: Area[] = Array.from(areaCounts.entries())
     .filter(([_, count]) => count >= 5) // Only areas with 5+ pubs
-    .map(([name, pubCount]) => ({
-      slug: name.toLowerCase().replace(/\s+/g, '-'),
-      name,
-      pubCount,
-      isNearby: false
-    }))
+    .map(([name, pubCount]) => {
+      const slug = name.toLowerCase().replace(/\s+/g, '-');
+      const featuredPubPhoto = featuredPubMap.get(name);
+      
+      return {
+        slug,
+        name,
+        pubCount,
+        image: featuredPubPhoto || undefined, // Use featured pub photo or no image
+        isNearby: false
+      };
+    })
     .sort((a, b) => b.pubCount - a.pubCount);
   
   return areas;
@@ -85,7 +124,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const location = searchParams.get('location');
     
-    const allAreas = generateAreas();
+    const allAreas = await generateAreas();
     let areas: Area[] = [];
     
     if (location) {

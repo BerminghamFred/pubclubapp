@@ -243,7 +243,7 @@ export default function PubDataLoader() {
     return (
       <>
         {/* Full-screen Map Layout */}
-        <div className="grid h-[calc(100vh-var(--header-h))] grid-cols-[360px_1fr] lg:grid-cols-[360px_1fr] relative">
+        <div className="grid h-[calc(100vh-var(--header-h))] grid-cols-[360px_1fr] lg:grid-cols-[360px_1fr] relative overflow-hidden">
           {/* Map Sidebar */}
           <MapSidebar
             filters={mapFilters}
@@ -252,11 +252,13 @@ export default function PubDataLoader() {
           />
 
           {/* Main Map Area */}
-          <main className="relative">
+          <main className="relative overflow-hidden">
             <MapCanvas
               filters={mapFilters}
               onMarkersUpdate={handleMarkersUpdate}
               onTotalUpdate={handleTotalUpdate}
+              isMapLoaded={isMapLoaded}
+              mapLoadError={mapLoadError}
             />
 
             {/* Floating Action Buttons */}
