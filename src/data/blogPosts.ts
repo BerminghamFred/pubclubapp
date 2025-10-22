@@ -7,6 +7,7 @@ export interface BlogPost {
   date: string;
   slug: string;
   tags: string[];
+  published?: boolean; // undefined = published, false = draft
 }
 
 export const blogPosts: BlogPost[] = [
@@ -18,7 +19,8 @@ export const blogPosts: BlogPost[] = [
     author: "Sarah Johnson",
     date: "December 15, 2024",
     slug: "best-traditional-pubs-london",
-    tags: ["Traditional", "History", "City of London"]
+    tags: ["Traditional", "History", "City of London"],
+    published: false // Draft
   },
   {
     id: 2,
@@ -28,7 +30,8 @@ export const blogPosts: BlogPost[] = [
     author: "Mike Chen",
     date: "December 12, 2024",
     slug: "craft-beer-revolution-london",
-    tags: ["Craft Beer", "Microbreweries", "Modern"]
+    tags: ["Craft Beer", "Microbreweries", "Modern"],
+    published: false // Draft
   },
   {
     id: 3,
@@ -38,7 +41,8 @@ export const blogPosts: BlogPost[] = [
     author: "Emma Thompson",
     date: "December 10, 2024",
     slug: "soho-pub-crawl-weekend",
-    tags: ["Pub Crawl", "Soho", "Weekend Guide"]
+    tags: ["Pub Crawl", "Soho", "Weekend Guide"],
+    published: false // Draft
   },
   {
     id: 4,
@@ -48,7 +52,8 @@ export const blogPosts: BlogPost[] = [
     author: "David Wilson",
     date: "December 8, 2024",
     slug: "sports-bars-london-big-game",
-    tags: ["Sports", "Football", "Rugby"]
+    tags: ["Sports", "Football", "Rugby"],
+    published: false // Draft
   },
   {
     id: 5,
@@ -58,7 +63,8 @@ export const blogPosts: BlogPost[] = [
     author: "Lisa Park",
     date: "December 5, 2024",
     slug: "rooftop-bars-london-views",
-    tags: ["Rooftop", "Cocktails", "Views"]
+    tags: ["Rooftop", "Cocktails", "Views"],
+    published: false // Draft
   },
   {
     id: 6,
@@ -68,6 +74,7 @@ export const blogPosts: BlogPost[] = [
     author: "James Miller",
     date: "December 3, 2024",
     slug: "gastro-pubs-london-food",
-    tags: ["Food", "Gastro Pubs", "Dining"]
+    tags: ["Food", "Gastro Pubs", "Dining"],
+    published: false // Draft
   }
 ]; 

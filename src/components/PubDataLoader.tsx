@@ -11,6 +11,9 @@ import RandomPicker from '@/components/RandomPicker';
 import { generatePubSlug } from '@/utils/slugUtils';
 import { isPubOpenNow } from '@/utils/openingHours';
 import { Filter, Search, MapIcon, List, Loader2, AlertCircle, MapPin, X } from 'lucide-react';
+import SearchBar from '@/components/SearchBar';
+import { SearchSuggestion } from '@/utils/searchUtils';
+import { FiltersButton } from '@/components/FiltersButton';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useMapLoader } from '@/hooks/useMapLoader';
 import { useMapPins } from '@/hooks/useMapPins';
@@ -82,6 +85,9 @@ export default function PubDataLoader() {
   const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'not-requested'>('not-requested');
   const [sortRefreshTrigger, setSortRefreshTrigger] = useState(0);
   
+  // SearchBar state
+  const [searchSelections, setSearchSelections] = useState<SearchSuggestion[]>([]);
+  
   // Pagination state (for list view)
   const [currentPage, setCurrentPage] = useState(1);
   const pubsPerPage = 12;
@@ -148,7 +154,24 @@ export default function PubDataLoader() {
     console.log('filteredPubs useMemo recalculating, userLocation:', userLocation, 'sortRefreshTrigger:', sortRefreshTrigger);
     let filtered = pubData;
 
-    if (searchTerm) {
+    // Handle SearchBar selections
+    if (searchSelections.length > 0) {
+      filtered = filtered.filter(pub => {
+        return searchSelections.every(selection => {
+          switch (selection.type) {
+            case 'area':
+              return pub.area === selection.data.area;
+            case 'amenity':
+              return pub.amenities?.includes(selection.data.amenity) || pub.features?.includes(selection.data.amenity);
+            case 'pub':
+              return pub.name.toLowerCase().includes(selection.data.pub.toLowerCase());
+            default:
+              return true;
+          }
+        });
+      });
+    } else if (searchTerm) {
+      // Fallback to simple text search if no SearchBar selections
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(pub => 
         pub.name.toLowerCase().includes(searchLower) ||
@@ -213,7 +236,7 @@ export default function PubDataLoader() {
     }
 
     return filtered;
-  }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger]);
+  }, [searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger]);
 
   // Pagination for list view
   const displayedPubs = useMemo(() => {
@@ -260,7 +283,7 @@ export default function PubDataLoader() {
   // Reset to first page when filters change or location is obtained
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation]);
+  }, [searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation]);
 
   // Force refresh when user location is set
   useEffect(() => {
@@ -333,6 +356,14 @@ export default function PubDataLoader() {
   }, [userLocation, locationPermission]);
 
   // Handler functions
+  const handleSearchSelections = (selections: SearchSuggestion[]) => {
+    setSearchSelections(selections);
+  };
+
+  const handleRemoveSearchSelection = (selectionId: string) => {
+    setSearchSelections(selections => selections.filter(s => s.id !== selectionId));
+  };
+
   const handleAmenityToggle = (amenity: string) => {
     if (selectedAmenities.includes(amenity)) {
       setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
@@ -343,6 +374,7 @@ export default function PubDataLoader() {
 
   const handleClearAllFilters = () => {
     setSearchTerm('');
+    setSearchSelections([]);
     setSelectedArea('');
     setSelectedAmenities([]);
     setMinRating(0);
@@ -493,24 +525,19 @@ export default function PubDataLoader() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
             {/* Search Bar */}
             <div className="md:col-span-5">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                  placeholder="Search pubs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+              <SearchBar
+                placeholder="Search by pub name, area, or features..."
+                onSearch={handleSearchSelections}
+                variant="default"
               />
             </div>
-          </div>
 
             {/* Area Dropdown */}
             <div className="md:col-span-3">
               <select
                 value={selectedArea}
                 onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
+                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
               >
                 {listAreas.map((area) => (
                     <option key={area} value={area}>
@@ -525,7 +552,7 @@ export default function PubDataLoader() {
               <select
                 value={minRating}
                 onChange={(e) => setMinRating(Number(e.target.value))}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
+                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
               >
                 <option value={0}>⭐ Any Rating</option>
                 <option value={4.5}>⭐ 4.5+</option>
@@ -536,18 +563,7 @@ export default function PubDataLoader() {
 
             {/* Filters Button */}
             <div className="md:col-span-2">
-              <button
-                onClick={() => setShowFilterDrawer(true)}
-                className="w-full px-4 py-2.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <Filter className="w-5 h-5" />
-                Filters
-                {selectedAmenities.length > 0 && (
-                  <span className="bg-[#08d78c] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {selectedAmenities.length}
-                  </span>
-                )}
-                  </button>
+              <FiltersButton onClick={() => setShowFilterDrawer(true)} />
             </div>
           </div>
 
@@ -557,10 +573,12 @@ export default function PubDataLoader() {
             selectedAmenities={selectedAmenities}
             minRating={minRating}
             openingFilter={openingFilter}
+            searchSelections={searchSelections}
             onRemoveArea={() => setSelectedArea('')}
             onRemoveAmenity={(amenity) => setSelectedAmenities(selectedAmenities.filter(a => a !== amenity))}
             onRemoveRating={() => setMinRating(0)}
             onRemoveOpening={() => setOpeningFilter('')}
+            onRemoveSearchSelection={handleRemoveSearchSelection}
             onClearAll={handleClearAllFilters}
             />
           </div>

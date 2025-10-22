@@ -1,29 +1,40 @@
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { blogPosts, BlogPost } from '@/data/blogPosts';
+import { getPublishedPostBySlug, getRelatedPosts } from '@/lib/blog';
+import { blogPosts } from '@/data/blogPosts';
 
-// Generate static params for all blog posts
+// Generate static params for published blog posts only
 export async function generateStaticParams() {
-  return blogPosts.map((post) => ({
-    slug: post.slug,
-  }));
+  return blogPosts
+    .filter(post => post.published !== false)
+    .map((post) => ({
+      slug: post.slug,
+    }));
 }
 
 // Generate metadata for each blog post
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const resolvedParams = await params;
-  const post = blogPosts.find(p => p.slug === resolvedParams.slug);
+  const post = getPublishedPostBySlug(resolvedParams.slug);
 
   if (!post) {
     return {
       title: 'Blog Post Not Found',
+      robots: {
+        index: false,
+        follow: true,
+      },
     };
   }
 
   return {
     title: `${post.title} - Pub Club Blog`,
     description: post.excerpt,
+    robots: {
+      index: true,
+      follow: true,
+    },
     openGraph: {
       title: `${post.title} - Pub Club Blog`,
       description: post.excerpt,
@@ -48,11 +59,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
-  const post = blogPosts.find(p => p.slug === resolvedParams.slug);
+  const post = getPublishedPostBySlug(resolvedParams.slug);
   
   if (!post) {
     notFound();
   }
+
+  const relatedPosts = getRelatedPosts(resolvedParams.slug, 3);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -72,6 +85,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <span>{post.date}</span>
             <span className="mx-2">•</span>
             <span>By {post.author}</span>
+            <span className="mx-2">•</span>
+            <span>{post.readingTime} min read</span>
           </div>
           
           <h1 className="text-4xl md:text-5xl font-bold mb-6">{post.title}</h1>
@@ -148,12 +163,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
           {/* Related Posts */}
           <div className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">More from Pub Club Blog</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {blogPosts
-                .filter(p => p.id !== post.id)
-                .slice(0, 2)
-                .map((relatedPost) => (
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Next up</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {relatedPosts.map((relatedPost) => (
                   <Link 
                     key={relatedPost.id}
                     href={`/blog/${relatedPost.slug}`}
@@ -192,7 +204,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 }
 
 // Generate Article schema for SEO
-function generateArticleSchema(post: BlogPost) {
+function generateArticleSchema(post: any) {
   const baseUrl = "https://pubclub.co.uk";
   
   return {

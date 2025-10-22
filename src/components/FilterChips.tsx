@@ -2,16 +2,19 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { SearchSuggestion } from '@/utils/searchUtils';
 
 interface FilterChipsProps {
   selectedArea?: string;
   selectedAmenities: string[];
   minRating: number;
   openingFilter?: string;
+  searchSelections?: SearchSuggestion[];
   onRemoveArea: () => void;
   onRemoveAmenity: (amenity: string) => void;
   onRemoveRating: () => void;
   onRemoveOpening: () => void;
+  onRemoveSearchSelection?: (selectionId: string) => void;
   onClearAll: () => void;
 }
 
@@ -20,17 +23,20 @@ export default function FilterChips({
   selectedAmenities,
   minRating,
   openingFilter,
+  searchSelections = [],
   onRemoveArea,
   onRemoveAmenity,
   onRemoveRating,
   onRemoveOpening,
+  onRemoveSearchSelection,
   onClearAll
 }: FilterChipsProps) {
   const hasFilters = 
     (selectedArea && selectedArea !== 'All Areas') ||
     selectedAmenities.length > 0 ||
     minRating > 0 ||
-    (openingFilter && openingFilter !== 'Any Time');
+    (openingFilter && openingFilter !== 'Any Time') ||
+    searchSelections.length > 0;
 
   if (!hasFilters) return null;
 
@@ -80,6 +86,21 @@ export default function FilterChips({
             <X className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
           </motion.button>
         )}
+
+        {/* SearchBar Selection Filters */}
+        {searchSelections.map((selection) => (
+          <motion.button
+            key={selection.id}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            onClick={() => onRemoveSearchSelection?.(selection.id)}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors group ${selection.color}`}
+          >
+            <span>{selection.text}</span>
+            <X className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+          </motion.button>
+        ))}
 
         {/* Amenity Filters */}
         {selectedAmenities.map((amenity) => (
