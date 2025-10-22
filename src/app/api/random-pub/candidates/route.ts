@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const openNow = searchParams.get('open_now') === 'true';
     const minRating = searchParams.get('min_rating') ? parseFloat(searchParams.get('min_rating')!) : undefined;
     const excludeIds = searchParams.get('exclude_ids')?.split(',').filter(Boolean) || [];
+    const searchSelections = searchParams.get('search_selections') ? JSON.parse(searchParams.get('search_selections')!) : [];
     
     // Count pubs based on criteria (without loading full data)
     let candidateCount = 0;
@@ -41,6 +42,23 @@ export async function GET(request: NextRequest) {
         continue;
       }
       
+      // Search selections filter (from SearchBar)
+      if (searchSelections && searchSelections.length > 0) {
+        const matchesSearchSelections = searchSelections.every(selection => {
+          switch (selection.type) {
+            case 'area':
+              return pub.area === selection.data.area;
+            case 'amenity':
+              return pub.amenities?.includes(selection.data.amenity) || pub.features?.includes(selection.data.amenity);
+            case 'pub':
+              return pub.name.toLowerCase().includes(selection.data.pub.toLowerCase());
+            default:
+              return true;
+          }
+        });
+        if (!matchesSearchSelections) continue;
+      }
+      
       candidateCount++;
       
       // Check if available (not excluded)
@@ -58,7 +76,8 @@ export async function GET(request: NextRequest) {
         amenities,
         openNow,
         minRating,
-        excludeIds
+        excludeIds,
+        searchSelections
       },
       timestamp: new Date().toISOString()
     });

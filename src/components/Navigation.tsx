@@ -2,20 +2,19 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import DownloadButton from './DownloadButton';
+import LoginModal from './LoginModal';
 
 export default function Navigation() {
   const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: '/' });
-  };
 
   return (
     <nav className="bg-black text-white shadow-lg">
@@ -55,6 +54,12 @@ export default function Navigation() {
             >
               Map
             </Link>
+            <Link 
+              href="/random" 
+              className="hover:text-[#08d78c] transition-colors duration-200"
+            >
+              Pub Randomiser
+            </Link>
             <DownloadButton 
               className="text-white bg-transparent border-none p-0 cursor-pointer hover:text-[#08d78c] transition-colors duration-200"
               children="Download App"
@@ -66,34 +71,27 @@ export default function Navigation() {
               Pub Manager
             </Link>
             {session?.user ? (
-              <>
-                <Link 
-                  href="/profile" 
-                  className="hover:text-[#08d78c] transition-colors duration-200"
-                >
-                  Profile
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="hover:text-[#08d78c] transition-colors duration-200"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
               <Link 
-                href="/login" 
+                href="/profile" 
                 className="hover:text-[#08d78c] transition-colors duration-200"
               >
-                Sign In
+                Profile
               </Link>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="hover:text-[#08d78c] transition-colors duration-200"
+              >
+                Create Profile
+              </button>
             )}
-            <Link 
+            {/* Admin link hidden from public navigation */}
+            {/* <Link 
               href="/admin" 
               className="bg-[#08d78c] hover:bg-[#06b875] text-black px-4 py-2 rounded-lg font-semibold transition-colors duration-200"
             >
               Admin
-            </Link>
+            </Link> */}
           </div>
 
           {/* Mobile menu button */}
@@ -145,6 +143,13 @@ export default function Navigation() {
               >
                 Map
               </Link>
+              <Link 
+                href="/random" 
+                className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Pub Randomiser
+              </Link>
               <DownloadButton 
                 className="block w-full px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200 cursor-pointer text-white bg-transparent border-none"
                 onDownloadClick={() => setIsMenuOpen(false)}
@@ -158,44 +163,43 @@ export default function Navigation() {
                 Pub Manager
               </Link>
               {session?.user ? (
-                <>
-                  <Link 
-                    href="/profile" 
-                    className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setIsMenuOpen(false);
-                    }}
-                    className="block w-full text-left px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
                 <Link 
-                  href="/login" 
+                  href="/profile" 
                   className="block px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Sign In
+                  Profile
                 </Link>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowLoginModal(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-3 py-2 rounded-md text-base font-medium hover:text-[#08d78c] transition-colors duration-200"
+                >
+                  Create Profile
+                </button>
               )}
-              <Link 
+              {/* Admin link hidden from public navigation */}
+              {/* <Link 
                 href="/admin" 
                 className="block px-3 py-2 rounded-md text-base font-medium bg-[#08d78c] text-black rounded-lg font-semibold hover:bg-[#06b875] transition-colors duration-200"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Admin
-              </Link>
+              </Link> */}
             </div>
           </div>
         )}
       </div>
+      
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action="save"
+      />
     </nav>
   );
 } 

@@ -9,18 +9,18 @@ import bcrypt from 'bcryptjs'
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    // Email magic link for users
-    EmailProvider({
-      server: {
-        host: process.env.EMAIL_SERVER_HOST,
-        port: process.env.EMAIL_SERVER_PORT,
-        auth: {
-          user: process.env.EMAIL_SERVER_USER,
-          pass: process.env.EMAIL_SERVER_PASSWORD,
-        },
-      },
-      from: process.env.EMAIL_FROM,
-    }),
+    // Email magic link for users - DISABLED for now
+    // EmailProvider({
+    //   server: {
+    //     host: process.env.EMAIL_SERVER_HOST,
+    //     port: process.env.EMAIL_SERVER_PORT,
+    //     auth: {
+    //       user: process.env.EMAIL_SERVER_USER,
+    //       pass: process.env.EMAIL_SERVER_PASSWORD,
+    //     },
+    //   },
+    //   from: process.env.EMAIL_FROM,
+    // }),
     
     // Google OAuth for users
     GoogleProvider({
@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
     
-    // Credentials provider for admin users only
+    // Credentials provider for admin users and regular users
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -54,6 +54,23 @@ export const authOptions: NextAuthOptions = {
               name: adminUser.name,
               role: adminUser.role,
               type: 'admin'
+            }
+          }
+        }
+
+        // Check if it's a regular user
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email }
+        })
+
+        if (user && user.password) {
+          const isValidPassword = await bcrypt.compare(credentials.password, user.password)
+          if (isValidPassword) {
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              type: 'user'
             }
           }
         }

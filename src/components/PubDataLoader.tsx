@@ -817,6 +817,8 @@ export default function PubDataLoader() {
           amenities: selectedAmenities,
           openNow: openingFilter === 'Open Now',
           minRating: minRating > 0 ? minRating : 3.5,
+          // Include search selections in filters
+          searchSelections: searchSelections,
         }}
         onViewPub={handleViewPub}
       />

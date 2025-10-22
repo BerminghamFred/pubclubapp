@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Loader2, MapPin, Star, Clock, RotateCcw, ExternalLink } from 'lucide-react';
 import { Pub } from '@/data/types';
+import PubPhoto from './PubPhoto';
 
 interface RandomPickerProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface RandomPickerProps {
     amenities?: string[];
     openNow?: boolean;
     minRating?: number;
+    searchSelections?: any[]; // Add search selections support
   };
   onViewPub: (pub: Pub) => void;
 }
@@ -52,6 +54,9 @@ export default function RandomPicker({
       }
       if (filters.openNow) params.append('open_now', 'true');
       if (filters.minRating) params.append('min_rating', filters.minRating.toString());
+      if (filters.searchSelections && filters.searchSelections.length > 0) {
+        params.append('search_selections', JSON.stringify(filters.searchSelections));
+      }
       if (lastWinners.size > 0) {
         params.append('exclude_ids', Array.from(lastWinners).join(','));
       }
@@ -90,6 +95,9 @@ export default function RandomPicker({
       }
       if (filters.openNow) params.append('open_now', 'true');
       if (filters.minRating) params.append('min_rating', filters.minRating.toString());
+      if (filters.searchSelections && filters.searchSelections.length > 0) {
+        params.append('search_selections', JSON.stringify(filters.searchSelections));
+      }
       if (lastWinners.size > 0) {
         params.append('exclude_ids', Array.from(lastWinners).join(','));
       }
@@ -383,16 +391,17 @@ export default function RandomPicker({
               <div className="bg-gray-50 rounded-lg p-6 border-2 border-[#08d78c]">
                 <div className="flex gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                      {winner._internal?.photo_url ? (
-                        <img 
-                          src={winner._internal.photo_url} 
-                          alt={winner.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <div className="text-gray-400 text-2xl">🍺</div>
-                      )}
+                    <div className="w-20 h-20 rounded-lg overflow-hidden">
+                      <PubPhoto
+                        photoName={winner._internal?.photo_name}
+                        placeId={winner._internal?.place_id}
+                        src={winner._internal?.photo_url}
+                        alt={winner.name}
+                        width={80}
+                        height={80}
+                        className="w-full h-full"
+                        fallbackIcon="🍺"
+                      />
                     </div>
                   </div>
                   

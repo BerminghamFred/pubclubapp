@@ -8,6 +8,7 @@ interface RandomPubFilters {
   openNow?: boolean;
   minRating?: number;
   excludeIds?: string[];
+  searchSelections?: any[];
 }
 
 // Weighted random selection using crypto RNG
@@ -67,7 +68,8 @@ export async function GET(request: NextRequest) {
       amenities: searchParams.get('amenities')?.split(',').filter(Boolean) || [],
       openNow: searchParams.get('open_now') === 'true',
       minRating: searchParams.get('min_rating') ? parseFloat(searchParams.get('min_rating')!) : undefined,
-      excludeIds: searchParams.get('exclude_ids')?.split(',').filter(Boolean) || []
+      excludeIds: searchParams.get('exclude_ids')?.split(',').filter(Boolean) || [],
+      searchSelections: searchParams.get('search_selections') ? JSON.parse(searchParams.get('search_selections')!) : []
     };
     
     // Filter pubs based on criteria
@@ -93,6 +95,23 @@ export async function GET(request: NextRequest) {
       // Open now filter
       if (filters.openNow && !isPubOpenNow(pub.openingHours)) {
         return false;
+      }
+      
+      // Search selections filter (from SearchBar)
+      if (filters.searchSelections && filters.searchSelections.length > 0) {
+        const matchesSearchSelections = filters.searchSelections.every(selection => {
+          switch (selection.type) {
+            case 'area':
+              return pub.area === selection.data.area;
+            case 'amenity':
+              return pub.amenities?.includes(selection.data.amenity) || pub.features?.includes(selection.data.amenity);
+            case 'pub':
+              return pub.name.toLowerCase().includes(selection.data.pub.toLowerCase());
+            default:
+              return true;
+          }
+        });
+        if (!matchesSearchSelections) return false;
       }
       
       return true;
