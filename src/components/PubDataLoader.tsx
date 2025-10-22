@@ -10,7 +10,7 @@ import FilterChips from '@/components/FilterChips';
 import RandomPicker from '@/components/RandomPicker';
 import { generatePubSlug } from '@/utils/slugUtils';
 import { isPubOpenNow } from '@/utils/openingHours';
-import { Filter, Search, MapIcon, List, Loader2, AlertCircle } from 'lucide-react';
+import { Filter, Search, MapIcon, List, Loader2, AlertCircle, MapPin, X } from 'lucide-react';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useMapLoader } from '@/hooks/useMapLoader';
 import { useMapPins } from '@/hooks/useMapPins';
@@ -77,6 +77,10 @@ export default function PubDataLoader() {
   // UI state
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [showRandomPicker, setShowRandomPicker] = useState(false);
+  const [showLocationPopup, setShowLocationPopup] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'not-requested'>('not-requested');
+  const [sortRefreshTrigger, setSortRefreshTrigger] = useState(0);
   
   // Pagination state (for list view)
   const [currentPage, setCurrentPage] = useState(1);
@@ -126,8 +130,22 @@ export default function PubDataLoader() {
     };
   }, []);
 
+  // Distance calculation using Haversine formula
+  const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371; // Radius of the Earth in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }, []);
+
   // Filter pubs for list view (client-side)
   const filteredPubs = useMemo(() => {
+    console.log('filteredPubs useMemo recalculating, userLocation:', userLocation, 'sortRefreshTrigger:', sortRefreshTrigger);
     let filtered = pubData;
 
     if (searchTerm) {
@@ -162,22 +180,50 @@ export default function PubDataLoader() {
       }
     }
 
-    // Sort by rating
+    // Sort by proximity first (if user location is available), then by rating
     filtered.sort((a, b) => {
+      // If user has shared location, sort by proximity first
+      if (userLocation && a._internal?.lat && a._internal?.lng && b._internal?.lat && b._internal?.lng) {
+        const distanceA = calculateDistance(userLocation.lat, userLocation.lng, a._internal.lat, a._internal.lng);
+        const distanceB = calculateDistance(userLocation.lat, userLocation.lng, b._internal.lat, b._internal.lng);
+        
+        // Always sort by distance first when location is available (closer pubs first)
+        const distanceDiff = distanceA - distanceB;
+        if (Math.abs(distanceDiff) > 0.001) { // Small threshold to handle floating point precision
+          return distanceDiff;
+        }
+      }
+      
+      // Then sort by rating (only if distances are very similar or no location)
       if (b.rating !== a.rating) return b.rating - a.rating;
       if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
       return a.name.localeCompare(b.name);
     });
 
+    // Debug log when location-based sorting is active
+    if (userLocation && filtered.length > 0) {
+      console.log('Sorted pubs by proximity from user location:', userLocation);
+      console.log('First 5 pubs after sorting:', filtered.slice(0, 5).map(p => ({
+        name: p.name,
+        rating: p.rating,
+        hasCoords: !!(p._internal?.lat && p._internal?.lng),
+        distance: p._internal?.lat && p._internal?.lng ? 
+          calculateDistance(userLocation.lat, userLocation.lng, p._internal.lat, p._internal.lng) : null
+      })));
+    }
+
     return filtered;
-  }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter]);
+  }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger]);
 
   // Pagination for list view
   const displayedPubs = useMemo(() => {
+    console.log('displayedPubs recalculating, currentPage:', currentPage, 'filteredPubs length:', filteredPubs.length, 'sortRefreshTrigger:', sortRefreshTrigger);
     const startIndex = (currentPage - 1) * pubsPerPage;
     const endIndex = startIndex + pubsPerPage;
-    return filteredPubs.slice(startIndex, endIndex);
-  }, [filteredPubs, currentPage, pubsPerPage]);
+    const result = filteredPubs.slice(startIndex, endIndex);
+    console.log('displayedPubs result:', result.slice(0, 3).map(p => ({ name: p.name, rating: p.rating })));
+    return result;
+  }, [filteredPubs, currentPage, pubsPerPage, sortRefreshTrigger]);
 
   const totalPages = Math.ceil(filteredPubs.length / pubsPerPage);
   const hasMore = currentPage < totalPages;
@@ -211,10 +257,20 @@ export default function PubDataLoader() {
     }
   }, [view, isMapLoaded, map]);
 
-  // Reset to first page when filters change
+  // Reset to first page when filters change or location is obtained
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter]);
+  }, [searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation]);
+
+  // Force refresh when user location is set
+  useEffect(() => {
+    if (userLocation && view === 'list') {
+      console.log('User location changed, forcing page refresh');
+      // Force a re-render by temporarily changing and resetting the page
+      setCurrentPage(2);
+      setTimeout(() => setCurrentPage(1), 0);
+    }
+  }, [userLocation, view]);
 
   // Prevent body scrolling when in map view
   useEffect(() => {
@@ -225,6 +281,56 @@ export default function PubDataLoader() {
       };
     }
   }, [view]);
+
+  // Load saved location on component mount
+  useEffect(() => {
+    const savedLocation = localStorage.getItem('pub-club-user-location');
+    const savedPermission = localStorage.getItem('pub-club-location-permission') as 'granted' | 'denied' | 'not-requested' | null;
+    
+    if (savedLocation && savedPermission === 'granted') {
+      try {
+        const locationData = JSON.parse(savedLocation);
+        if (locationData.lat && locationData.lng) {
+          // Check if location is fresh (less than 30 minutes old)
+          const locationAge = Date.now() - (locationData.timestamp || 0);
+          const thirtyMinutes = 30 * 60 * 1000;
+          
+          if (locationAge < thirtyMinutes) {
+            console.log('Loading saved user location:', locationData);
+            setUserLocation({ lat: locationData.lat, lng: locationData.lng });
+            setLocationPermission('granted');
+          } else {
+            console.log('Saved location is too old, removing from storage');
+            localStorage.removeItem('pub-club-user-location');
+            localStorage.removeItem('pub-club-location-permission');
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing saved location:', error);
+        localStorage.removeItem('pub-club-user-location');
+        localStorage.removeItem('pub-club-location-permission');
+      }
+    } else if (savedPermission === 'denied') {
+      setLocationPermission('denied');
+    }
+  }, []);
+
+  // Save location to localStorage when it changes
+  useEffect(() => {
+    if (userLocation && locationPermission === 'granted') {
+      const locationData = {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('pub-club-user-location', JSON.stringify(locationData));
+      localStorage.setItem('pub-club-location-permission', 'granted');
+      console.log('Saved user location to localStorage:', locationData);
+    } else if (locationPermission === 'denied') {
+      localStorage.setItem('pub-club-location-permission', 'denied');
+      localStorage.removeItem('pub-club-user-location');
+    }
+  }, [userLocation, locationPermission]);
 
   // Handler functions
   const handleAmenityToggle = (amenity: string) => {
@@ -247,6 +353,53 @@ export default function PubDataLoader() {
   const handleViewPub = useCallback((pub: Pub) => {
     window.open(`/pubs/${generatePubSlug(pub.name, pub.id)}`, '_blank');
   }, []);
+
+  // Request user location
+  const requestUserLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      console.error('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log('Location obtained, updating state...', { latitude, longitude });
+        setUserLocation({ lat: latitude, lng: longitude });
+        setLocationPermission('granted');
+        setShowLocationPopup(false);
+        setCurrentPage(1);
+        setSortRefreshTrigger(prev => {
+          console.log('Triggering sort refresh, prev value:', prev);
+          return prev + 1;
+        });
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        setLocationPermission('denied');
+        setShowLocationPopup(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000, // 5 minutes
+      }
+    );
+  }, []);
+
+  // Show location popup on first visit to list view
+  useEffect(() => {
+    if (view === 'list' && locationPermission === 'not-requested' && !showLocationPopup) {
+      // Check if we've already asked before (using sessionStorage) OR if user has already made a choice (localStorage)
+      const hasAskedBefore = sessionStorage.getItem('location-popup-shown');
+      const hasMadeChoice = localStorage.getItem('pub-club-location-permission');
+      
+      if (!hasAskedBefore && !hasMadeChoice) {
+        setShowLocationPopup(true);
+        sessionStorage.setItem('location-popup-shown', 'true');
+      }
+    }
+  }, [view, locationPermission, showLocationPopup]);
 
   // If in map view, use the new full-screen map layout
   if (view === 'map' as const) {
@@ -420,11 +573,23 @@ export default function PubDataLoader() {
             <div className="text-sm text-gray-700">
               {view === 'list' ? (
                 <>
-                  <span className="font-semibold">{filteredPubs.length}</span> pubs found
-                {filteredPubs.length !== pubData.length && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{filteredPubs.length}</span> pubs found
+                    {userLocation && (
+                      <button 
+                        onClick={requestUserLocation}
+                        className="flex items-center gap-1 px-2 py-1 bg-[#08d78c] hover:bg-[#06b875] text-white text-xs rounded-full transition-colors cursor-pointer"
+                        title="Refresh location"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        <span>Sorted by distance</span>
+                      </button>
+                    )}
+                  </div>
+                  {filteredPubs.length !== pubData.length && (
                     <span className="text-gray-500 ml-1">
-                    (filtered from {pubData.length} total)
-                  </span>
+                      (filtered from {pubData.length} total)
+                    </span>
                   )}
                 </>
               ) : null}
@@ -637,6 +802,62 @@ export default function PubDataLoader() {
         }}
         onViewPub={handleViewPub}
       />
+
+      {/* Location Sharing Popup */}
+      {showLocationPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#08d78c] rounded-full flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Find Pubs Near You</h3>
+                    <p className="text-sm text-gray-600">Get better results</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowLocationPopup(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="mb-6">
+                <p className="text-gray-700 mb-4">
+                  Share your location to see pubs sorted by distance from you, making it easier to find the closest ones.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>Your privacy matters:</strong> We only use your location to sort results. No location data is stored or shared.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLocationPopup(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                >
+                  Maybe Later
+                </button>
+                <button
+                  onClick={requestUserLocation}
+                  className="flex-1 px-4 py-2 bg-[#08d78c] hover:bg-[#06b875] text-white rounded-lg font-medium transition-colors"
+                >
+                  Share Location
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 } 
