@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pubData } from '@/data/pubData';
 import { isPubOpenNow } from '@/utils/openingHours';
 
-export const runtime = 'edge';
+// Use default Node.js runtime on Vercel (avoid explicit edge runtime)
 
 // Helper to check if a point is within bounds
 function isInBounds(lat: number, lng: number, bbox: { west: number; south: number; east: number; north: number }): boolean {

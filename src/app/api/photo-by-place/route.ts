@@ -5,7 +5,7 @@ const DEFAULT_TTL = Number(process.env.PHOTO_CACHE_TTL_SECONDS ?? 604800);
 const MAXWIDTH_DEFAULT = Number(process.env.PHOTO_CACHE_MAXWIDTH_DEFAULT ?? 480);
 const MAXWIDTH_MAX = Number(process.env.PHOTO_CACHE_MAXWIDTH_MAX ?? 1280);
 
-export const runtime = "edge";
+// Use default Node.js runtime on Vercel (avoid explicit edge runtime)
 
 export async function GET(req: NextRequest) {
   try {
