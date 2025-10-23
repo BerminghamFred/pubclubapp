@@ -128,7 +128,8 @@ export default function SelectHomepageSlotsPage() {
       }
     } catch (error) {
       console.error('Error saving slots:', error);
-      alert(`Error saving homepage slots: ${error.message}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Error saving homepage slots: ${message}`);
     } finally {
       setSaving(false);
     }
