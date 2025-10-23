@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "extract-photos": "node scripts/extract-photo-references.js",
     "validate-photos": "node scripts/validate-photo-references.js",
     "cache-warmup": "node scripts/cache-warmup.js",
