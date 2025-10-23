@@ -72,7 +72,8 @@ export default function HomepageSlotsPage() {
       }
     } catch (error) {
       console.error('Error regenerating homepage slots:', error);
-      alert(`Error regenerating homepage slots: ${error.message}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Error regenerating homepage slots: ${message}`);
     } finally {
       setRegenerating(false);
     }
