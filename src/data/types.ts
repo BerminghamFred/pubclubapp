@@ -23,5 +23,6 @@ export interface Pub {
     types?: string;
     photo_url?: string;
     photo_reference?: string; // Google Places photo reference for caching
+    photo_name?: string; // Google Places new Photos API resource name
   };
 } 
