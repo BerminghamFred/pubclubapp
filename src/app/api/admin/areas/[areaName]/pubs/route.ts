@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { pubData } from '@/data/pubData';
 
 // GET /api/admin/areas/[areaName]/pubs - Get all pubs in a specific area
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { areaName: string } }
 ) {
   try {
