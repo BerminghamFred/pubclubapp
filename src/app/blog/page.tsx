@@ -291,6 +291,7 @@ function StandardBlogIndex() {
 // Generate CollectionPage + ItemList schema for blog listing
 function generateBlogSchema() {
   const baseUrl = "https://pubclub.co.uk";
+  const posts = getPublishedPosts();
   
   return {
     "@context": "https://schema.org",
@@ -317,8 +318,8 @@ function generateBlogSchema() {
     "mainEntity": {
       "@type": "ItemList",
       "itemListOrder": "https://schema.org/ItemListOrderDescending",
-      "numberOfItems": blogPosts.length,
-      "itemListElement": blogPosts.map((post, index) => ({
+      "numberOfItems": posts.length,
+      "itemListElement": posts.map((post, index) => ({
         "@type": "ListItem",
         "position": index + 1,
         "item": {
