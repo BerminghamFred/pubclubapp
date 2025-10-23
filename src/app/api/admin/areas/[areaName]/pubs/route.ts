@@ -6,7 +6,7 @@ import { pubData } from '@/data/pubData';
 // GET /api/admin/areas/[areaName]/pubs - Get all pubs in a specific area
 export async function GET(
   request: Request,
-  { params }: { params: { areaName: string } }
+  { params }: { params: Promise<{ areaName: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { areaName } = params;
+    const { areaName } = await params;
     const decodedAreaName = decodeURIComponent(areaName);
 
     // Filter pubs by area
