@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error updating homepage slots:', error);
     return NextResponse.json(
-      { error: `Failed to update homepage slots: ${error.message}` },
+      { error: `Failed to update homepage slots: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }
