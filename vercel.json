@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "src/app/api/photo/route.ts": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "headers": [
     {
       "source": "/api/photo",
