@@ -24,13 +24,13 @@ export async function POST(request: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name: name || email.split('@')[0], // Default name from email if not provided
-      },
-    });
+        const newUser = await prisma.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            name: name || email.split('@')[0],
+          },
+        });
 
     // Do not return password in the response
     const { password: _, ...userWithoutPassword } = newUser;
