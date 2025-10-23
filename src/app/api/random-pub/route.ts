@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pubData } from '@/data/pubData';
 import { isPubOpenNow } from '@/utils/openingHours';
 
+type SearchSelection = 
+  | { type: 'area'; data: { area: string } }
+  | { type: 'amenity'; data: { amenity: string } }
+  | { type: 'pub'; data: { pub: string } };
+
 interface RandomPubFilters {
   area?: string;
   amenities?: string[];
   openNow?: boolean;
   minRating?: number;
   excludeIds?: string[];
-  searchSelections?: any[];
+  searchSelections?: SearchSelection[];
 }
 
 // Weighted random selection using crypto RNG
@@ -69,7 +74,9 @@ export async function GET(request: NextRequest) {
       openNow: searchParams.get('open_now') === 'true',
       minRating: searchParams.get('min_rating') ? parseFloat(searchParams.get('min_rating')!) : undefined,
       excludeIds: searchParams.get('exclude_ids')?.split(',').filter(Boolean) || [],
-      searchSelections: searchParams.get('search_selections') ? JSON.parse(searchParams.get('search_selections')!) : []
+      searchSelections: searchParams.get('search_selections') 
+        ? (JSON.parse(searchParams.get('search_selections')!) as SearchSelection[])
+        : []
     };
     
     // Filter pubs based on criteria
@@ -99,7 +106,7 @@ export async function GET(request: NextRequest) {
       
       // Search selections filter (from SearchBar)
       if (filters.searchSelections && filters.searchSelections.length > 0) {
-        const matchesSearchSelections = filters.searchSelections.every(selection => {
+        const matchesSearchSelections = filters.searchSelections.every((selection: SearchSelection) => {
           switch (selection.type) {
             case 'area':
               return pub.area === selection.data.area;

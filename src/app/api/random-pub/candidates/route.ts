@@ -12,7 +12,14 @@ export async function GET(request: NextRequest) {
     const openNow = searchParams.get('open_now') === 'true';
     const minRating = searchParams.get('min_rating') ? parseFloat(searchParams.get('min_rating')!) : undefined;
     const excludeIds = searchParams.get('exclude_ids')?.split(',').filter(Boolean) || [];
-    const searchSelections = searchParams.get('search_selections') ? JSON.parse(searchParams.get('search_selections')!) : [];
+    type SearchSelection = 
+      | { type: 'area'; data: { area: string } }
+      | { type: 'amenity'; data: { amenity: string } }
+      | { type: 'pub'; data: { pub: string } };
+
+    const searchSelections: SearchSelection[] = searchParams.get('search_selections') 
+      ? JSON.parse(searchParams.get('search_selections')!) 
+      : [];
     
     // Count pubs based on criteria (without loading full data)
     let candidateCount = 0;
@@ -44,7 +51,7 @@ export async function GET(request: NextRequest) {
       
       // Search selections filter (from SearchBar)
       if (searchSelections && searchSelections.length > 0) {
-        const matchesSearchSelections = searchSelections.every(selection => {
+        const matchesSearchSelections = searchSelections.every((selection: SearchSelection) => {
           switch (selection.type) {
             case 'area':
               return pub.area === selection.data.area;
