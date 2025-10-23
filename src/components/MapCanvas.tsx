@@ -90,7 +90,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   const updateMarkerVisibility = useCallback((map: google.maps.Map) => {
     if (!pinsLoadedRef.current || markersRef.current.length === 0) return;
 
-    const bounds = map.getBounds();
+    const bounds = map.getBounds() ?? null;
     console.log('Updating marker visibility for bounds');
 
     let visibleCount = 0;
