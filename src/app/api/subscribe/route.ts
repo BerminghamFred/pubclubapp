@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           success: false, 
-          message: error.errors[0].message 
+          message: (error.issues && error.issues.length > 0) ? error.issues[0].message : 'Invalid input'
         },
         { status: 400 }
       );
