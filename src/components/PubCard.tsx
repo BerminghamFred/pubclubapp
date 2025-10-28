@@ -163,12 +163,6 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
           fallbackIcon="🍺"
         />
       </div>
-            {/* Debug: Log pub data structure */}
-            {typeof window !== 'undefined' && console.log('[PubCard]', pub.name, ':', {
-              hasInternal: !!pub._internal,
-              photoName: pub._internal?.photo_name ? 'exists' : 'missing',
-              placeId: pub._internal?.place_id ? 'exists' : 'missing'
-            })}
       
       <div className="p-6 flex flex-col flex-grow">
         <div className="flex items-center justify-between mb-3">

@@ -184,8 +184,8 @@ function RandomPageContent() {
                     setOpeningFilter('');
                   }}
                 />
+                </div>
               </div>
-            </div>
 
             {/* Spin Button */}
             <div className="mt-8">

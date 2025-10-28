@@ -510,7 +510,9 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       }
 
     try {
-      const map = new google.maps.Map(mapRef.current, {
+      const container = mapRef.current;
+      if (!container) return; // Type guard for non-null container
+      const map = new google.maps.Map(container, {
         center: { lat: 51.5074, lng: -0.1278 }, // London center
         zoom: 11,
         streetViewControl: false,
