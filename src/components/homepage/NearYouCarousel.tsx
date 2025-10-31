@@ -125,8 +125,55 @@ export default function NearYouCarousel() {
           </p>
         </div>
 
+        {/* Mobile: horizontal scroll with fixed card width (match desktop) */}
         {areas.length > 0 && (
-          <div className="relative">
+          <div className="md:hidden -mx-4 px-4 overflow-x-auto flex gap-3 snap-x snap-mandatory scroll-p-4 pb-3" role="list" aria-label="Areas near you">
+            {areas.map((area) => (
+              <div key={area.slug} role="listitem" className="snap-start">
+                <Link
+                  href={`/area/${area.slug}`}
+                  className="block group w-[360px] min-w-[360px] max-w-[360px] flex-shrink-0"
+                >
+                  <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
+                    <div className="aspect-video bg-gradient-to-br from-[#08d78c]/20 to-[#06b875]/20 relative">
+                      {area.image ? (
+                        <img
+                          src={area.image}
+                          alt={area.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ display: area.image ? 'none' : 'flex' }}
+                      >
+                        <MapPin className="w-12 h-12 text-[#08d78c]" />
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-[#08d78c] transition-colors">
+                        {area.name}
+                      </h3>
+                      <p className="text-gray-600 text-sm">
+                        {area.pubCount} {area.pubCount === 1 ? 'pub' : 'pubs'}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop: original carousel preserved */}
+        {areas.length > 0 && (
+          <div className="relative hidden md:block">
             {/* Carousel Container */}
             <div className="overflow-hidden">
               <div 
