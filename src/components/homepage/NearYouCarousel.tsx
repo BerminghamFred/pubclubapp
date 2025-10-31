@@ -132,7 +132,7 @@ export default function NearYouCarousel() {
               <div key={area.slug} role="listitem" className="snap-start">
                 <Link
                   href={`/area/${area.slug}`}
-                  className="block group w-[360px] min-w-[360px] max-w-[360px] flex-shrink-0"
+                  className="block group w-[240px] min-w-[240px] max-w-[240px] flex-shrink-0"
                 >
                   <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
                     <div className="aspect-video bg-gradient-to-br from-[#08d78c]/20 to-[#06b875]/20 relative">
