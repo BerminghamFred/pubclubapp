@@ -139,6 +139,7 @@ export default function SearchBar({
   };
 
   const getTypeIcon = (type: string) => {
+    console.log('getTypeIcon called with type:', type); // Debug log
     switch (type) {
       case 'area': return <MapPin className="w-4 h-4" />;
       case 'amenity': return <Tag className="w-4 h-4" />;
