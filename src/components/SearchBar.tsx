@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, X, MapPin, Tag, Beer } from 'lucide-react';
+import { Search, X, MapPin, Tag, Coffee, Beer } from 'lucide-react';
 import { searchSuggestions, getAllSuggestions, generateSearchUrl, SearchSuggestion } from '@/utils/searchUtils';
 
 interface SearchBarProps {
@@ -142,7 +142,7 @@ export default function SearchBar({
     switch (type) {
       case 'area': return <MapPin className="w-4 h-4" />;
       case 'amenity': return <Tag className="w-4 h-4" />;
-      case 'pub': return <Beer className="w-4 h-4" />;
+      case 'pub': return <Coffee className="w-4 h-4" />;
       default: return null;
     }
   };
