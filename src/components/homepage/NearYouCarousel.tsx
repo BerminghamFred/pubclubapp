@@ -157,7 +157,7 @@ export default function NearYouCarousel() {
                       </div>
                     </div>
                     <div className="p-4">
-                      <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-[#08d78c] transition-colors">
+                      <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-[#08d78c] transition-colors line-clamp-2 min-h-[3rem]">
                         {area.name}
                       </h3>
                       <p className="text-gray-600 text-sm">
