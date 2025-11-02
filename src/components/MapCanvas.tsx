@@ -68,6 +68,15 @@ function createAreaClusterIcon(count: number): string {
   `;
 }
 
+function createPurplePubIcon(): string {
+  return `
+    <svg width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="22.5" cy="22.5" r="18" fill="#9333ea" stroke="white" stroke-width="3"/>
+      <text x="22.5" y="30" text-anchor="middle" fill="white" font-size="18" font-weight="bold">🍺</text>
+    </svg>
+  `;
+}
+
 export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded, mapLoadError, onSwitchToListView }: MapCanvasProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<google.maps.Map | null>(null);
@@ -79,6 +88,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   const filtersRef = useRef(filters);
   const mapInitializedRef = useRef<boolean>(false);
   const visibleMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const selectedMarkerRef = useRef<google.maps.Marker | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -124,6 +134,28 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       
       const map = marker.getMap() as google.maps.Map;
       if (!map) return;
+
+      // Reset previous selected marker to green
+      if (selectedMarkerRef.current && selectedMarkerRef.current !== marker) {
+        selectedMarkerRef.current.setIcon({
+          url: `data:image/svg+xml,${encodeURIComponent(`
+            <svg width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="22.5" cy="22.5" r="18" fill="#08d78c" stroke="white" stroke-width="3"/>
+              <text x="22.5" y="30" text-anchor="middle" fill="white" font-size="18" font-weight="bold">🍺</text>
+            </svg>
+          `)}`,
+          scaledSize: new google.maps.Size(45, 45),
+          anchor: new google.maps.Point(22.5, 22.5),
+        });
+      }
+
+      // Change clicked marker to purple
+      marker.setIcon({
+        url: `data:image/svg+xml,${encodeURIComponent(createPurplePubIcon())}`,
+        scaledSize: new google.maps.Size(45, 45),
+        anchor: new google.maps.Point(22.5, 22.5),
+      });
+      selectedMarkerRef.current = marker;
 
       const formatRating = () => {
         if (!pub.rating || pub.rating === 0) {
@@ -307,10 +339,15 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
               margin-bottom: 4px;
               font-size: 11px;
               line-height: 1.2;
+              color: #333;
             }
             
             .contact-item:last-child {
               margin-bottom: 0;
+            }
+            
+            .contact-item strong {
+              color: #333;
             }
             
             .contact-item a {
@@ -387,9 +424,26 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         </div>
       `;
 
+      // Pan map to better center the marker with popup
+      const latlng = marker.getPosition();
+      if (latlng) {
+        const bounds = map.getBounds();
+        if (bounds) {
+          // Calculate a lat offset to shift marker to 25% from bottom
+          // Shifting map north (increasing lat) moves marker south visually
+          const heightDiff = bounds.getNorthEast().lat() - bounds.getSouthWest().lat();
+          const offsetLat = heightDiff * 0.25; // Shift map north to position marker at 25% from bottom
+          
+          map.panTo({
+            lat: latlng.lat() + offsetLat,
+            lng: latlng.lng()
+          });
+        }
+      }
+
       infoWindowRef.current = new google.maps.InfoWindow({
         content: popupContent,
-        disableAutoPan: true,
+        disableAutoPan: true, // Disable to prevent double-panning
         pixelOffset: new google.maps.Size(0, -20)
       });
       
