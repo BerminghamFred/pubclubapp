@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import DownloadButton from './DownloadButton';
 
 export default function Footer() {
@@ -10,11 +11,14 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Section */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-[#08d78c] rounded-full flex items-center justify-center">
-                <span className="text-black font-bold text-lg">P</span>
-              </div>
-              <span className="text-xl font-bold">Pub Club</span>
+            <div className="flex items-center mb-4">
+              <Image 
+                src="/pubclub-logo.svg" 
+                alt="Pub Club" 
+                width={100} 
+                height={100}
+                className="h-20 w-auto"
+              />
             </div>
             <p className="text-gray-300 mb-4 max-w-md">
               Discover London's best pubs with Pub Club. Find traditional pubs, modern bars, 

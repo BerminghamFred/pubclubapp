@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import Image from 'next/image';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import DownloadButton from './DownloadButton';
 import LoginModal from './LoginModal';
 
@@ -10,6 +12,19 @@ export default function Navigation() {
   const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const pathname = usePathname();
+  const [isMapView, setIsMapView] = useState(false);
+
+  useEffect(() => {
+    const checkViewParam = () => {
+      const params = new URLSearchParams(window.location.search);
+      setIsMapView(pathname === '/pubs' && params.get('view') === 'map');
+    };
+    
+    checkViewParam();
+    window.addEventListener('popstate', checkViewParam);
+    return () => window.removeEventListener('popstate', checkViewParam);
+  }, [pathname]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -17,15 +32,18 @@ export default function Navigation() {
 
 
   return (
-    <nav className="bg-black text-white shadow-lg">
+    <nav className={`bg-black text-white shadow-lg ${isMapView ? 'hidden md:block' : ''}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-24 py-2">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-[#08d78c] rounded-full flex items-center justify-center">
-              <span className="text-black font-bold text-lg">P</span>
-            </div>
-            <span className="text-xl font-bold">Pub Club</span>
+          <Link href="/" className="flex items-center">
+            <Image 
+              src="/pubclub-logo.svg" 
+              alt="Pub Club" 
+              width={100} 
+              height={100}
+              className="h-20 w-auto"
+            />
           </Link>
 
           {/* Desktop Navigation */}

@@ -419,8 +419,11 @@ export default function PubDataLoader() {
       },
       (error) => {
         console.error('Error getting location:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
         setLocationPermission('denied');
         setShowLocationPopup(false);
+        alert('Unable to get your location. Please check your browser permissions and try again.');
       },
       {
         enableHighAccuracy: true,
@@ -451,7 +454,7 @@ export default function PubDataLoader() {
         {/* Fixed viewport container */}
         <main
           id="mapViewport"
-          className="fixed left-0 right-0 top-[var(--header-h,64px)] bottom-0 grid grid-cols-1 lg:grid-cols-[360px_1fr] bg-white"
+          className="fixed left-0 right-0 top-0 md:top-24 bottom-0 grid grid-cols-1 lg:grid-cols-[360px_1fr] bg-white"
         >
           {/* Map Sidebar */}
           <aside
@@ -482,23 +485,40 @@ export default function PubDataLoader() {
             </div>
 
             {/* Floating Action Buttons */}
-            {/* Spin the Wheel Button */}
+            {/* Mobile Filters Button */}
+            <motion.button
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowMobileFilterDrawer(true)}
+              className="fixed top-12 right-4 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white shadow-2xl rounded-full px-5 py-3 flex items-center gap-2 z-40 md:hidden btn-shimmer overflow-hidden"
+              title="Filters"
+            >
+              <Filter className="w-5 h-5" />
+              <span className="font-semibold text-sm">Filters</span>
+              
+              {/* Shimmer overlay */}
+              <span
+                className={`
+                  pointer-events-none absolute inset-0
+                  before:absolute before:inset-0 before:bg-[linear-gradient(110deg,transparent,rgba(255,255,255,.55),transparent)]
+                  before:w-[60%] before:translate-x-[-120%]
+                  ${animateShimmer ? "animate-shimmer" : ""}
+                `}
+                aria-hidden="true"
+              />
+            </motion.button>
+
+            {/* Desktop Spin the Wheel Button */}
             <button
               onClick={() => setShowRandomPicker(true)}
-              className="fixed bottom-6 right-6 bg-[#08d78c] text-white p-4 rounded-full shadow-lg hover:bg-[#07c47a] transition-colors z-20"
+              className="fixed bottom-6 right-6 bg-[#08d78c] text-white p-4 rounded-full shadow-lg hover:bg-[#07c47a] transition-colors z-20 hidden md:block"
               title="Spin the Wheel"
             >
               <span className="text-2xl">🎡</span>
             </button>
 
-            {/* Toggle List Button */}
-            <button
-              onClick={() => updateListOpen(!listOpen)}
-              className="fixed bottom-6 right-20 bg-white text-gray-700 p-4 rounded-full shadow-lg hover:bg-gray-50 transition-colors z-20 border border-gray-200"
-              title={listOpen ? "Hide List" : "Show List"}
-            >
-              <List className="w-5 h-5" />
-            </button>
           </section>
 
           {/* Result Drawer */}
@@ -522,6 +542,41 @@ export default function PubDataLoader() {
           }}
           onViewPub={handleViewPub}
         />
+
+        {/* Mobile Filter Drawer */}
+        <MobileFilterDrawer
+          isOpen={showMobileFilterDrawer}
+          onClose={() => setShowMobileFilterDrawer(false)}
+          amenitiesByCategory={amenitiesByCategory}
+          selectedAmenities={mapFilters.selectedAmenities}
+          onAmenityToggle={(amenity) => {
+            const isSelected = mapFilters.selectedAmenities.includes(amenity);
+            const newAmenities = isSelected
+              ? mapFilters.selectedAmenities.filter(a => a !== amenity)
+              : [...mapFilters.selectedAmenities, amenity];
+            updateMapFilters({ ...mapFilters, selectedAmenities: newAmenities });
+          }}
+          onClearAll={() => updateMapFilters({
+            ...mapFilters,
+            selectedAmenities: [],
+            selectedArea: 'All Areas',
+            minRating: 0,
+            openingFilter: '',
+          })}
+          areas={areas}
+          selectedArea={mapFilters.selectedArea}
+          onAreaChange={(area) => updateMapFilters({ ...mapFilters, selectedArea: area })}
+          minRating={mapFilters.minRating}
+          onRatingChange={(rating) => updateMapFilters({ ...mapFilters, minRating: rating })}
+          openingFilter={mapFilters.openingFilter}
+          onRemoveArea={() => updateMapFilters({ ...mapFilters, selectedArea: 'All Areas' })}
+          onRemoveRating={() => updateMapFilters({ ...mapFilters, minRating: 0 })}
+          onRemoveOpening={() => updateMapFilters({ ...mapFilters, openingFilter: '' })}
+          onSearch={(selections) => {
+            // Handle search for map view
+            console.log('Map view search:', selections);
+          }}
+        />
       </>
     );
   }
@@ -537,7 +592,7 @@ export default function PubDataLoader() {
             {/* Search Bar */}
             <div className="md:col-span-5">
               <SearchBar
-                placeholder="Search by pub name, area, or features..."
+                placeholder="Quick search by features, area, or pub name..."
                 onSearch={handleSearchSelections}
                 variant="default"
               />
@@ -624,30 +679,51 @@ export default function PubDataLoader() {
               ) : null}
               </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-2">
-                <button 
-                onClick={() => setView('list')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-                  view === 'list'
-                    ? 'bg-[#08d78c] text-white shadow-md'
-                    : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
-                }`}
-              >
-                <List className="w-4 h-4" />
-                List
-              </button>
+            {/* Sort by Distance and View Mode Toggles */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Sort by Distance Button */}
               <button
-                onClick={() => setView('map')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-                  (view as 'list' | 'map') === 'map'
-                    ? 'bg-[#08d78c] text-white shadow-md'
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('Sort by distance button clicked');
+                  requestUserLocation();
+                }}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                  userLocation
+                    ? 'bg-green-100 text-green-800 border border-green-300'
                     : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
                 }`}
+                title={userLocation ? 'Already sorted by distance' : 'Sort by distance to you'}
               >
-                <MapIcon className="w-4 h-4" />
-                Map
+                <MapPin className="w-4 h-4" />
+                <span>{userLocation ? 'Sorted' : 'Sort by distance'}</span>
               </button>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2">
+                  <button 
+                  onClick={() => setView('list')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                    view === 'list'
+                      ? 'bg-[#08d78c] text-white shadow-md'
+                      : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                  List
+                </button>
+                <button
+                  onClick={() => setView('map')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                    (view as 'list' | 'map') === 'map'
+                      ? 'bg-[#08d78c] text-white shadow-md'
+                      : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  <MapIcon className="w-4 h-4" />
+                  Map
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -800,7 +876,7 @@ export default function PubDataLoader() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowMobileFilterDrawer(true)}
-            className="fixed top-20 right-4 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white shadow-2xl rounded-full px-5 py-3 flex items-center gap-2 z-40 md:hidden btn-shimmer overflow-hidden"
+            className="fixed top-12 right-4 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white shadow-2xl rounded-full px-5 py-3 flex items-center gap-2 z-40 md:hidden btn-shimmer overflow-hidden"
             title="Filters"
           >
             <Filter className="w-5 h-5" />

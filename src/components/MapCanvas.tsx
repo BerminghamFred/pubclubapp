@@ -632,7 +632,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       {onSwitchToListView && (
         <button
           onClick={onSwitchToListView}
-          className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-gray-700 p-3 rounded-lg shadow-lg hover:bg-white transition-colors z-20 border border-gray-200 flex items-center gap-2"
+          className="absolute top-12 left-4 bg-white/90 backdrop-blur-sm text-gray-700 p-3 rounded-lg shadow-lg hover:bg-white transition-colors z-20 border border-gray-200 flex items-center gap-2"
           title="Switch to List View"
         >
           <List className="w-5 h-5" />
