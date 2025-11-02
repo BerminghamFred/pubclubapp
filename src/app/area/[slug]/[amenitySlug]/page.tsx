@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { getAllAreaAmenityCombinations, getAreaAmenityPage } from '@/data/amenityData';
+import { getAllAreaAmenityCombinations, getAreaAmenityPage, getAmenityFilterName } from '@/data/amenityData';
 import AreaPubsGridWithPagination from '@/components/AreaPubsGridWithPagination';
 import AreaMap from '@/components/AreaMap';
 
@@ -62,9 +62,9 @@ export default async function AreaAmenityPage({ params }: { params: Promise<{ sl
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <section className="bg-black text-white py-8">
+      <section className="bg-black text-white py-4 md:py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4 text-sm md:text-base">
             <Link 
               href="/" 
               className="text-[#08d78c] hover:text-[#06b875] transition-colors"
@@ -87,16 +87,16 @@ export default async function AreaAmenityPage({ params }: { params: Promise<{ sl
             </Link>
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-4">
             {pageData.pageTitle}
           </h1>
           
-          <div className="flex items-center gap-4 text-lg text-gray-300">
+          <div className="flex items-center gap-2 md:gap-4 text-xs md:text-lg text-gray-300">
             <span>{pageData.matchingCount} {pageData.amenityTitle.toLowerCase()} pubs</span>
             <span>•</span>
             <span>in {pageData.areaName}</span>
             <span>•</span>
-            <span>Expert recommendations</span>
+            <span className="hidden sm:inline">Expert recommendations</span>
           </div>
         </div>
       </section>
@@ -104,10 +104,20 @@ export default async function AreaAmenityPage({ params }: { params: Promise<{ sl
       {/* SEO Summary */}
       <section className="py-8 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="prose prose-lg max-w-none">
+          <div className="prose prose-lg max-w-none text-center">
             <p className="text-gray-700 leading-relaxed text-lg">
               {pageData.description}
             </p>
+          </div>
+          
+          {/* CTA Button */}
+          <div className="mt-6 flex justify-center">
+            <Link 
+              href={`/pubs?amenities=${encodeURIComponent(getAmenityFilterName(resolvedParams.amenitySlug))}`}
+              className="inline-block bg-[#08d78c] hover:bg-[#06b875] text-black px-6 py-3 rounded-lg font-semibold transition-colors duration-200"
+            >
+              Explore all {pageData.amenityTitle} pubs →
+            </Link>
           </div>
         </div>
       </section>

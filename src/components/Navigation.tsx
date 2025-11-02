@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import DownloadButton from './DownloadButton';
 import LoginModal from './LoginModal';
 
@@ -13,17 +13,23 @@ export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isMapView, setIsMapView] = useState(false);
 
   useEffect(() => {
-    const checkViewParam = () => {
+    const viewParam = searchParams.get('view');
+    setIsMapView(pathname === '/pubs' && viewParam === 'map');
+  }, [pathname, searchParams]);
+  
+  // Also listen for browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
       setIsMapView(pathname === '/pubs' && params.get('view') === 'map');
     };
     
-    checkViewParam();
-    window.addEventListener('popstate', checkViewParam);
-    return () => window.removeEventListener('popstate', checkViewParam);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [pathname]);
 
   const toggleMenu = () => {

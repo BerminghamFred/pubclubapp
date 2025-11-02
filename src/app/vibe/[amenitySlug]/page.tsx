@@ -5,6 +5,7 @@ import { AMENITY_FILTERS, getAllAreaAmenityCombinations } from '@/data/amenityDa
 import { getAllAreas } from '@/data/areaData';
 import { pubData } from '@/data/pubData';
 import { generateAreaSlug } from '@/data/areaData';
+import VibeAreaSearch from '@/components/VibeAreaSearch';
 
 // Generate static params for all amenity slugs
 export async function generateStaticParams() {
@@ -96,9 +97,9 @@ export default async function VibePage({ params }: { params: Promise<{ amenitySl
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <section className="bg-black text-white py-12">
+      <section className="bg-black text-white py-4 md:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-6 text-sm md:text-base">
             <Link 
               href="/" 
               className="text-[#08d78c] hover:text-[#06b875] transition-colors"
@@ -115,20 +116,20 @@ export default async function VibePage({ params }: { params: Promise<{ amenitySl
           </div>
           
           <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-4">
+            <h1 className="text-2xl md:text-4xl lg:text-6xl font-bold mb-2 md:mb-4">
               {amenity.title} Pubs in London
             </h1>
             
-            <p className="text-xl text-gray-300 mb-6 max-w-3xl mx-auto">
+            <p className="text-sm md:text-xl text-gray-300 mb-4 md:mb-6 max-w-3xl mx-auto">
               {amenity.description}
             </p>
             
-            <div className="flex items-center justify-center gap-4 text-lg text-gray-300">
+            <div className="flex items-center justify-center gap-2 md:gap-4 text-xs md:text-lg text-gray-300">
               <span>{areasWithAmenity.length} areas</span>
               <span>•</span>
               <span>{areasWithAmenity.reduce((sum, area) => sum + area.matchingCount, 0)} {amenity.title.toLowerCase()} pubs</span>
               <span>•</span>
-              <span>Expert recommendations</span>
+              <span className="hidden sm:inline">Expert recommendations</span>
             </div>
           </div>
         </div>
@@ -156,9 +157,10 @@ export default async function VibePage({ params }: { params: Promise<{ amenitySl
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
               {amenity.title} Pubs by Area
             </h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-6">
               Explore {amenity.title.toLowerCase()} pubs in each London area
             </p>
+            <VibeAreaSearch areas={areasWithAmenity} amenitySlug={resolvedParams.amenitySlug} />
           </div>
           
           {areasWithAmenity.length > 0 ? (

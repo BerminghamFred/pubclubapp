@@ -42,6 +42,7 @@ export default function PubDataLoader() {
       minRating,
       openingFilter,
     },
+    updateUrl,
     setView,
     setSearchTerm,
     setSelectedArea,
@@ -384,12 +385,15 @@ export default function PubDataLoader() {
   };
 
   const handleClearAllFilters = () => {
-    setSearchTerm('');
+    // Use updateUrl to clear all filters in one batch operation
+    updateUrl({
+      searchTerm: '',
+      selectedArea: 'All Areas',
+      selectedAmenities: [],
+      minRating: 0,
+      openingFilter: '',
+    });
     setSearchSelections([]);
-    setSelectedArea('');
-    setSelectedAmenities([]);
-    setMinRating(0);
-    setOpeningFilter('');
     setCurrentPage(1);
   };
 
@@ -561,7 +565,7 @@ export default function PubDataLoader() {
             selectedAmenities: [],
             selectedArea: 'All Areas',
             minRating: 0,
-            openingFilter: '',
+            openingFilter: 'Any Time',
           })}
           areas={areas}
           selectedArea={mapFilters.selectedArea}
@@ -571,7 +575,7 @@ export default function PubDataLoader() {
           openingFilter={mapFilters.openingFilter}
           onRemoveArea={() => updateMapFilters({ ...mapFilters, selectedArea: 'All Areas' })}
           onRemoveRating={() => updateMapFilters({ ...mapFilters, minRating: 0 })}
-          onRemoveOpening={() => updateMapFilters({ ...mapFilters, openingFilter: '' })}
+          onRemoveOpening={() => updateMapFilters({ ...mapFilters, openingFilter: 'Any Time' })}
           onSearch={(selections) => {
             // Handle search for map view
             console.log('Map view search:', selections);
@@ -867,49 +871,47 @@ export default function PubDataLoader() {
       </section>
 
       {/* Mobile Filters Button (replaces Spin Wheel on mobile) */}
-      {filteredPubs.length > 0 && (
-        <>
-          {/* Mobile Filters Button */}
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowMobileFilterDrawer(true)}
-            className="fixed top-12 right-4 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white shadow-2xl rounded-full px-5 py-3 flex items-center gap-2 z-40 md:hidden btn-shimmer overflow-hidden"
-            title="Filters"
-          >
-            <Filter className="w-5 h-5" />
-            <span className="font-semibold text-sm">Filters</span>
-            
-            {/* Shimmer overlay */}
-            <span
-              className={`
-                pointer-events-none absolute inset-0
-                before:absolute before:inset-0 before:bg-[linear-gradient(110deg,transparent,rgba(255,255,255,.55),transparent)]
-                before:w-[60%] before:translate-x-[-120%]
-                ${animateShimmer ? "animate-shimmer" : ""}
-              `}
-              aria-hidden="true"
-            />
-          </motion.button>
+      {/* Mobile Filters Button */}
+      <motion.button
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowMobileFilterDrawer(true)}
+        className="fixed top-12 left-4 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white shadow-2xl rounded-full px-5 py-3 flex items-center gap-2 z-40 md:hidden btn-shimmer overflow-hidden"
+        title="Filters"
+      >
+        <Filter className="w-5 h-5" />
+        <span className="font-semibold text-sm">Filters</span>
+        
+        {/* Shimmer overlay */}
+        <span
+          className={`
+            pointer-events-none absolute inset-0
+            before:absolute before:inset-0 before:bg-[linear-gradient(110deg,transparent,rgba(255,255,255,.55),transparent)]
+            before:w-[60%] before:translate-x-[-120%]
+            ${animateShimmer ? "animate-shimmer" : ""}
+          `}
+          aria-hidden="true"
+        />
+      </motion.button>
 
-          {/* Desktop Spin Wheel Button */}
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowRandomPicker(true)}
-            className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white rounded-full shadow-2xl flex items-center justify-center text-3xl z-40 group hidden md:flex"
-            title="Spin the Wheel - Random Pub"
-          >
-            🎡
-            <div className="absolute -top-12 right-0 bg-black text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Feeling indecisive? Spin!
-            </div>
-          </motion.button>
-        </>
+      {/* Desktop Spin Wheel Button */}
+      {filteredPubs.length > 0 && (
+        <motion.button
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowRandomPicker(true)}
+          className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white rounded-full shadow-2xl flex items-center justify-center text-3xl z-40 group hidden md:flex"
+          title="Spin the Wheel - Random Pub"
+        >
+          🎡
+          <div className="absolute -top-12 right-0 bg-black text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            Feeling indecisive? Spin!
+          </div>
+        </motion.button>
       )}
 
       {/* Filter Drawer (Desktop) */}

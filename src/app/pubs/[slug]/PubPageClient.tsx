@@ -278,9 +278,9 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <section className="bg-black text-white py-8">
+      <section className="bg-black text-white py-4 md:py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4 text-sm md:text-base">
             <Link 
               href="/pubs" 
               className="text-[#08d78c] hover:text-[#06b875] transition-colors"
@@ -296,8 +296,8 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
             </Link>
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{pub.name}</h1>
-          <div className="flex items-center gap-4 text-lg text-gray-300">
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-4">{pub.name}</h1>
+          <div className="flex items-center gap-2 md:gap-4 text-xs md:text-lg text-gray-300">
             <span>{pub.type}</span>
             <span>•</span>
             <span>{pub.area}</span>
@@ -316,7 +316,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 flex flex-col space-y-8">
             
             {/* Photo */}
             <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
@@ -335,7 +335,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
             {/* Description */}
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-4">About {pub.name}</h2>
-              <p className="text-lg text-gray-600 leading-relaxed">{pub.description}</p>
+              <p className="text-base text-gray-600 leading-relaxed">{pub.description}</p>
             </div>
             
             {/* Features & Amenities */}
@@ -477,10 +477,10 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
           </div>
           
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="flex flex-col space-y-6">
             
             {/* Contact Info */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6 lg:order-first">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Contact Information</h3>
               <div className="space-y-3">
                 <div>
@@ -509,31 +509,32 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
               </div>
             </div>
             
-            {/* Rating */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Overall Rating</h3>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-[#08d78c] mb-2">{ratingData.combinedRating.toFixed(1)}</div>
-                <div className="flex justify-center mb-2">
-                  {[...Array(5)].map((_, i) => (
-                    <span 
-                      key={i} 
-                      className={`text-2xl ${i < Math.floor(ratingData.combinedRating) ? 'text-yellow-400' : 'text-gray-300'}`}
-                    >
-                      ★
-                    </span>
-                  ))}
-                </div>
-                <p className="text-gray-600 mb-2">{ratingData.totalReviews} total reviews</p>
-                <div className="text-sm text-gray-500 space-y-1">
-                  <p>{ratingData.googleReviewCount} Google reviews ({ratingData.googleRating.toFixed(1)}★)</p>
-                  <p>{userReviews.length} user reviews ({userReviews.length > 0 ? ratingData.userRatingAvg.toFixed(1) : '0.0'}★)</p>
-                </div>
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg shadow-md p-6 lg:order-2">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
+              <div className="space-y-3">
+                <Link 
+                  href="/pubs?view=map" 
+                  className="w-full bg-[#08d78c] hover:bg-[#06b875] text-black py-3 px-4 rounded-lg font-semibold transition-colors duration-200 text-center block"
+                >
+                  <MapPin className="w-5 h-5 inline mr-2" />
+                  View on Map
+                </Link>
+                {pub._internal?.lat && pub._internal?.lng && (
+                  <a 
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${pub._internal.lat},${pub._internal.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors duration-200 text-center block"
+                  >
+                    Get Directions
+                  </a>
+                )}
               </div>
             </div>
 
             {/* User Actions */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6 lg:order-3">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Your Actions</h3>
               <div className="space-y-3">
                 <button
@@ -578,27 +579,26 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
               </div>
             </div>
             
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <Link 
-                  href="/pubs?view=map" 
-                  className="w-full bg-[#08d78c] hover:bg-[#06b875] text-black py-3 px-4 rounded-lg font-semibold transition-colors duration-200 text-center block"
-                >
-                  <MapPin className="w-5 h-5 inline mr-2" />
-                  View on Map
-                </Link>
-                {pub._internal?.lat && pub._internal?.lng && (
-                  <a 
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${pub._internal.lat},${pub._internal.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors duration-200 text-center block"
-                  >
-                    Get Directions
-                  </a>
-                )}
+            {/* Rating */}
+            <div className="bg-white rounded-lg shadow-md p-6 lg:order-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Overall Rating</h3>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-[#08d78c] mb-2">{ratingData.combinedRating.toFixed(1)}</div>
+                <div className="flex justify-center mb-2">
+                  {[...Array(5)].map((_, i) => (
+                    <span 
+                      key={i} 
+                      className={`text-2xl ${i < Math.floor(ratingData.combinedRating) ? 'text-yellow-400' : 'text-gray-300'}`}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+                <p className="text-gray-600 mb-2">{ratingData.totalReviews} total reviews</p>
+                <div className="text-sm text-gray-500 space-y-1">
+                  <p>{ratingData.googleReviewCount} Google reviews ({ratingData.googleRating.toFixed(1)}★)</p>
+                  <p>{userReviews.length} user reviews ({userReviews.length > 0 ? ratingData.userRatingAvg.toFixed(1) : '0.0'}★)</p>
+                </div>
               </div>
             </div>
             

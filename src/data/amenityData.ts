@@ -107,6 +107,23 @@ export const AMENITY_FILTERS: AmenityFilter[] = [
   }
 ];
 
+// Map amenity slugs to their primary filter name for URL parameters
+export function getAmenityFilterName(amenitySlug: string): string {
+  const mapping: { [key: string]: string } = {
+    'sunday-roast': 'Sunday Roast',
+    'dog-friendly': 'Dog Friendly',
+    'beer-garden': 'Beer Garden',
+    'sky-sports': 'Sky Sports',
+    'bottomless-brunch': 'Bottomless Brunch',
+    'cocktails': 'Cocktails',
+    'pub-quiz': 'Pub Quiz',
+    'live-music': 'Live Music',
+    'real-ale-craft-beer': 'Real Ale', // Using the first primary term
+    'pool-table-darts': 'Pool Table' // Using the first primary term
+  };
+  return mapping[amenitySlug] || 'Cocktails'; // Fallback
+}
+
 // Generate area slug (reuse existing function)
 function generateAreaSlug(name: string): string {
   return name
