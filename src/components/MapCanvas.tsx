@@ -57,6 +57,16 @@ function isPinInBounds(pin: PubPin, bounds: google.maps.LatLngBounds | null): bo
   return bounds.contains(new google.maps.LatLng(pin.lat, pin.lng));
 }
 
+function createAreaClusterIcon(count: number): string {
+  const size = count < 10 ? 50 : count < 100 ? 60 : 70;
+  const fontSize = count < 10 ? '18' : count < 100 ? '20' : '22';
+  return `
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#08d78c" stroke="white" stroke-width="3"/>
+      <text x="${size/2}" y="${size/2 + 6}" text-anchor="middle" fill="white" font-size="${fontSize}" font-weight="bold" font-family="Arial, sans-serif">${count}</text>
+    </svg>
+  `;
+}
 
 export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded, mapLoadError, onSwitchToListView }: MapCanvasProps) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -68,10 +78,12 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
   const pinsLoadedRef = useRef<boolean>(false);
   const filtersRef = useRef(filters);
   const mapInitializedRef = useRef<boolean>(false);
+  const visibleMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [totalPubs, setTotalPubs] = useState(0);
+  const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set());
   
   // Use loading state from parent or fallback to hook if not provided
   const shouldLoadScript = isMapLoaded === undefined;
@@ -86,27 +98,430 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
     filtersRef.current = filters;
   }, [filters]);
 
-  // Update marker visibility based on current map bounds (client-side only)
-  const updateMarkerVisibility = useCallback((map: google.maps.Map) => {
-    if (!pinsLoadedRef.current || markersRef.current.length === 0) return;
+  // Helper function to create a pub marker
+  const createPubMarker = useCallback((pub: PubPin, map: google.maps.Map): google.maps.Marker => {
+    const marker = new google.maps.Marker({
+      position: { lat: pub.lat, lng: pub.lng },
+      map: map,
+      title: pub.name,
+      icon: {
+        url: `data:image/svg+xml,${encodeURIComponent(`
+          <svg width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="22.5" cy="22.5" r="18" fill="#08d78c" stroke="white" stroke-width="3"/>
+            <text x="22.5" y="30" text-anchor="middle" fill="white" font-size="18" font-weight="bold">🍺</text>
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(45, 45),
+        anchor: new google.maps.Point(22.5, 22.5),
+      },
+    });
+
+    // Add click listener for popup
+    marker.addListener('click', () => {
+      if (infoWindowRef.current) {
+        infoWindowRef.current.close();
+      }
+      
+      const map = marker.getMap() as google.maps.Map;
+      if (!map) return;
+
+      const formatRating = () => {
+        if (!pub.rating || pub.rating === 0) {
+          return '⭐ New';
+        }
+        return `⭐ ${pub.rating}${pub.reviewCount > 0 ? ` · ${pub.reviewCount} reviews` : ''}`;
+      };
+
+      const showAmenities = () => {
+        if (!pub.amenities || pub.amenities.length === 0) return '';
+        
+        const visibleAmenities = pub.amenities.slice(0, 4);
+        const remainingCount = pub.amenities.length - visibleAmenities.length;
+        
+        const amenityChips = visibleAmenities.map(amenity => 
+          `<span class="amenity-chip">${amenity}</span>`
+        ).join('');
+        
+        const moreIndicator = remainingCount > 0 ? 
+          `<span class="amenity-more">+${remainingCount} more</span>` : '';
+          
+        return `<div class="amenities-container">${amenityChips}${moreIndicator}</div>`;
+      };
+
+      const formatContact = () => {
+        const contactItems = [];
+        if (pub.address) {
+          contactItems.push(`<div class="contact-item"><strong>📍</strong> ${pub.address}</div>`);
+        }
+        if (pub.phone) {
+          contactItems.push(`<div class="contact-item"><strong>📞</strong> <a href="tel:${pub.phone}">${pub.phone}</a></div>`);
+        }
+        return contactItems.length > 0 ? `<div class="contact-details">${contactItems.join('')}</div>` : '';
+      };
+
+      const popupContent = `
+        <div class="pub-popup-container">
+          <style>
+            .gm-style-iw, .gm-style-iw-d, .gm-style-iw-c, .gm-style-iw-t {
+              padding: 0 !important;
+              background: transparent !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+              border: none !important;
+              margin: 0 !important;
+              overflow: visible !important;
+            }
+            
+            .gm-style-iw-t::after, .gm-style-iw-t::before {
+              display: none !important;
+            }
+            
+            .gm-style-iw + div {
+              display: none !important;
+            }
+            
+            .pub-popup {
+              width: 300px;
+              max-width: 90vw;
+              background: white;
+              border-radius: 16px;
+              box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+              border: 1px solid rgba(0, 0, 0, 0.08);
+              position: relative;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              overflow: hidden;
+              animation: popupIn 0.15s ease-out;
+            }
+            
+            @keyframes popupIn {
+              from { opacity: 0; transform: scale(0.9) translateY(10px); }
+              to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            
+            .pub-popup::after {
+              content: '';
+              position: absolute;
+              bottom: -12px;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 0;
+              height: 0;
+              border-left: 12px solid transparent;
+              border-right: 12px solid transparent;
+              border-top: 12px solid white;
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            }
+            
+            .popup-close {
+              position: absolute;
+              top: 16px;
+              right: 16px;
+              width: 36px;
+              height: 36px;
+              border: none;
+              background: rgba(255, 255, 255, 0.9);
+              backdrop-filter: blur(10px);
+              font-size: 22px;
+              color: #666;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border-radius: 50%;
+              transition: all 0.2s ease;
+              z-index: 10;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            }
+            
+            .popup-close:hover { 
+              background: white; 
+              color: #333; 
+              transform: scale(1.05);
+            }
+            
+            .popup-image {
+              width: 100%;
+              height: 80px;
+              object-fit: cover;
+              display: block;
+            }
+            
+            .popup-content {
+              padding: 12px;
+            }
+            
+            .popup-header {
+              margin-bottom: 8px;
+            }
+            
+            .popup-title {
+              font-size: 18px;
+              font-weight: 700;
+              margin: 0 0 6px 0;
+              color: #1a1a1a;
+              line-height: 1.2;
+            }
+            
+            .popup-rating {
+              font-size: 13px;
+              color: #666;
+              margin: 0 0 8px 0;
+            }
+            
+            .amenities-container {
+              display: flex;
+              gap: 4px;
+              flex-wrap: wrap;
+              margin-bottom: 8px;
+            }
+            
+            .amenity-chip {
+              background: rgba(8, 215, 140, 0.15);
+              color: #08d78c;
+              font-size: 10px;
+              padding: 3px 6px;
+              border-radius: 10px;
+              font-weight: 600;
+            }
+            
+            .amenity-more {
+              background: rgba(102, 102, 102, 0.15);
+              color: #666;
+              font-size: 10px;
+              padding: 3px 6px;
+              border-radius: 10px;
+              font-weight: 500;
+            }
+            
+            .contact-details {
+              margin-bottom: 12px;
+              padding: 8px;
+              background: #f8f9fa;
+              border-radius: 6px;
+            }
+            
+            .contact-item {
+              display: flex;
+              align-items: flex-start;
+              gap: 4px;
+              margin-bottom: 4px;
+              font-size: 11px;
+              line-height: 1.2;
+            }
+            
+            .contact-item:last-child {
+              margin-bottom: 0;
+            }
+            
+            .contact-item a {
+              color: #08d78c;
+              text-decoration: none;
+            }
+            
+            .contact-item a:hover {
+              text-decoration: underline;
+            }
+            
+            .popup-actions {
+              margin-top: 12px;
+            }
+            
+            .popup-btn {
+              width: 100%;
+              background: #08d78c;
+              color: black;
+              border: none;
+              border-radius: 10px;
+              padding: 12px 16px;
+              font-size: 14px;
+              font-weight: 700;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              text-decoration: none;
+              display: block;
+              text-align: center;
+            }
+            
+            .popup-btn:hover { 
+              background: #06b875;
+              transform: translateY(-1px);
+              box-shadow: 0 4px 12px rgba(8, 215, 140, 0.3);
+            }
+            
+            @media (max-width: 640px) {
+              .pub-popup {
+                width: 100%;
+                max-width: 100%;
+                border-radius: 16px 16px 0 0;
+                margin: 0;
+              }
+              .pub-popup::after { display: none; }
+              .popup-content { padding: 12px; }
+              .popup-title { font-size: 18px; }
+            }
+          </style>
+          
+          <div class="pub-popup" role="dialog" aria-labelledby="popup-title-${pub.id}" aria-describedby="popup-rating-${pub.id}">
+            <button class="popup-close" onclick="window.closeInfoWindow && window.closeInfoWindow()" aria-label="Close">×</button>
+            
+            <img 
+              src="${pub.photo || '/images/placeholders/thumb.webp'}" 
+              alt="${pub.name}"
+              class="popup-image"
+            />
+            
+            <div class="popup-content">
+              <div class="popup-header">
+                <h2 id="popup-title-${pub.id}" class="popup-title">${pub.name}</h2>
+                <p id="popup-rating-${pub.id}" class="popup-rating">${formatRating()}</p>
+                ${showAmenities()}
+              </div>
+              
+              ${formatContact()}
+              
+              <div class="popup-actions">
+                <a href="/pubs/${pub.id}" class="popup-btn">View Pub</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      infoWindowRef.current = new google.maps.InfoWindow({
+        content: popupContent,
+        disableAutoPan: true,
+        pixelOffset: new google.maps.Size(0, -20)
+      });
+      
+      infoWindowRef.current.open({ 
+        anchor: marker, 
+        map: map,
+        shouldFocus: false
+      });
+      
+      (window as any).closeInfoWindow = () => {
+        if (infoWindowRef.current) {
+          infoWindowRef.current.close();
+        }
+      };
+    });
+
+    return marker;
+  }, []);
+
+  // Helper function to create an area cluster marker
+  const createAreaClusterMarker = useCallback((areaName: string, count: number, centroid: { lat: number; lng: number }, map: google.maps.Map): google.maps.Marker => {
+    const marker = new google.maps.Marker({
+      position: { lat: centroid.lat, lng: centroid.lng },
+      map: map,
+      title: `${areaName} - ${count} pubs`,
+      icon: {
+        url: `data:image/svg+xml,${encodeURIComponent(createAreaClusterIcon(count))}`,
+        scaledSize: new google.maps.Size(50, 50),
+        anchor: new google.maps.Point(25, 25),
+      },
+      zIndex: google.maps.Marker.MAX_ZINDEX + 1,
+    });
+
+    marker.addListener('click', () => {
+      // Expand this area to show individual pins
+      setExpandedAreas(prev => new Set(prev).add(areaName));
+      
+      // Trigger map update
+      setTimeout(() => updateAreaClusters(map), 0);
+    });
+
+    return marker;
+  }, []);
+
+  // Update area-based cluster markers
+  const updateAreaClusters = useCallback((map: google.maps.Map) => {
+    if (!pinsLoadedRef.current || allPinsRef.current.length === 0) return;
 
     const bounds = map.getBounds() ?? null;
-    console.log('Updating marker visibility for bounds');
+    const zoom = map.getZoom() || 10;
+    console.log(`Updating area clusters at zoom ${zoom}`);
 
-    let visibleCount = 0;
+    // Group pins by area
+    const areaGroups = new Map<string, { pins: PubPin[], centroid: { lat: number; lng: number } }>();
     
-    // Show/hide markers based on current bounds
-    markersRef.current.forEach((marker, index) => {
-      const pin = allPinsRef.current[index];
-      if (pin && marker) {
-        const isVisible = isPinInBounds(pin, bounds);
-        marker.setMap(isVisible ? map : null);
-        if (isVisible) visibleCount++;
+    allPinsRef.current.forEach(pin => {
+      if (!pin.area || pin.area.trim() === '') return; // Skip pubs without area
+      
+      const existing = areaGroups.get(pin.area) || { pins: [], centroid: { lat: 0, lng: 0 } };
+      existing.pins.push(pin);
+      areaGroups.set(pin.area, existing);
+    });
+
+    // Calculate centroids for each area
+    areaGroups.forEach((group, areaName) => {
+      const latSum = group.pins.reduce((sum, pin) => sum + pin.lat, 0);
+      const lngSum = group.pins.reduce((sum, pin) => sum + pin.lng, 0);
+      group.centroid = {
+        lat: latSum / group.pins.length,
+        lng: lngSum / group.pins.length
+      };
+    });
+
+    // Track which markers should be visible
+    const shouldBeVisible = new Set<string>();
+    const newMarkers: google.maps.Marker[] = [];
+
+    // Determine if we should show individual pins or clusters
+    areaGroups.forEach((group, areaName) => {
+      const isExpanded = expandedAreas.has(areaName);
+      
+      // Check if any pin in this area is in the current bounds
+      const hasVisiblePins = bounds ? group.pins.some(pin => isPinInBounds(pin, bounds)) : true;
+      
+      // Auto-expand if zoom is high enough AND the area is visible in bounds
+      const shouldAutoExpand = zoom >= 13 && hasVisiblePins;
+      
+      if ((isExpanded || shouldAutoExpand) && hasVisiblePins) {
+        // Show individual pins for this expanded area (show ALL pins in the area, not just visible ones)
+        group.pins.forEach(pin => {
+          const markerKey = `pin_${pin.id}`;
+          shouldBeVisible.add(markerKey);
+          
+          // Only create marker if it doesn't already exist
+          let marker = visibleMarkersRef.current.get(markerKey);
+          if (!marker) {
+            marker = createPubMarker(pin, map);
+            visibleMarkersRef.current.set(markerKey, marker);
+          }
+          
+          newMarkers.push(marker);
+        });
+      } else if (hasVisiblePins && bounds) {
+        // Check if cluster centroid is in bounds
+        if (isPinInBounds({ lat: group.centroid.lat, lng: group.centroid.lng } as PubPin, bounds)) {
+          // Show cluster marker for this area
+          const clusterKey = `cluster_${areaName}`;
+          shouldBeVisible.add(clusterKey);
+          
+          // Only create marker if it doesn't already exist
+          let marker = visibleMarkersRef.current.get(clusterKey);
+          if (!marker) {
+            marker = createAreaClusterMarker(areaName, group.pins.length, group.centroid, map);
+            visibleMarkersRef.current.set(clusterKey, marker);
+          }
+          
+          newMarkers.push(marker);
+        }
       }
     });
 
-    console.log(`Showing ${visibleCount} visible markers out of ${markersRef.current.length} total`);
-  }, []);
+    // Hide markers that should no longer be visible
+    visibleMarkersRef.current.forEach((marker, key) => {
+      if (!shouldBeVisible.has(key)) {
+        marker.setMap(null);
+        visibleMarkersRef.current.delete(key);
+      }
+    });
+
+    markersRef.current = newMarkers;
+    console.log(`Showing ${markersRef.current.length} markers/clusters`);
+  }, [expandedAreas]);
 
   // Load ALL pins once on initial load and when filters change
   const loadAllPins = useCallback(async (map: google.maps.Map, isInitialLoad = false) => {
@@ -138,9 +553,11 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       const data = await response.json();
       console.log('All pins loaded:', { total: data.total, itemsCount: data.items?.length });
       
-      // Clear existing markers
+      // Clear existing markers completely when filters change
       markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
+      visibleMarkersRef.current.forEach(marker => marker.setMap(null));
+      visibleMarkersRef.current.clear();
 
       // Store all pins for client-side filtering
       allPinsRef.current = data.items || [];
@@ -155,332 +572,12 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         return;
       }
 
-      // Create markers for all pins and add them to map initially
-      const allMarkers: google.maps.Marker[] = data.items.map((pub: PubPin) => {
-        const marker = new google.maps.Marker({
-          position: { lat: pub.lat, lng: pub.lng },
-          map: map, // Add to map initially
-          title: pub.name,
-          icon: {
-            url: `data:image/svg+xml,${encodeURIComponent(`
-              <svg width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="22.5" cy="22.5" r="18" fill="#08d78c" stroke="white" stroke-width="3"/>
-                <text x="22.5" y="30" text-anchor="middle" fill="white" font-size="18" font-weight="bold">🍺</text>
-              </svg>
-            `)}`,
-            scaledSize: new google.maps.Size(45, 45),
-            anchor: new google.maps.Point(22.5, 22.5),
-          },
-        });
-
-        // Add click listener
-        marker.addListener('click', () => {
-          // Close any existing info window without panning the map
-          if (infoWindowRef.current) {
-            infoWindowRef.current.close();
-          }
-          
-          const map = marker.getMap() as google.maps.Map;
-          if (!map) return;
-
-          // Format rating display
-          const formatRating = () => {
-            if (!pub.rating || pub.rating === 0) {
-              return '⭐ New';
-            }
-            return `⭐ ${pub.rating}${pub.reviewCount > 0 ? ` · ${pub.reviewCount} reviews` : ''}`;
-          };
-
-          // Show first 3-4 amenities and count remaining
-          const showAmenities = () => {
-            if (!pub.amenities || pub.amenities.length === 0) return '';
-            
-            const visibleAmenities = pub.amenities.slice(0, 4);
-            const remainingCount = pub.amenities.length - visibleAmenities.length;
-            
-            const amenityChips = visibleAmenities.map(amenity => 
-              `<span class="amenity-chip">${amenity}</span>`
-            ).join('');
-            
-            const moreIndicator = remainingCount > 0 ? 
-              `<span class="amenity-more">+${remainingCount} more</span>` : '';
-              
-            return `<div class="amenities-container">${amenityChips}${moreIndicator}</div>`;
-          };
-
-          // Format contact details
-          const formatContact = () => {
-            const contactItems = [];
-            if (pub.address) {
-              contactItems.push(`<div class="contact-item"><strong>📍</strong> ${pub.address}</div>`);
-            }
-            if (pub.phone) {
-              contactItems.push(`<div class="contact-item"><strong>📞</strong> <a href="tel:${pub.phone}">${pub.phone}</a></div>`);
-            }
-            return contactItems.length > 0 ? `<div class="contact-details">${contactItems.join('')}</div>` : '';
-          };
-
-          // Create beautiful popup without Google Maps wrapper styling
-          const popupContent = `
-            <div class="pub-popup-container">
-              <style>
-                /* Completely override Google Maps InfoWindow styling to eliminate nested boxes */
-                .gm-style-iw, .gm-style-iw-d, .gm-style-iw-c, .gm-style-iw-t {
-                  padding: 0 !important;
-                  background: transparent !important;
-                  border-radius: 0 !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  margin: 0 !important;
-                  overflow: visible !important;
-                }
-                
-                .gm-style-iw-t::after, .gm-style-iw-t::before {
-                  display: none !important;
-                }
-                
-                .gm-style-iw + div {
-                  display: none !important;
-                }
-                
-                .pub-popup {
-                  width: 300px;
-                  max-width: 90vw;
-                  background: white;
-                  border-radius: 16px;
-                  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-                  border: 1px solid rgba(0, 0, 0, 0.08);
-                  position: relative;
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                  overflow: hidden;
-                  animation: popupIn 0.15s ease-out;
-                }
-                
-                @keyframes popupIn {
-                  from { opacity: 0; transform: scale(0.9) translateY(10px); }
-                  to { opacity: 1; transform: scale(1) translateY(0); }
-                }
-                
-                .pub-popup::after {
-                  content: '';
-                  position: absolute;
-                  bottom: -12px;
-                  left: 50%;
-                  transform: translateX(-50%);
-                  width: 0;
-                  height: 0;
-                  border-left: 12px solid transparent;
-                  border-right: 12px solid transparent;
-                  border-top: 12px solid white;
-                  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-                }
-                
-                .popup-close {
-                  position: absolute;
-                  top: 16px;
-                  right: 16px;
-                  width: 36px;
-                  height: 36px;
-                  border: none;
-                  background: rgba(255, 255, 255, 0.9);
-                  backdrop-filter: blur(10px);
-                  font-size: 22px;
-                  color: #666;
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  border-radius: 50%;
-                  transition: all 0.2s ease;
-                  z-index: 10;
-                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-                }
-                
-                .popup-close:hover { 
-                  background: white; 
-                  color: #333; 
-                  transform: scale(1.05);
-                }
-                
-                .popup-image {
-                  width: 100%;
-                  height: 80px;
-                  object-fit: cover;
-                  display: block;
-                }
-                
-                .popup-content {
-                  padding: 12px;
-                }
-                
-                .popup-header {
-                  margin-bottom: 8px;
-                }
-                
-                .popup-title {
-                  font-size: 18px;
-                  font-weight: 700;
-                  margin: 0 0 6px 0;
-                  color: #1a1a1a;
-                  line-height: 1.2;
-                }
-                
-                .popup-rating {
-                  font-size: 13px;
-                  color: #666;
-                  margin: 0 0 8px 0;
-                }
-                
-                .amenities-container {
-                  display: flex;
-                  gap: 4px;
-                  flex-wrap: wrap;
-                  margin-bottom: 8px;
-                }
-                
-                .amenity-chip {
-                  background: rgba(8, 215, 140, 0.15);
-                  color: #08d78c;
-                  font-size: 10px;
-                  padding: 3px 6px;
-                  border-radius: 10px;
-                  font-weight: 600;
-                }
-                
-                .amenity-more {
-                  background: rgba(102, 102, 102, 0.15);
-                  color: #666;
-                  font-size: 10px;
-                  padding: 3px 6px;
-                  border-radius: 10px;
-                  font-weight: 500;
-                }
-                
-                .contact-details {
-                  margin-bottom: 12px;
-                  padding: 8px;
-                  background: #f8f9fa;
-                  border-radius: 6px;
-                }
-                
-                .contact-item {
-                  display: flex;
-                  align-items: flex-start;
-                  gap: 4px;
-                  margin-bottom: 4px;
-                  font-size: 11px;
-                  line-height: 1.2;
-                }
-                
-                .contact-item:last-child {
-                  margin-bottom: 0;
-                }
-                
-                .contact-item a {
-                  color: #08d78c;
-                  text-decoration: none;
-                }
-                
-                .contact-item a:hover {
-                  text-decoration: underline;
-                }
-                
-                .popup-actions {
-                  margin-top: 12px;
-                }
-                
-                .popup-btn {
-                  width: 100%;
-                  background: #08d78c;
-                  color: black;
-                  border: none;
-                  border-radius: 10px;
-                  padding: 12px 16px;
-                  font-size: 14px;
-                  font-weight: 700;
-                  cursor: pointer;
-                  transition: all 0.2s ease;
-                  text-decoration: none;
-                  display: block;
-                  text-align: center;
-                }
-                
-                .popup-btn:hover { 
-                  background: #06b875;
-                  transform: translateY(-1px);
-                  box-shadow: 0 4px 12px rgba(8, 215, 140, 0.3);
-                }
-                
-                @media (max-width: 640px) {
-                  .pub-popup {
-                    width: 100%;
-                    max-width: 100%;
-                    border-radius: 16px 16px 0 0;
-                    margin: 0;
-                  }
-                  .pub-popup::after { display: none; }
-                  .popup-content { padding: 12px; }
-                  .popup-title { font-size: 18px; }
-                }
-              </style>
-              
-              <div class="pub-popup" role="dialog" aria-labelledby="popup-title-${pub.id}" aria-describedby="popup-rating-${pub.id}">
-                <button class="popup-close" onclick="window.closeInfoWindow && window.closeInfoWindow()" aria-label="Close">×</button>
-                
-                  <img 
-                    src="${pub.photo || '/images/placeholders/thumb.webp'}" 
-                    alt="${pub.name}"
-                  class="popup-image"
-                />
-                
-                <div class="popup-content">
-                  <div class="popup-header">
-                    <h2 id="popup-title-${pub.id}" class="popup-title">${pub.name}</h2>
-                    <p id="popup-rating-${pub.id}" class="popup-rating">${formatRating()}</p>
-                    ${showAmenities()}
-                  </div>
-                  
-                  ${formatContact()}
-                  
-                  <div class="popup-actions">
-                    <a href="/pubs/${pub.id}" class="popup-btn">View Pub</a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-
-          // Create and open info window with custom styling
-          infoWindowRef.current = new google.maps.InfoWindow({
-            content: popupContent,
-            disableAutoPan: true, // Prevent map from panning
-            pixelOffset: new google.maps.Size(0, -20)
-          });
-          
-          infoWindowRef.current.open({ 
-            anchor: marker, 
-            map: map,
-            shouldFocus: false
-          });
-          
-          // Add global close function
-          (window as any).closeInfoWindow = () => {
-            if (infoWindowRef.current) {
-              infoWindowRef.current.close();
-            }
-          };
-        });
-
-        return marker;
-      });
-
-      markersRef.current = allMarkers;
+      // Now use area-based clustering instead of direct marker creation
       setTotalPubs(data.total);
       onMarkersUpdate(data.items);
       onTotalUpdate(data.total);
       
-      // Now update visibility based on current map bounds
-      updateMarkerVisibility(map);
+      updateAreaClusters(map);
 
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
@@ -492,7 +589,7 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
       setLoading(false);
       }
     }
-  }, [onMarkersUpdate, onTotalUpdate]);
+  }, [onMarkersUpdate, onTotalUpdate, updateAreaClusters]);
 
   // Initialize map
   useEffect(() => {
@@ -529,9 +626,9 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
           console.log('Map is ready, loading pins...');
           loadAllPins(map, true);
           
-          // Update visibility when map moves (client-side only, no API calls)
-          const debouncedUpdateVisibility = debounce(() => updateMarkerVisibility(map), 300);
-          map.addListener('idle', debouncedUpdateVisibility);
+          // Update area clusters when map is idle (client-side only, no API calls)
+          // Only update on idle, not during movement, to avoid flashing
+          map.addListener('idle', () => updateAreaClusters(map));
           
           // Remove the initial listener since we only need it once
           google.maps.event.removeListener(initListener);
