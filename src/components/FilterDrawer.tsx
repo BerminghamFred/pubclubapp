@@ -1,7 +1,8 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
 interface FilterDrawerProps {
   isOpen: boolean;
@@ -22,6 +23,20 @@ export default function FilterDrawer({
   onClearAll,
   onApply
 }: FilterDrawerProps) {
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -70,7 +85,9 @@ export default function FilterDrawer({
 
             {/* Filter Categories */}
             <div className="p-6 space-y-6">
-              {Object.entries(amenitiesByCategory).map(([category, amenities]) => (
+              {Object.entries(amenitiesByCategory).map(([category, amenities]) => {
+                const isExpanded = expandedCategories.has(category);
+                return (
                 <motion.div
                   key={category}
                   initial={{ opacity: 0, y: 20 }}
@@ -78,11 +95,26 @@ export default function FilterDrawer({
                   transition={{ duration: 0.3 }}
                   className="border-b border-gray-100 pb-6 last:border-b-0"
                 >
-                  <h3 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="text-2xl">{category.split(' ')[0]}</span>
-                    <span>{category.split(' ').slice(1).join(' ')}</span>
-                  </h3>
-                  <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => toggleCategory(category)}
+                    className="w-full font-semibold text-lg text-gray-900 mb-3 flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{category.split(' ')[0]}</span>
+                      <span>{category.split(' ').slice(1).join(' ')}</span>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="grid grid-cols-1 gap-2">
                     {amenities.map((amenity) => {
                       const isSelected = selectedAmenities.includes(amenity);
                       return (
@@ -104,9 +136,13 @@ export default function FilterDrawer({
                         </button>
                       );
                     })}
-                  </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Footer Actions */}

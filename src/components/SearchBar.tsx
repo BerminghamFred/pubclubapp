@@ -13,7 +13,7 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({ 
-  placeholder = "Search by pub name, area, or features...", 
+  placeholder = "Quick search by features, area, or pub name...", 
   className = "",
   onSearch,
   variant = 'default'
@@ -139,11 +139,10 @@ export default function SearchBar({
   };
 
   const getTypeIcon = (type: string) => {
-    console.log('getTypeIcon called with type:', type); // Debug log
     switch (type) {
       case 'area': return <MapPin className="w-4 h-4" />;
       case 'amenity': return <Tag className="w-4 h-4" />;
-      case 'pub': return <Beer className="w-4 h-4" />;
+      case 'pub': return <Beer className="w-4 h-4 text-amber-800" />;
       default: return null;
     }
   };
@@ -161,7 +160,7 @@ export default function SearchBar({
           onKeyDown={handleKeyDown}
           onFocus={() => query.length >= 2 && setShowSuggestions(true)}
           placeholder={placeholder}
-          className={`w-full pl-12 pr-4 py-4 text-lg rounded-lg focus:outline-none focus:ring-4 ${
+          className={`w-full pl-12 pr-4 py-4 text-xs md:text-lg rounded-lg focus:outline-none focus:ring-4 ${
             variant === 'hero' 
               ? 'focus:ring-white/20 text-gray-900 placeholder-gray-500 border-0' 
               : 'focus:ring-[#08d78c]/20 text-gray-900 placeholder-gray-500 border border-gray-300 bg-white'
@@ -169,7 +168,7 @@ export default function SearchBar({
         />
         <button
           onClick={handleSearch}
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#08d78c] hover:bg-[#06b875] text-black px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#08d78c] hover:bg-[#06b875] text-black px-4 md:px-6 py-2 rounded-lg text-sm md:text-base font-semibold transition-colors duration-200"
         >
           Search
         </button>

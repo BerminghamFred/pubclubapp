@@ -6,6 +6,7 @@ import { pubData } from '@/data/pubData';
 import { Pub } from '@/data/types';
 import PubResultCard from '@/components/PubResultCard';
 import FilterDrawer from '@/components/FilterDrawer';
+import MobileFilterDrawer from '@/components/MobileFilterDrawer';
 import FilterChips from '@/components/FilterChips';
 import RandomPicker from '@/components/RandomPicker';
 import { generatePubSlug } from '@/utils/slugUtils';
@@ -79,7 +80,9 @@ export default function PubDataLoader() {
 
   // UI state
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [showMobileFilterDrawer, setShowMobileFilterDrawer] = useState(false);
   const [showRandomPicker, setShowRandomPicker] = useState(false);
+  const [animateShimmer, setAnimateShimmer] = useState(true);
   const [showLocationPopup, setShowLocationPopup] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'not-requested'>('not-requested');
@@ -305,6 +308,14 @@ export default function PubDataLoader() {
     }
   }, [view]);
 
+  // Re-trigger shimmer every 6s (mobile filter button)
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mq.matches) return;
+    const id = setInterval(() => setAnimateShimmer((v) => !v), 6000);
+    return () => clearInterval(id);
+  }, []);
+
   // Load saved location on component mount
   useEffect(() => {
     const savedLocation = localStorage.getItem('pub-club-user-location');
@@ -519,7 +530,7 @@ export default function PubDataLoader() {
   return (
     <>
       {/* Sticky Search Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm hidden md:block">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           {/* Search and Essential Filters Row */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
@@ -779,25 +790,53 @@ export default function PubDataLoader() {
         </div>
       </section>
 
-      {/* Floating Spin the Wheel Button */}
+      {/* Mobile Filters Button (replaces Spin Wheel on mobile) */}
       {filteredPubs.length > 0 && (
-        <motion.button
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowRandomPicker(true)}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white rounded-full shadow-2xl flex items-center justify-center text-3xl z-40 group"
-          title="Spin the Wheel - Random Pub"
-        >
-          🎡
-          <div className="absolute -top-12 right-0 bg-black text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            Feeling indecisive? Spin!
-          </div>
-        </motion.button>
+        <>
+          {/* Mobile Filters Button */}
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowMobileFilterDrawer(true)}
+            className="fixed top-20 right-4 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white shadow-2xl rounded-full px-5 py-3 flex items-center gap-2 z-40 md:hidden btn-shimmer overflow-hidden"
+            title="Filters"
+          >
+            <Filter className="w-5 h-5" />
+            <span className="font-semibold text-sm">Filters</span>
+            
+            {/* Shimmer overlay */}
+            <span
+              className={`
+                pointer-events-none absolute inset-0
+                before:absolute before:inset-0 before:bg-[linear-gradient(110deg,transparent,rgba(255,255,255,.55),transparent)]
+                before:w-[60%] before:translate-x-[-120%]
+                ${animateShimmer ? "animate-shimmer" : ""}
+              `}
+              aria-hidden="true"
+            />
+          </motion.button>
+
+          {/* Desktop Spin Wheel Button */}
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowRandomPicker(true)}
+            className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-[#08d78c] to-[#06b875] hover:from-[#06b875] hover:to-[#05a066] text-white rounded-full shadow-2xl flex items-center justify-center text-3xl z-40 group hidden md:flex"
+            title="Spin the Wheel - Random Pub"
+          >
+            🎡
+            <div className="absolute -top-12 right-0 bg-black text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Feeling indecisive? Spin!
+            </div>
+          </motion.button>
+        </>
       )}
 
-      {/* Filter Drawer */}
+      {/* Filter Drawer (Desktop) */}
       <FilterDrawer
         isOpen={showFilterDrawer}
         onClose={() => setShowFilterDrawer(false)}
@@ -806,6 +845,28 @@ export default function PubDataLoader() {
         onAmenityToggle={handleAmenityToggle}
         onClearAll={() => setSelectedAmenities([])}
         onApply={() => setShowFilterDrawer(false)}
+      />
+
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        isOpen={showMobileFilterDrawer}
+        onClose={() => setShowMobileFilterDrawer(false)}
+        amenitiesByCategory={amenitiesByCategory}
+        selectedAmenities={selectedAmenities}
+        onAmenityToggle={handleAmenityToggle}
+        onClearAll={handleClearAllFilters}
+        areas={listAreas}
+        selectedArea={selectedArea}
+        onAreaChange={setSelectedArea}
+        minRating={minRating}
+        onRatingChange={setMinRating}
+        openingFilter={openingFilter}
+        searchSelections={searchSelections}
+        onSearch={handleSearchSelections}
+        onRemoveArea={() => setSelectedArea('')}
+        onRemoveRating={() => setMinRating(0)}
+        onRemoveOpening={() => setOpeningFilter('')}
+        onRemoveSearchSelection={handleRemoveSearchSelection}
       />
 
       {/* Random Picker Modal */}
