@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useGoogleMapScript } from '@/hooks/useGoogleMapScript';
 import { List } from 'lucide-react';
+import { getCachedPhotoUrl } from '@/utils/photoUtils';
 
 interface PubPin {
   id: string;
@@ -17,7 +18,10 @@ interface PubPin {
   phone?: string;
   website?: string;
   amenities: string[];
-  photo: string;
+  photo?: string | null;
+  photoName?: string | null;
+  photoRef?: string | null;
+  placeId?: string | null;
 }
 
 interface Filters {
@@ -190,6 +194,16 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
         }
         return contactItems.length > 0 ? `<div class="contact-details">${contactItems.join('')}</div>` : '';
       };
+
+      const fallbackImage = '/images/placeholders/thumb.webp';
+      const derivedPhotoUrl = getCachedPhotoUrl({
+        photoName: pub.photoName ?? undefined,
+        placeId: (pub.placeId ?? pub.id) || undefined,
+        ref: pub.photoRef ?? undefined,
+        width: 320,
+        fallbackUrl: fallbackImage,
+      });
+      const photoUrl = pub.photo ?? derivedPhotoUrl ?? fallbackImage;
 
       const popupContent = `
         <div class="pub-popup-container">
@@ -401,11 +415,14 @@ export function MapCanvas({ filters, onMarkersUpdate, onTotalUpdate, isMapLoaded
           <div class="pub-popup" role="dialog" aria-labelledby="popup-title-${pub.id}" aria-describedby="popup-rating-${pub.id}">
             <button class="popup-close" onclick="window.closeInfoWindow && window.closeInfoWindow()" aria-label="Close">×</button>
             
-            <img 
-              src="${pub.photo || '/images/placeholders/thumb.webp'}" 
-              alt="${pub.name}"
-              class="popup-image"
-            />
+          <img 
+            src="${photoUrl}" 
+            alt="${pub.name}"
+            class="popup-image"
+            loading="lazy"
+            decoding="async"
+            onerror="this.onerror=null;this.src='${fallbackImage}';this.classList.add('fallback-image');"
+          />
             
             <div class="popup-content">
               <div class="popup-header">

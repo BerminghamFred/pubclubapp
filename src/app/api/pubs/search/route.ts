@@ -10,11 +10,6 @@ function isInBounds(lat: number, lng: number, bbox: { west: number; south: numbe
 }
 
 // Hash filter object for caching key
-function hashFilters(filters: any): string {
-  return JSON.stringify(filters);
-}
-
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -98,12 +93,11 @@ export async function GET(req: NextRequest) {
       phone: pub.phone,
       website: pub.website,
       amenities: pub.amenities || [],
-      // Use larger photo for info window
-      photo: pub._internal?.photo_name 
-        ? `/api/photo-by-place?photo_name=${encodeURIComponent(pub._internal.photo_name)}&w=320`
-        : pub._internal?.place_id
-        ? `/api/photo-by-place?place_id=${encodeURIComponent(pub._internal.place_id)}&w=320`
-        : null
+      // Photo metadata for client-side rendering
+      photo: buildPhotoProxyUrl(pub, 320),
+      photoName: pub._internal?.photo_name || null,
+      photoRef: pub._internal?.photo_reference || null,
+      placeId: pub._internal?.place_id || null,
     }));
 
     // Response with caching headers
@@ -125,4 +119,36 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function buildPhotoProxyUrl(pub: (typeof pubData)[number], width: number): string | null {
+  const params = new URLSearchParams({
+    w: String(width),
+  });
+
+  const photoName = pub._internal?.photo_name;
+  const placeId = pub._internal?.place_id;
+  const photoRef = pub._internal?.photo_reference;
+
+  if (photoName) {
+    params.set('photo_name', photoName);
+  }
+
+  if (placeId) {
+    params.set('place_id', placeId);
+  }
+
+  if (photoName || placeId) {
+    return `/api/photo-by-place?${params.toString()}`;
+  }
+
+  if (photoRef) {
+    const refParams = new URLSearchParams({
+      ref: photoRef,
+      w: String(width),
+    });
+    return `/api/photo?${refParams.toString()}`;
+  }
+
+  return null;
 }

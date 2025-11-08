@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { getCachedPhotoUrl } from '@/utils/photoUtils';
 
 interface PubPin {
   id: string;
@@ -13,6 +14,9 @@ interface PubPin {
   type: string;
   amenities: string[];
   photo: string | null;
+  photoName?: string | null;
+  photoRef?: string | null;
+  placeId?: string | null;
 }
 
 interface Filters {
@@ -133,11 +137,28 @@ export function useMapPins(map: google.maps.Map | null, filters: Filters) {
           }
 
           // Create info window content
+          const fallbackImage = '/images/placeholders/thumb.webp';
+          const derivedPhotoUrl = getCachedPhotoUrl({
+            photoName: pub.photoName ?? undefined,
+            placeId: (pub.placeId ?? pub.id) || undefined,
+            ref: pub.photoRef ?? undefined,
+            width: 320,
+            fallbackUrl: fallbackImage,
+          });
+          const photoUrl = pub.photo ?? derivedPhotoUrl ?? fallbackImage;
+
           const content = `
             <div style="padding: 12px; min-width: 200px; max-width: 300px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              ${pub.photo ? `
+              ${photoUrl ? `
                 <div style="margin-bottom: 12px;">
-                  <img src="${pub.photo}" alt="${pub.name}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" />
+                  <img 
+                    src="${photoUrl}" 
+                    alt="${pub.name}" 
+                    style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" 
+                    loading="lazy"
+                    decoding="async"
+                    onerror="this.onerror=null;this.src='${fallbackImage}';"
+                  />
                 </div>
               ` : ''}
               <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1f2937;">${pub.name}</h3>

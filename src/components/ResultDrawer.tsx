@@ -12,7 +12,10 @@ interface PubPin {
   rating: number;
   reviewCount: number;
   amenities: string[];
-  photo: string;
+  photo?: string | null;
+  photoName?: string | null;
+  photoRef?: string | null;
+  placeId?: string | null;
 }
 
 interface ResultDrawerProps {
@@ -78,8 +81,9 @@ export function ResultDrawer({ isOpen, onClose, pubs, total }: ResultDrawerProps
                     {/* 16:9 Image */}
                     <div className="aspect-video bg-gray-100">
                       <PubPhoto
-                        photoName={pub.photo}
-                        placeId={pub.id}
+                        photoName={pub.photoName ?? undefined}
+                        placeId={(pub.placeId ?? pub.id) || undefined}
+                        src={pub.photo ?? undefined}
                         alt={pub.name}
                         width={400}
                         height={225}
