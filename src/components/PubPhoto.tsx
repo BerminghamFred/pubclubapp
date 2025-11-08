@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { getCachedPhotoUrl, isGooglePlacesPhotoUrl, convertToCachedUrl } from '@/utils/photoUtils';
 
@@ -32,6 +33,8 @@ export default function PubPhoto({
   fallbackIcon = "🍺",
   onError
 }: PubPhotoProps) {
+  const [hasError, setHasError] = useState(false);
+
   // Determine the best photo source
   const getPhotoSrc = (): string | null => {
          // Debug: Log what we're receiving
@@ -47,7 +50,7 @@ export default function PubPhoto({
     
     // Priority 1: Use new photo name format (Google Places API New)
     if (photoName) {
-      const url = getCachedPhotoUrl({ photoName, width });
+      const url = getCachedPhotoUrl({ photoName, placeId, width });
            if (typeof window !== 'undefined') {
              console.log('[PubPhoto] Using photoName');
            }
@@ -84,7 +87,11 @@ export default function PubPhoto({
 
   const photoSrc = getPhotoSrc();
 
-  if (!photoSrc) {
+  useEffect(() => {
+    setHasError(false);
+  }, [photoSrc]);
+
+  if (!photoSrc || hasError) {
     // Show fallback placeholder
     return (
       <div className={`w-full h-full flex items-center justify-center bg-[#08d78c]/20 ${className}`}>
@@ -105,9 +112,7 @@ export default function PubPhoto({
       sizes={sizes}
       onError={(e) => {
         console.warn(`Failed to load image: ${photoSrc}`);
-        // Hide the image and show fallback
-        const target = e.target as HTMLImageElement;
-        target.style.display = 'none';
+        setHasError(true);
         
         // Show fallback if onError callback is provided
         if (onError) {

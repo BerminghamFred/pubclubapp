@@ -25,6 +25,9 @@ export function getCachedPhotoUrl(options: PhotoUrlOptions): string {
       photo_name: photoName,
       w: width.toString(),
     });
+    if (placeId) {
+      params.set("place_id", placeId);
+    }
     return `/api/photo-by-place?${params.toString()}`;
   }
   
