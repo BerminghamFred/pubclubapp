@@ -31,6 +31,9 @@ declare global {
 }
 
 export default function PubDataLoader() {
+  const DEFAULT_AREA = 'All Areas';
+  const DEFAULT_OPENING = 'Any Time';
+
   // URL state management for list view (original)
   const urlState = useUrlState();
   const {
@@ -59,6 +62,61 @@ export default function PubDataLoader() {
     updateListOpen,
     updateFilters: updateMapFilters
   } = mapState;
+
+  const hasActiveMapFilters = useMemo(() => {
+    return (
+      !!mapFilters.searchTerm ||
+      (mapFilters.selectedArea && mapFilters.selectedArea !== DEFAULT_AREA) ||
+      mapFilters.selectedAmenities.length > 0 ||
+      mapFilters.minRating > 0 ||
+      (mapFilters.openingFilter && mapFilters.openingFilter !== DEFAULT_OPENING)
+    );
+  }, [mapFilters, DEFAULT_AREA, DEFAULT_OPENING]);
+
+  const handleMapUpdateFilters = useCallback(
+    (updates: Partial<typeof mapFilters>) => {
+      updateMapFilters({
+        ...mapFilters,
+        ...updates,
+      });
+    },
+    [mapFilters, updateMapFilters]
+  );
+
+  const handleMapRemoveArea = useCallback(() => {
+    handleMapUpdateFilters({ selectedArea: DEFAULT_AREA });
+  }, [handleMapUpdateFilters, DEFAULT_AREA]);
+
+  const handleMapRemoveAmenity = useCallback(
+    (amenity: string) => {
+      handleMapUpdateFilters({
+        selectedAmenities: mapFilters.selectedAmenities.filter((a) => a !== amenity),
+      });
+    },
+    [handleMapUpdateFilters, mapFilters.selectedAmenities]
+  );
+
+  const handleMapRemoveRating = useCallback(() => {
+    handleMapUpdateFilters({ minRating: 0 });
+  }, [handleMapUpdateFilters]);
+
+  const handleMapRemoveOpening = useCallback(() => {
+    handleMapUpdateFilters({ openingFilter: DEFAULT_OPENING });
+  }, [handleMapUpdateFilters, DEFAULT_OPENING]);
+
+  const handleMapRemoveSearchTerm = useCallback(() => {
+    handleMapUpdateFilters({ searchTerm: '' });
+  }, [handleMapUpdateFilters]);
+
+  const handleMapClearAll = useCallback(() => {
+    handleMapUpdateFilters({
+      searchTerm: '',
+      selectedArea: DEFAULT_AREA,
+      selectedAmenities: [],
+      minRating: 0,
+      openingFilter: DEFAULT_OPENING,
+    });
+  }, [handleMapUpdateFilters, DEFAULT_AREA, DEFAULT_OPENING]);
 
   // State for map data
   const [mapPubs, setMapPubs] = useState<any[]>([]);
@@ -486,6 +544,93 @@ export default function PubDataLoader() {
                 mapLoadError={mapLoadError}
                 onSwitchToListView={() => setView('list')}
               />
+            </div>
+
+            {/* Desktop filter summary */}
+            <div className="hidden lg:flex absolute top-4 left-4 right-4 z-30">
+              <div className="flex w-full flex-wrap items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-5 py-2 text-sm text-gray-700 shadow-md backdrop-blur-sm">
+                <span className="text-sm font-medium text-gray-600">Active filters:</span>
+                {hasActiveMapFilters ? (
+                  <>
+                    <AnimatePresence>
+                      {mapFilters.searchTerm && (
+                        <motion.button
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.9, opacity: 0 }}
+                          onClick={handleMapRemoveSearchTerm}
+                          className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 transition-colors hover:bg-blue-200"
+                        >
+                          <span>🔍 {mapFilters.searchTerm}</span>
+                          <X className="h-3.5 w-3.5" />
+                        </motion.button>
+                      )}
+
+                      {mapFilters.selectedArea && mapFilters.selectedArea !== DEFAULT_AREA && (
+                        <motion.button
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.9, opacity: 0 }}
+                          onClick={handleMapRemoveArea}
+                          className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 transition-colors hover:bg-blue-200"
+                        >
+                          <span>📍 {mapFilters.selectedArea}</span>
+                          <X className="h-3.5 w-3.5" />
+                        </motion.button>
+                      )}
+
+                      {mapFilters.minRating > 0 && (
+                        <motion.button
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.9, opacity: 0 }}
+                          onClick={handleMapRemoveRating}
+                          className="inline-flex items-center gap-2 rounded-full border border-yellow-200 bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 transition-colors hover:bg-yellow-200"
+                        >
+                          <span>⭐ {mapFilters.minRating}+ Rating</span>
+                          <X className="h-3.5 w-3.5" />
+                        </motion.button>
+                      )}
+
+                      {mapFilters.openingFilter && mapFilters.openingFilter !== DEFAULT_OPENING && (
+                        <motion.button
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.9, opacity: 0 }}
+                          onClick={handleMapRemoveOpening}
+                          className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs font-medium text-purple-800 transition-colors hover:bg-purple-200"
+                        >
+                          <span>🕒 {mapFilters.openingFilter}</span>
+                          <X className="h-3.5 w-3.5" />
+                        </motion.button>
+                      )}
+
+                      {mapFilters.selectedAmenities.map((amenity) => (
+                        <motion.button
+                          key={amenity}
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.9, opacity: 0 }}
+                          onClick={() => handleMapRemoveAmenity(amenity)}
+                          className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-200"
+                        >
+                          <span>{amenity}</span>
+                          <X className="h-3.5 w-3.5" />
+                        </motion.button>
+                      ))}
+                    </AnimatePresence>
+
+                    <button
+                      onClick={handleMapClearAll}
+                      className="text-xs font-medium text-red-600 underline transition-colors hover:text-red-700"
+                    >
+                      Clear all
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-500">None selected</span>
+                )}
+              </div>
             </div>
 
             {/* Floating Action Buttons */}

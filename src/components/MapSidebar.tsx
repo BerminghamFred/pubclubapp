@@ -32,7 +32,7 @@ const amenitiesByCategory = {
 
 export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['🎵 Music', '🍸 Drinks', '🍔 Food']) // Start with popular categories expanded
+    new Set()
   );
 
   const toggleCategory = (category: string) => {

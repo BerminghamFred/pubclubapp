@@ -12,32 +12,96 @@ interface UrlState {
   openingFilter: string;
 }
 
+const DEFAULT_AREA = 'All Areas';
+const DEFAULT_OPENING = 'Any Time';
+
+const decodeFiltersParam = (filtersParam: string | null) => {
+  if (!filtersParam) return null;
+
+  try {
+    const decoded =
+      filtersParam.includes('%') ? decodeURIComponent(filtersParam) : filtersParam;
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('Failed to parse filters param', error);
+    return null;
+  }
+};
+
+const normalizeState = (state: UrlState): UrlState => ({
+  view: state.view,
+  searchTerm: state.searchTerm || '',
+  selectedArea: state.selectedArea || DEFAULT_AREA,
+  selectedAmenities: state.selectedAmenities || [],
+  minRating: state.minRating || 0,
+  openingFilter: state.openingFilter || DEFAULT_OPENING,
+});
+
+const buildStateFromSearchParams = (
+  searchParams: ReturnType<typeof useSearchParams>
+): UrlState => {
+  const baseState: UrlState = {
+    view: (searchParams.get('view') as 'list' | 'map') || 'list',
+    searchTerm: searchParams.get('search') || '',
+    selectedArea: searchParams.get('area') || DEFAULT_AREA,
+    selectedAmenities: searchParams.get('amenities')?.split(',').filter(Boolean) || [],
+    minRating: Number(searchParams.get('rating')) || 0,
+    openingFilter: searchParams.get('opening') || DEFAULT_OPENING,
+  };
+
+  const filtersParam = decodeFiltersParam(searchParams.get('filters'));
+  if (filtersParam) {
+    return normalizeState({
+      ...baseState,
+      searchTerm: filtersParam.searchTerm ?? baseState.searchTerm,
+      selectedArea: filtersParam.selectedArea ?? baseState.selectedArea,
+      selectedAmenities:
+        filtersParam.selectedAmenities ?? baseState.selectedAmenities,
+      minRating: filtersParam.minRating ?? baseState.minRating,
+      openingFilter: filtersParam.openingFilter ?? baseState.openingFilter,
+    });
+  }
+
+  return normalizeState(baseState);
+};
+
+const buildFiltersPayload = (state: UrlState) => ({
+  searchTerm: state.searchTerm || '',
+  selectedArea: state.selectedArea || DEFAULT_AREA,
+  selectedAmenities: state.selectedAmenities || [],
+  minRating: state.minRating || 0,
+  openingFilter: state.openingFilter || DEFAULT_OPENING,
+});
+
 export function useUrlState() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const [state, setState] = useState<UrlState>({
-    view: (searchParams.get('view') as 'list' | 'map') || 'list',
-    searchTerm: searchParams.get('search') || '',
-    selectedArea: searchParams.get('area') || '',
-    selectedAmenities: searchParams.get('amenities')?.split(',').filter(Boolean) || [],
-    minRating: Number(searchParams.get('rating')) || 0,
-    openingFilter: searchParams.get('opening') || '',
-  });
+  const [state, setState] = useState<UrlState>(() =>
+    buildStateFromSearchParams(searchParams)
+  );
 
   // Update URL when state changes
   const updateUrl = useCallback((newState: Partial<UrlState>) => {
+    const merged = normalizeState({ ...state, ...newState });
     const params = new URLSearchParams();
-    
-    const merged = { ...state, ...newState };
-    
+
     if (merged.view !== 'list') params.set('view', merged.view);
     if (merged.searchTerm) params.set('search', merged.searchTerm);
-    if (merged.selectedArea && merged.selectedArea !== 'All Areas') params.set('area', merged.selectedArea);
-    if (merged.selectedAmenities.length > 0) params.set('amenities', merged.selectedAmenities.join(','));
+    if (merged.selectedArea && merged.selectedArea !== DEFAULT_AREA) {
+      params.set('area', merged.selectedArea);
+    }
+    if (merged.selectedAmenities.length > 0) {
+      params.set('amenities', merged.selectedAmenities.join(','));
+    }
     if (merged.minRating > 0) params.set('rating', merged.minRating.toString());
-    if (merged.openingFilter && merged.openingFilter !== 'Any Time') params.set('opening', merged.openingFilter);
-    
+    if (merged.openingFilter && merged.openingFilter !== DEFAULT_OPENING) {
+      params.set('opening', merged.openingFilter);
+    }
+
+    const filtersPayload = buildFiltersPayload(merged);
+    params.set('filters', encodeURIComponent(JSON.stringify(filtersPayload)));
+
     const queryString = params.toString();
     const newUrl = queryString ? `?${queryString}` : '/pubs';
     
@@ -49,15 +113,7 @@ export function useUrlState() {
 
   // Sync with URL on mount and URL changes
   useEffect(() => {
-    const urlState: UrlState = {
-      view: (searchParams.get('view') as 'list' | 'map') || 'list',
-      searchTerm: searchParams.get('search') || '',
-      selectedArea: searchParams.get('area') || '',
-      selectedAmenities: searchParams.get('amenities')?.split(',').filter(Boolean) || [],
-      minRating: Number(searchParams.get('rating')) || 0,
-      openingFilter: searchParams.get('opening') || '',
-    };
-    setState(urlState);
+    setState(buildStateFromSearchParams(searchParams));
   }, [searchParams]);
 
   return {

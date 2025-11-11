@@ -20,6 +20,30 @@ interface MapUrlState {
   updateFilters: (filters: Filters) => void;
 }
 
+const DEFAULT_AREA = 'All Areas';
+const DEFAULT_OPENING = 'Any Time';
+
+const decodeFiltersParam = (filtersParam: string | null) => {
+  if (!filtersParam) return null;
+
+  try {
+    const decoded =
+      filtersParam.includes('%') ? decodeURIComponent(filtersParam) : filtersParam;
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('Error parsing filters from URL:', error);
+    return null;
+  }
+};
+
+const normalizeFilters = (filters: Filters): Filters => ({
+  searchTerm: filters.searchTerm || '',
+  selectedArea: filters.selectedArea || DEFAULT_AREA,
+  minRating: filters.minRating || 0,
+  openingFilter: filters.openingFilter || DEFAULT_OPENING,
+  selectedAmenities: filters.selectedAmenities || [],
+});
+
 export function useMapUrlState(): MapUrlState {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,28 +53,29 @@ export function useMapUrlState(): MapUrlState {
   const listOpen = searchParams.get('list') === 'open';
 
   const filters: Filters = useMemo(() => {
-    const filtersParam = searchParams.get('filters');
-    if (filtersParam) {
-      try {
-        return JSON.parse(decodeURIComponent(filtersParam));
-      } catch (e) {
-        console.error('Error parsing filters from URL:', e);
-      }
+    const parsedFilters = decodeFiltersParam(searchParams.get('filters'));
+    if (parsedFilters) {
+      return normalizeFilters({
+        searchTerm: parsedFilters.searchTerm ?? '',
+        selectedArea: parsedFilters.selectedArea ?? DEFAULT_AREA,
+        minRating: parsedFilters.minRating ?? 0,
+        openingFilter: parsedFilters.openingFilter ?? DEFAULT_OPENING,
+        selectedAmenities: parsedFilters.selectedAmenities ?? [],
+      });
     }
-    
-    // Default filters
-    return {
-      searchTerm: '',
-      selectedArea: 'All Areas',
-      minRating: 0,
-      openingFilter: 'Any Time',
-      selectedAmenities: []
-    };
+
+    return normalizeFilters({
+      searchTerm: searchParams.get('search') || '',
+      selectedArea: searchParams.get('area') || DEFAULT_AREA,
+      minRating: Number(searchParams.get('rating')) || 0,
+      openingFilter: searchParams.get('opening') || DEFAULT_OPENING,
+      selectedAmenities: searchParams.get('amenities')?.split(',').filter(Boolean) || [],
+    });
   }, [searchParams]);
 
   // Update URL with new state
   const updateUrl = useCallback((updates: Record<string, any>) => {
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParams.toString());
     
     Object.entries(updates).forEach(([key, value]) => {
       if (value === null || value === undefined || value === '') {
@@ -75,7 +100,25 @@ export function useMapUrlState(): MapUrlState {
   }, [updateUrl]);
 
   const updateFilters = useCallback((newFilters: Filters) => {
-    updateUrl({ filters: newFilters });
+    const normalized = normalizeFilters(newFilters);
+
+    updateUrl({
+      search: normalized.searchTerm || null,
+      area:
+        normalized.selectedArea && normalized.selectedArea !== DEFAULT_AREA
+          ? normalized.selectedArea
+          : null,
+      amenities:
+        normalized.selectedAmenities.length > 0
+          ? normalized.selectedAmenities.join(',')
+          : null,
+      rating: normalized.minRating > 0 ? String(normalized.minRating) : null,
+      opening:
+        normalized.openingFilter && normalized.openingFilter !== DEFAULT_OPENING
+          ? normalized.openingFilter
+          : null,
+      filters: normalized,
+    });
   }, [updateUrl]);
 
   return {
