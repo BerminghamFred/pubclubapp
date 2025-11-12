@@ -1,4 +1,5 @@
 import { NextAuthOptions } from 'next-auth'
+import type { Provider } from 'next-auth/providers/index'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import EmailProvider from 'next-auth/providers/email'
@@ -6,7 +7,7 @@ import GoogleProvider from 'next-auth/providers/google'
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 
-const providers = [
+const providers: Provider[] = [
   // Email magic link for users - DISABLED for now
   // EmailProvider({
   //   server: {
