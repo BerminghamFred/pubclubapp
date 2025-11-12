@@ -6,29 +6,21 @@ import GoogleProvider from 'next-auth/providers/google'
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  providers: [
-    // Email magic link for users - DISABLED for now
-    // EmailProvider({
-    //   server: {
-    //     host: process.env.EMAIL_SERVER_HOST,
-    //     port: process.env.EMAIL_SERVER_PORT,
-    //     auth: {
-    //       user: process.env.EMAIL_SERVER_USER,
-    //       pass: process.env.EMAIL_SERVER_PASSWORD,
-    //     },
-    //   },
-    //   from: process.env.EMAIL_FROM,
-    // }),
-    
-    // Google OAuth for users
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    
-    // Credentials provider for admin users and regular users
+const providers = [
+  // Email magic link for users - DISABLED for now
+  // EmailProvider({
+  //   server: {
+  //     host: process.env.EMAIL_SERVER_HOST,
+  //     port: process.env.EMAIL_SERVER_PORT,
+  //     auth: {
+  //       user: process.env.EMAIL_SERVER_USER,
+  //       pass: process.env.EMAIL_SERVER_PASSWORD,
+  //     },
+  //   },
+  //   from: process.env.EMAIL_FROM,
+  // }),
+
+  // Credentials provider for admin users and regular users
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -106,7 +98,24 @@ export const authOptions: NextAuthOptions = {
         return null
       }
     })
-  ],
+]
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.unshift(
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  )
+} else {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('Google OAuth credentials not configured; skipping Google provider.')
+  }
+}
+
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  providers,
   session: {
     strategy: 'jwt'
   },

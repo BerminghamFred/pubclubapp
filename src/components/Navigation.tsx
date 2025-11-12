@@ -205,7 +205,7 @@ export default function Navigation() {
               {/* Admin link hidden from public navigation */}
               {/* <Link 
                 href="/admin" 
-                className="block px-3 py-2 rounded-md text-base font-medium bg-[#08d78c] text-black rounded-lg font-semibold hover:bg-[#06b875] transition-colors duration-200"
+                className="block px-3 py-2 rounded-md text-base font-medium bg-[#08d78c] text-black font-semibold hover:bg-[#06b875] transition-colors duration-200"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Admin

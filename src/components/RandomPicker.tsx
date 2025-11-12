@@ -462,7 +462,7 @@ const WinnerModal = ({ option, onClose, onViewPub }: WinnerModalProps) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative w-full max-w-xl overflow-hidden rounded-3xl bg-white text-gray-900 shadow-2xl"
+        className="relative w-full max-w-xl overflow-hidden rounded-3xl bg-white text-gray-900 shadow-2xl sm:flex sm:max-w-3xl sm:max-h-[90vh]"
       >
         <button
           type="button"
@@ -473,7 +473,7 @@ const WinnerModal = ({ option, onClose, onViewPub }: WinnerModalProps) => {
           <X className="h-5 w-5" />
         </button>
 
-        <div className="h-56 w-full overflow-hidden bg-gray-200 sm:h-64">
+        <div className="h-56 w-full overflow-hidden bg-gray-200 sm:h-auto sm:w-[360px] sm:shrink-0">
           <PubPhoto
             photoName={winnerPub?._internal?.photo_name}
             placeId={winnerPub?._internal?.place_id}
@@ -486,7 +486,7 @@ const WinnerModal = ({ option, onClose, onViewPub }: WinnerModalProps) => {
           />
         </div>
 
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 p-6 sm:flex-1 sm:overflow-y-auto sm:p-8">
           <div>
             <p className="text-sm uppercase tracking-[4px] text-emerald-500">Tonight&apos;s pick</p>
             <h2 id={titleId} className="mt-2 text-2xl font-bold text-gray-900">
