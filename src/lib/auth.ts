@@ -33,6 +33,25 @@ const providers: Provider[] = [
           return null
         }
 
+        // Fallback admin account stored in environment variables for deployments without a seeded database
+        if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+          const fallbackEmail = process.env.ADMIN_EMAIL.trim().toLowerCase()
+          const fallbackPassword = process.env.ADMIN_PASSWORD
+
+          if (
+            credentials.email.trim().toLowerCase() === fallbackEmail &&
+            credentials.password === fallbackPassword
+          ) {
+            return {
+              id: 'env-admin',
+              email: process.env.ADMIN_EMAIL,
+              name: process.env.ADMIN_NAME ?? 'Admin User',
+              role: process.env.ADMIN_ROLE ?? 'superadmin',
+              type: 'admin',
+            }
+          }
+        }
+
         // Check if it's an admin user
         const adminUser = await prisma.adminUser.findUnique({
           where: { email: credentials.email }
