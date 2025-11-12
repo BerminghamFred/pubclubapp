@@ -3,8 +3,8 @@
 import RandomPicker from '@/components/RandomPicker';
 import { Pub } from '@/data/types';
 import { generatePubSlug } from '@/utils/slugUtils';
+import { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useMemo } from 'react';
 
 const HOW_IT_WORKS_STEPS = [
   {
@@ -22,6 +22,14 @@ const HOW_IT_WORKS_STEPS = [
 ];
 
 export default function RandomPage() {
+  return (
+    <Suspense fallback={<RandomPageFallback />}>
+      <RandomPageContent />
+    </Suspense>
+  );
+}
+
+function RandomPageContent() {
   const searchParams = useSearchParams();
 
   const areaParam = searchParams.get('area') || undefined;
@@ -77,6 +85,14 @@ export default function RandomPage() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function RandomPageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-950 text-white">
+      <p className="text-sm uppercase tracking-[6px] text-white/60">Loading randomiser...</p>
     </div>
   );
 }
