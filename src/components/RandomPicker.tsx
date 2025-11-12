@@ -1,514 +1,559 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Loader2, MapPin, Star, Clock, RotateCcw, ExternalLink } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
+import clsx from 'clsx';
+import { SlidersHorizontal, X, MapPin, Star, Clock, ExternalLink } from 'lucide-react';
+import SpinTheWheel, { Option } from '@/components/wheel/SpinTheWheel';
 import { Pub } from '@/data/types';
+import { pubData } from '@/data/pubData';
+import { isPubOpenNow } from '@/utils/openingHours';
+import { MapSidebar } from './MapSidebar';
+import MobileFilterDrawer from './MobileFilterDrawer';
 import PubPhoto from './PubPhoto';
+
+type RandomPickerFilters = {
+  area?: string;
+  amenities?: string[];
+  openNow?: boolean;
+  minRating?: number;
+  searchSelections?: any[];
+};
 
 interface RandomPickerProps {
   isOpen: boolean;
-  onClose: () => void;
-  filters: {
-    area?: string;
-    amenities?: string[];
-    openNow?: boolean;
-    minRating?: number;
-    searchSelections?: any[]; // Add search selections support
-  };
+  onClose?: () => void;
+  filters: RandomPickerFilters;
   onViewPub: (pub: Pub) => void;
+  variant?: 'overlay' | 'page';
 }
 
-interface CandidatePub extends Pub {
-  weight: number;
-  isSponsored?: boolean;
-}
+const DEFAULT_AREA = 'All Areas';
+const DEFAULT_MIN_RATING = 0;
+const DEFAULT_OPENING = 'Any Time';
+const MAX_WHEEL_OPTIONS = 18;
 
-export default function RandomPicker({ 
-  isOpen, 
-  onClose, 
-  filters, 
-  onViewPub 
-}: RandomPickerProps) {
-  const [candidateCount, setCandidateCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [winner, setWinner] = useState<CandidatePub | null>(null);
-  const [lastWinners, setLastWinners] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [winningSlice, setWinningSlice] = useState<number | null>(null);
-  const [finalRotation, setFinalRotation] = useState(0);
+const DEFAULT_AMENITIES_BY_CATEGORY: Record<string, string[]> = {
+  '🎵 Music': ['DJs', 'Jukebox', 'Karaoke', 'Live Music'],
+  '🍸 Drinks': ['Cocktails', 'Craft Beer', 'Craft Ales', 'Draught', 'Non-Alcoholic', 'Real Ale', 'Spirits', 'Taproom', 'Wine'],
+  '🍔 Food': ['Bar Snacks', 'Bottomless Brunch', 'Bring Your Own Food', 'Burgers', 'Chips', 'English Breakfast', 'Fish and Chips', 'Gluten-Free Options', 'Kids Menu', 'Outdoor Food Service', 'Pie', 'Pizza', 'Sandwiches', 'Steak', 'Street Food Vendor', 'Sunday Roast', 'Thai', 'Vegetarian Options', 'Wings'],
+  '🌳 Outdoor Space': ['Beer Garden', 'Heating', 'In the Sun', 'Large Space (20+ People)', 'Outdoor Viewing', 'Outside Bar', 'River View', 'Rooftop', 'Small Space (<20 People)', 'Street Seating', 'Under Cover'],
+  '📺 Sport Viewing': ['Amazon Sports', 'Outdoor Viewing', 'Six Nations', 'Sky Sports', 'TNT Sports', 'Terrestrial TV'],
+  '♿ Accessibility': ['Car Park', 'Child Friendly', 'Dance Floor', 'Disabled Access', 'Dog Friendly', 'Open Past Midnight', 'Open Past Midnight (Weekends)', 'Table Booking'],
+  '💷 Affordability': ['Bargain', 'Premium', 'The Norm'],
+  '🎯 Activities': ['Beer Pong', 'Billiards', 'Board Games', 'Darts', 'Game Machines', 'Ping Pong', 'Pool Table', 'Pub Quiz', 'Shuffleboard', 'Slot Machines', 'Table Football'],
+  '💺 Comfort': ['Booths', 'Fireplace', 'Sofas', 'Stools at the Bar'],
+};
 
-  // Fetch candidate count based on filters
-  const fetchCandidateCount = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Build query parameters
-      const params = new URLSearchParams();
-      if (filters.area) params.append('area', filters.area);
-      if (filters.amenities && filters.amenities.length > 0) {
-        params.append('amenities', filters.amenities.join(','));
-      }
-      if (filters.openNow) params.append('open_now', 'true');
-      if (filters.minRating) params.append('min_rating', filters.minRating.toString());
-      if (filters.searchSelections && filters.searchSelections.length > 0) {
-        params.append('search_selections', JSON.stringify(filters.searchSelections));
-      }
-      if (lastWinners.size > 0) {
-        params.append('exclude_ids', Array.from(lastWinners).join(','));
-      }
-      
-      const response = await fetch(`/api/random-pub/candidates?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch candidate count');
-      }
-      
-      const data = await response.json();
-      
-      if (data.availableCandidates === 0) {
-        setError('No pubs match your current filters. Try removing some filters or widening your search area.');
-        setCandidateCount(0);
-        return;
-      }
-      
-      setCandidateCount(data.availableCandidates);
-    } catch (err) {
-      setError('Failed to load pubs. Please try again.');
-      console.error('Error fetching candidate count:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters, lastWinners]);
+const shuffle = <T,>(items: T[], seed = Math.random()): T[] => {
+  const list = [...items];
+  let m = list.length;
+  let currentSeed = seed;
+  while (m) {
+    const i = Math.floor(Math.abs(Math.sin(currentSeed)) * m--);
+    [list[m], list[i]] = [list[i], list[m]];
+    currentSeed += 1;
+  }
+  return list;
+};
 
-  // Fetch random pub from API
-  const fetchRandomPub = useCallback(async (): Promise<CandidatePub | null> => {
-    try {
-      // Build query parameters
-      const params = new URLSearchParams();
-      if (filters.area) params.append('area', filters.area);
-      if (filters.amenities && filters.amenities.length > 0) {
-        params.append('amenities', filters.amenities.join(','));
-      }
-      if (filters.openNow) params.append('open_now', 'true');
-      if (filters.minRating) params.append('min_rating', filters.minRating.toString());
-      if (filters.searchSelections && filters.searchSelections.length > 0) {
-        params.append('search_selections', JSON.stringify(filters.searchSelections));
-      }
-      if (lastWinners.size > 0) {
-        params.append('exclude_ids', Array.from(lastWinners).join(','));
-      }
-      
-      const response = await fetch(`/api/random-pub?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch random pub');
-      }
-      
-      const data = await response.json();
-      return data.pub as CandidatePub;
-    } catch (err) {
-      console.error('Error fetching random pub:', err);
-      return null;
-    }
-  }, [filters, lastWinners]);
+const buildOption = (pub: Pub): Option => ({
+  id: pub.id,
+  label: pub.name,
+  data: pub,
+});
 
-  // Handle spin
-  const handleSpin = useCallback(async () => {
-    if (candidateCount === 0) {
-      await fetchCandidateCount();
-      return;
-    }
-    
-    setIsSpinning(true);
-    setWinner(null);
-    setWinningSlice(null);
-    
-    // Calculate random final rotation and winning slice
-    const baseRotations = 5 + Math.random() * 5; // 5-10 full rotations
-    const randomSlice = Math.floor(Math.random() * 12); // 0-11
-    const sliceAngle = randomSlice * 30; // Each slice is 30 degrees
-    const finalRotationDegrees = (baseRotations * 360) + sliceAngle;
-    
-    setFinalRotation(finalRotationDegrees);
-    
-    // Simulate spinning animation
-    setTimeout(async () => {
-      const selectedWinner = await fetchRandomPub();
-      if (selectedWinner) {
-        setWinner(selectedWinner);
-        setWinningSlice(randomSlice);
-        setLastWinners(prev => {
-          const newSet = new Set(prev);
-          newSet.add(selectedWinner.id);
-          // Keep only last 5 winners
-          if (newSet.size > 5) {
-            const array = Array.from(newSet);
-            newSet.delete(array[0]);
-          }
-          return newSet;
-        });
-        
-        // Highlight winning slice briefly
-        setTimeout(() => {
-          setWinningSlice(null);
-        }, 2000);
-        
-        // Track analytics event
-        if (typeof window !== 'undefined' && (window as any).gtag) {
-          (window as any).gtag('event', 'random_spin_result', {
-            pub_id: selectedWinner.id,
-            pub_name: selectedWinner.name,
-            pub_rating: selectedWinner.rating,
-            filters: JSON.stringify(filters),
-            area: filters.area || 'all',
-            amenities_count: filters.amenities?.length || 0,
-            open_now: filters.openNow || false,
-            min_rating: filters.minRating || 0,
-            seeded: false,
-            candidates_count: candidateCount,
-            session_id: Date.now().toString()
-          });
-        }
-      }
-      setIsSpinning(false);
-    }, 3000); // 3 second animation to match CSS duration
-  }, [candidateCount, fetchRandomPub, fetchCandidateCount, filters]);
+const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay' }: RandomPickerProps) => {
+  const dialogTitleId = useId();
+  const [selectedArea, setSelectedArea] = useState(filters.area ?? DEFAULT_AREA);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(filters.amenities ?? []);
+  const [minRating, setMinRating] = useState(filters.minRating ?? DEFAULT_MIN_RATING);
+  const [openingFilter, setOpeningFilter] = useState(filters.openNow ? 'Open Now' : DEFAULT_OPENING);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [winnerOption, setWinnerOption] = useState<Option | null>(null);
+  const [winnerOpen, setWinnerOpen] = useState(false);
+  const winnerRevealTimeoutRef = useRef<number | null>(null);
+  const [recentWinners, setRecentWinners] = useState<string[]>([]);
+  const isPageVariant = variant === 'page';
+  const isOverlayVariant = !isPageVariant;
 
-  // Handle view pub
-  const handleViewPub = useCallback(() => {
-    if (winner) {
-      onViewPub(winner);
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'random_view_pub', {
-          pub_id: winner.id,
-          pub_name: winner.name,
-          pub_rating: winner.rating,
-          source: 'random_picker',
-          filters: JSON.stringify(filters),
-          area: filters.area || 'all',
-          session_id: Date.now().toString()
-        });
-      }
-    }
-  }, [winner, onViewPub, filters]);
-
-  // Handle book pub
-  const handleGetDirections = useCallback(() => {
-    if (winner && winner._internal?.lat && winner._internal?.lng) {
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${winner._internal.lat},${winner._internal.lng}&destination_place_id=${winner._internal.place_id || ''}`;
-      window.open(googleMapsUrl, '_blank');
-      
-      // Track analytics event
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'random_directions_click', {
-          pub_id: winner.id,
-          pub_name: winner.name,
-          pub_rating: winner.rating,
-          source: 'random_picker',
-          filters: JSON.stringify(filters),
-          area: filters.area || 'all',
-          session_id: Date.now().toString()
-        });
-      }
-    }
-  }, [winner]);
-
-  // Fetch candidate count when filters change
   useEffect(() => {
-    if (isOpen) {
-      fetchCandidateCount();
-      
-      // Track analytics event
+    if (!isOpen) return;
+    setSelectedArea(filters.area ?? DEFAULT_AREA);
+    setSelectedAmenities(filters.amenities ?? []);
+    setMinRating(filters.minRating ?? DEFAULT_MIN_RATING);
+    setOpeningFilter(filters.openNow ? 'Open Now' : DEFAULT_OPENING);
+  }, [filters, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !isOverlayVariant) return;
+    const scrollY = window.scrollY;
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    return () => {
+      document.body.style.position = '';
+      const y = -parseInt(document.body.style.top || '0', 10);
+      document.body.style.top = '';
+      window.scrollTo(0, y || scrollY);
+      document.body.style.width = '';
+    };
+  }, [isOpen, isOverlayVariant]);
+
+  useEffect(() => {
+    if (isOverlayVariant && !isOpen) {
+      setMobileDrawerOpen(false);
+    }
+    return () => {
+      if (winnerRevealTimeoutRef.current) {
+        window.clearTimeout(winnerRevealTimeoutRef.current);
+        winnerRevealTimeoutRef.current = null;
+      }
+    };
+  }, [isOpen, isOverlayVariant]);
+
+  const filtersState = useMemo(
+    () => ({
+      searchTerm: '',
+      selectedArea,
+      selectedAmenities,
+      minRating,
+      openingFilter,
+    }),
+    [selectedArea, selectedAmenities, minRating, openingFilter]
+  );
+
+  const filteredPubs = useMemo(() => {
+    if (!isOpen && isOverlayVariant) return [];
+    return pubData.filter((pub) => {
+      if (selectedArea !== DEFAULT_AREA && pub.area !== selectedArea) {
+        return false;
+      }
+      if (selectedAmenities.length > 0) {
+        const amenityList = pub.amenities ?? pub.features ?? [];
+        const hasAll = selectedAmenities.every((amenity) => amenityList.includes(amenity));
+        if (!hasAll) return false;
+      }
+      if (minRating > 0 && (pub.rating ?? 0) < minRating) {
+        return false;
+      }
+      if (openingFilter === 'Open Now' && !isPubOpenNow(pub.openingHours)) {
+        return false;
+      }
+      return true;
+    });
+  }, [isOpen, isOverlayVariant, minRating, openingFilter, selectedAmenities, selectedArea]);
+
+  const wheelOptions = useMemo(() => {
+    if (!filteredPubs.length) return [];
+    const available = filteredPubs.filter((pub) => !recentWinners.includes(pub.id));
+    const pool = available.length > 0 ? available : filteredPubs;
+    const limited = pool.length > MAX_WHEEL_OPTIONS ? shuffle(pool).slice(0, MAX_WHEEL_OPTIONS) : pool;
+    const sorted = [...limited].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    return sorted.map(buildOption);
+  }, [filteredPubs, recentWinners]);
+
+  const handleSpinWin = useCallback(
+    (option: Option) => {
+      setWinnerOption(option);
+      if (winnerRevealTimeoutRef.current) {
+        window.clearTimeout(winnerRevealTimeoutRef.current);
+        winnerRevealTimeoutRef.current = null;
+      }
+      setWinnerOpen(false);
+      setRecentWinners((prev) => {
+        const next = [option.id, ...prev];
+        return next.slice(0, 8);
+      });
+
       if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'random_spin_open', {
-          filters: JSON.stringify(filters),
-          area: filters.area || 'all',
-          amenities_count: filters.amenities?.length || 0,
-          open_now: filters.openNow || false,
-          min_rating: filters.minRating || 0,
-          candidates_count: candidateCount,
-          session_id: Date.now().toString()
+        (window as any).gtag('event', 'random_spin_result', {
+          pub_id: option.id,
+          pub_name: option.label,
+          area: selectedArea || 'all',
+          min_rating: minRating,
+          amenities_count: selectedAmenities.length,
+          open_now: openingFilter === 'Open Now',
         });
       }
+
+      if (typeof window !== 'undefined') {
+        import('@/lib/confetti')
+          .then(({ confettiBurst }) =>
+            confettiBurst({
+              count: 400,
+              origin: { x: 0.5, y: 0.1 },
+              duration: 2400,
+              gravity: 0.42,
+            })
+          )
+          .catch(() => {});
+      }
+
+      winnerRevealTimeoutRef.current = window.setTimeout(() => {
+        setWinnerOpen(true);
+        winnerRevealTimeoutRef.current = null;
+      }, 1200);
+    },
+    [minRating, openingFilter, selectedAmenities.length, selectedArea]
+  );
+
+  const handleViewWinner = useCallback(() => {
+    if (!winnerOption?.data) return;
+    onViewPub(winnerOption.data as Pub);
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'random_view_pub', {
+        pub_id: winnerOption.id,
+        pub_name: winnerOption.label,
+        source: 'random_picker',
+      });
     }
-  }, [isOpen, filters, fetchCandidateCount]);
+  }, [onViewPub, winnerOption]);
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white border border-gray-200 shadow-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-2xl">
-            Spin the Wheel
-            <span className="text-sm font-normal text-gray-500">
-              ({candidateCount} pubs available)
-            </span>
-          </DialogTitle>
-        </DialogHeader>
+  const areaOptions = useMemo(() => {
+    const areas = new Set<string>();
+    pubData.forEach((pub) => {
+      if (pub.area) areas.add(pub.area);
+    });
+    return [DEFAULT_AREA, ...Array.from(areas).sort()];
+  }, []);
 
-        <div className="space-y-6">
-          {/* Error State */}
-          {error && (
-            <div className="text-center py-8">
-              <div className="text-red-600 mb-4">{error}</div>
-              <Button onClick={fetchCandidateCount} variant="outline">
-                Try Again
-              </Button>
-            </div>
-          )}
+  const resetFilters = useCallback(() => {
+    setSelectedArea(DEFAULT_AREA);
+    setSelectedAmenities([]);
+    setMinRating(DEFAULT_MIN_RATING);
+    setOpeningFilter(DEFAULT_OPENING);
+  }, []);
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-              <p>Finding the perfect pubs for you...</p>
-            </div>
-          )}
+  const handleDesktopFiltersChange = useCallback(
+    (updated: {
+      searchTerm: string;
+      selectedArea: string;
+      minRating: number;
+      openingFilter: string;
+      selectedAmenities: string[];
+    }) => {
+      setSelectedArea(updated.selectedArea);
+      setSelectedAmenities(updated.selectedAmenities);
+      setMinRating(updated.minRating);
+      setOpeningFilter(updated.openingFilter);
+    },
+    []
+  );
 
-          {/* Wheel Animation */}
-          {!isLoading && !error && candidateCount > 0 && (
-            <div className="text-center">
-              <div className="relative w-64 h-64 mx-auto mb-6 md:w-80 md:h-80">
-                {/* SVG Wheel */}
-                <svg
-                  className={`w-full h-full transition-transform duration-[3000ms] ease-out`}
-                  viewBox="0 0 200 200"
-                  style={{
-                    transform: isSpinning ? `rotate(${finalRotation}deg)` : 'rotate(0deg)'
-                  }}
+  const candidatesCountLabel = useMemo(() => {
+    if (!filteredPubs.length) return 'No pubs match your filters';
+    return `Spinning from ${filteredPubs.length} pubs`;
+  }, [filteredPubs.length]);
+
+  if (!isOpen && variant === 'overlay') {
+    return null;
+  }
+
+  const mobileFilterButtonClasses = clsx(
+    'fixed right-4 top-24 z-[80] flex items-center gap-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-400 px-4 py-2.5 text-sm font-semibold text-black shadow-lg transition hover:from-emerald-400 hover:to-emerald-300 lg:hidden'
+  );
+
+  let wrapper: React.ReactNode;
+
+  if (isOverlayVariant) {
+    wrapper = (
+      <div
+        className="fixed inset-0 z-[70] flex min-h-screen bg-[var(--wheel-bg,#0a0f13)] text-white"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+      >
+        <h1 id={dialogTitleId} className="sr-only">
+          Random pub picker
+        </h1>
+        <div className="flex w-full items-stretch">
+          <div className="relative hidden h-full w-[360px] shrink-0 lg:block">
+            <aside className="h-full overflow-y-auto overscroll-contain border-r border-gray-200 bg-white/95 text-gray-900 backdrop-blur-sm shadow-xl">
+              <MapSidebar
+                filters={filtersState}
+                onFiltersChange={handleDesktopFiltersChange}
+                areas={areaOptions.filter((area) => area !== DEFAULT_AREA)}
+              />
+            </aside>
+            <button
+              type="button"
+              onClick={() => onClose?.()}
+              className="absolute right-4 top-4 rounded-full bg-gray-100 p-2 text-gray-500 shadow transition hover:bg-gray-200 hover:text-gray-700"
+              aria-label="Close random picker"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <main className="flex-1 overflow-y-auto">
+            <div className="relative flex min-h-screen flex-col items-center px-4 pb-24 pt-6 text-center sm:px-8 lg:px-12">
+              <div className="flex w-full items-center justify-between lg:hidden">
+                <h1 className="text-xl font-semibold text-white">Spin the Wheel</h1>
+                <button
+                  type="button"
+                  onClick={() => onClose?.()}
+                  className="rounded-full bg-white/10 p-2 text-gray-200 transition hover:bg-white/20 hover:text-white"
+                  aria-label="Close random picker"
                 >
-                  {/* Wheel Slices */}
-                  {Array.from({ length: 12 }, (_, i) => {
-                    const angle = (i * 30); // 360 / 12 = 30 degrees per slice
-                    const nextAngle = ((i + 1) * 30);
-                    const largeArcFlag = 30 > 180 ? 1 : 0;
-                    
-                    // Calculate path for each slice
-                    const startAngle = (angle * Math.PI) / 180;
-                    const endAngle = (nextAngle * Math.PI) / 180;
-                    
-                    const x1 = 100 + 90 * Math.cos(startAngle);
-                    const y1 = 100 + 90 * Math.sin(startAngle);
-                    const x2 = 100 + 90 * Math.cos(endAngle);
-                    const y2 = 100 + 90 * Math.sin(endAngle);
-                    
-                    const pathData = [
-                      `M 100 100`,
-                      `L ${x1} ${y1}`,
-                      `A 90 90 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-                      'Z'
-                    ].join(' ');
-                    
-                    return (
-                      <g key={i}>
-                        {/* Main slice */}
-                        <path
-                          d={pathData}
-                          fill={i % 2 === 0 ? '#08d78c' : '#ffffff'}
-                          stroke={winningSlice === i ? '#ff6b6b' : '#333333'}
-                          strokeWidth={winningSlice === i ? '3' : '1'}
-                          className={`transition-all duration-300 ${
-                            winningSlice === i ? 'drop-shadow-lg' : ''
-                          }`}
-                          style={{
-                            filter: winningSlice === i ? 'brightness(1.2)' : 'none'
-                          }}
-                        />
-                        {/* Subtle gradient overlay for 3D effect */}
-                        <defs>
-                          <radialGradient id={`gradient-${i}`} cx="50%" cy="50%" r="50%">
-                            <stop offset="0%" stopColor={i % 2 === 0 ? '#0af09c' : '#f8f9fa'} stopOpacity="0.8"/>
-                            <stop offset="100%" stopColor={i % 2 === 0 ? '#08d78c' : '#ffffff'} stopOpacity="1"/>
-                          </radialGradient>
-                        </defs>
-                        <path
-                          d={pathData}
-                          fill={`url(#gradient-${i})`}
-                          className="transition-all duration-300"
-                        />
-                      </g>
-                    );
-                  })}
-                  
-                  {/* Outer border */}
-                  <circle
-                    cx="100"
-                    cy="100"
-                    r="90"
-                    fill="none"
-                    stroke="#333333"
-                    strokeWidth="2"
-                  />
-                </svg>
-                
-                {/* Center Circle Button */}
-                <div className="absolute inset-8 rounded-full bg-[#08d78c] border-4 border-gray-300 flex items-center justify-center shadow-lg">
-                  <div className="text-white text-lg font-bold">
-                    SPIN
-                  </div>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-6 flex flex-1 w-full flex-col items-center text-center">
+                <div className="space-y-3">
+                  <p className="text-sm uppercase tracking-[6px] text-emerald-300/80">Your next pub awaits</p>
+                  <h2 className="text-3xl font-bold sm:text-4xl">Let fate pick tonight&apos;s spot</h2>
+                  <p className="max-w-xl text-sm text-gray-300">
+                    Spin the wheel to discover a pub at random. Refine the filters if you wish to select a random pub with specific criteria.
+                  </p>
                 </div>
-                
-                {/* Black Pointer */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-2">
-                  <div className="w-0 h-0 border-l-3 border-r-3 border-b-6 border-l-transparent border-r-transparent border-b-black"></div>
+
+                <div className="mt-4">
+                  <div className="text-xs uppercase tracking-[4px] text-gray-400">{candidatesCountLabel}</div>
+                </div>
+
+                <div className="relative mt-8 flex flex-1 w-full items-center justify-center pb-24">
+                  {wheelOptions.length === 0 ? (
+                    <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/5 p-12 text-sm text-gray-300 backdrop-blur">
+                      <span className="text-2xl">😔</span>
+                      <p>No pubs match your filters right now.</p>
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-black transition hover:bg-emerald-400"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  ) : (
+                    <SpinTheWheel options={wheelOptions} onWin={handleSpinWin} primary="#10B981" edgeGlow />
+                  )}
                 </div>
               </div>
-              
-              <Button 
-                onClick={handleSpin}
-                disabled={isSpinning}
-                className="w-full bg-[#08d78c] hover:bg-[#06b875] text-white font-semibold py-3"
-                size="lg"
-              >
-                {isSpinning ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Spinning...
-                  </>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  } else {
+    wrapper = (
+      <section className="relative bg-[var(--wheel-bg,#0a0f13)] text-white">
+        <div className="w-full px-4 pt-10 pb-28 sm:px-6 lg:px-0 lg:pt-0 lg:pb-24">
+          <div className="lg:grid lg:min-h-[calc(100vh-6rem)] lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-0">
+            <aside className="relative hidden lg:block">
+              <div className="sticky top-24">
+                <div className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/95 text-gray-900 shadow-xl backdrop-blur-sm">
+                  <div className="flex-1 overflow-y-auto overscroll-contain">
+                    <MapSidebar
+                      filters={filtersState}
+                      onFiltersChange={handleDesktopFiltersChange}
+                      areas={areaOptions.filter((area) => area !== DEFAULT_AREA)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <div className="flex flex-col items-center text-center lg:items-center lg:text-center lg:px-12">
+              <div className="flex items-center justify-center lg:hidden">
+                <h1 className="text-xl font-semibold text-white">Spin the Wheel</h1>
+              </div>
+
+              <div className="mt-6 w-full max-w-2xl space-y-3 lg:mt-12">
+                <p className="text-sm uppercase tracking-[6px] text-emerald-300/80">Your next pub awaits</p>
+                <h2 className="text-3xl font-bold sm:text-4xl">Let fate pick tonight&apos;s spot</h2>
+                <p className="text-sm text-gray-300">
+                  Spin the wheel to discover a pub at random. Refine the filters if you wish to select a random pub with specific criteria.
+                </p>
+              </div>
+
+              <div className="mt-6 text-xs uppercase tracking-[4px] text-gray-400 lg:mt-4">{candidatesCountLabel}</div>
+
+              <div className="relative mt-12 flex w-full max-w-3xl items-center justify-center lg:mt-10">
+                {wheelOptions.length === 0 ? (
+                  <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/5 p-12 text-sm text-gray-300 backdrop-blur">
+                    <span className="text-2xl">😔</span>
+                    <p>No pubs match your filters right now.</p>
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-black transition hover:bg-emerald-400"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
                 ) : (
-                  <>
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Spin the Wheel
-                  </>
+                  <SpinTheWheel options={wheelOptions} onWin={handleSpinWin} primary="#10B981" edgeGlow size={560} />
                 )}
-              </Button>
-            </div>
-          )}
-
-          {/* Winner Display */}
-          {winner && !isSpinning && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="text-2xl mb-2">🎉 Congratulations! 🎉</div>
-                <div className="text-lg font-semibold text-[#08d78c]">
-                  Your random pub is:
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-6 border-2 border-[#08d78c]">
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-20 h-20 rounded-lg overflow-hidden">
-                      <PubPhoto
-                        photoName={winner._internal?.photo_name}
-                        placeId={winner._internal?.place_id}
-                        src={winner._internal?.photo_url}
-                        alt={winner.name}
-                        width={80}
-                        height={80}
-                        className="w-full h-full"
-                        fallbackIcon="🍺"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      {winner.name}
-                    </h3>
-                    
-                    <div className="space-y-2 text-sm text-gray-600">
-                      {winner.address && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {winner.address}
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 text-yellow-500" />
-                          <span className="font-semibold">{winner.rating}</span>
-                          <span>({winner.reviewCount} reviews)</span>
-                        </div>
-                        
-                        {winner.openingHours && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            <span>Open</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {winner.amenities && winner.amenities.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {winner.amenities.slice(0, 3).map(amenity => (
-                            <span 
-                              key={amenity}
-                              className="px-2 py-1 bg-[#08d78c] text-black text-xs rounded-full"
-                            >
-                              {amenity}
-                            </span>
-                          ))}
-                          {winner.amenities.length > 3 && (
-                            <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
-                              +{winner.amenities.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <Button 
-                  onClick={handleViewPub}
-                  className="flex-1 bg-[#08d78c] hover:bg-[#06b875] text-white font-semibold"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View Pub
-                </Button>
-                
-                {winner._internal?.lat && winner._internal?.lng && (
-                  <Button 
-                    onClick={handleGetDirections}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <MapPin className="w-4 h-4 mr-2" />
-                    Directions
-                  </Button>
-                )}
-                
-                <Button 
-                  onClick={() => {
-                    handleSpin();
-                    // Track spin again event
-                    if (typeof window !== 'undefined' && (window as any).gtag) {
-                      (window as any).gtag('event', 'random_spin_again', {
-                        previous_pub_id: winner?.id,
-                        previous_pub_name: winner?.name,
-                        filters: JSON.stringify(filters),
-                        area: filters.area || 'all',
-                        session_id: Date.now().toString()
-                      });
-                    }
-                  }}
-                  variant="outline"
-                  className="px-4"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Spin Again
-                </Button>
               </div>
             </div>
-          )}
-
-          {/* Filter Info */}
-          <div className="text-sm text-gray-500 text-center">
-            <p>
-              Spinning from {candidateCount} pubs matching your current filters
-              {lastWinners.size > 0 && ` (avoiding ${lastWinners.size} recent picks)`}
-            </p>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      {wrapper}
+
+      <button
+        type="button"
+        onClick={() => setMobileDrawerOpen(true)}
+        className={mobileFilterButtonClasses}
+      >
+        <SlidersHorizontal className="h-4 w-4" />
+        Filters
+      </button>
+
+      <MobileFilterDrawer
+        isOpen={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        amenitiesByCategory={DEFAULT_AMENITIES_BY_CATEGORY}
+        selectedAmenities={selectedAmenities}
+        onAmenityToggle={(amenity) =>
+          setSelectedAmenities((prev) =>
+            prev.includes(amenity) ? prev.filter((item) => item !== amenity) : [...prev, amenity]
+          )
+        }
+        onClearAll={() => {
+          resetFilters();
+          setMobileDrawerOpen(false);
+        }}
+        areas={areaOptions}
+        selectedArea={selectedArea}
+        onAreaChange={(area) => setSelectedArea(area)}
+        minRating={minRating}
+        onRatingChange={(rating) => setMinRating(rating)}
+        openingFilter={openingFilter}
+        onRemoveArea={() => setSelectedArea(DEFAULT_AREA)}
+        onRemoveRating={() => setMinRating(DEFAULT_MIN_RATING)}
+        onRemoveOpening={() => setOpeningFilter(DEFAULT_OPENING)}
+        onSearch={() => {}}
+      />
+
+      {winnerOption && winnerOpen && (
+        <WinnerModal
+          option={winnerOption}
+          onClose={() => setWinnerOpen(false)}
+          onViewPub={handleViewWinner}
+        />
+      )}
+    </>
   );
-}
+};
+
+export default RandomPicker;
+
+type WinnerModalProps = {
+  option: Option;
+  onClose: () => void;
+  onViewPub: () => void;
+};
+
+const WinnerModal = ({ option, onClose, onViewPub }: WinnerModalProps) => {
+  const titleId = useId();
+  const winnerPub = option.data as Pub | undefined;
+  const amenitiesPreview = winnerPub?.amenities?.slice(0, 6) ?? [];
+  const isOpen = winnerPub?.openingHours ? isPubOpenNow(winnerPub.openingHours) : undefined;
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-10 backdrop-blur-sm sm:items-center sm:px-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative w-full max-w-xl overflow-hidden rounded-3xl bg-white text-gray-900 shadow-2xl"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close winner modal"
+          className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-gray-600 shadow-md transition hover:bg-white hover:text-gray-900"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="h-56 w-full overflow-hidden bg-gray-200 sm:h-64">
+          <PubPhoto
+            photoName={winnerPub?._internal?.photo_name}
+            placeId={winnerPub?._internal?.place_id}
+            src={winnerPub?._internal?.photo_url}
+            alt={winnerPub?.name ?? option.label}
+            width={800}
+            height={600}
+            className="h-full w-full object-cover"
+            fallbackIcon="🍺"
+          />
+        </div>
+
+        <div className="space-y-6 p-6">
+          <div>
+            <p className="text-sm uppercase tracking-[4px] text-emerald-500">Tonight&apos;s pick</p>
+            <h2 id={titleId} className="mt-2 text-2xl font-bold text-gray-900">
+              {winnerPub?.name ?? option.label}
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+            {winnerPub?.address && (
+              <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+                <MapPin className="h-4 w-4 text-emerald-500" />
+                {winnerPub.address}
+              </span>
+            )}
+
+            {typeof winnerPub?.rating === 'number' && (
+              <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+                <Star className="h-4 w-4 text-yellow-500" />
+                <span className="font-semibold">{winnerPub.rating.toFixed(1)}</span>
+                {winnerPub.reviewCount ? <span>({winnerPub.reviewCount} reviews)</span> : null}
+              </span>
+            )}
+
+            {isOpen !== undefined && (
+              <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+                <Clock className="h-4 w-4 text-emerald-500" />
+                {isOpen ? 'Open now' : 'Currently closed'}
+              </span>
+            )}
+          </div>
+
+          {winnerPub?.description && (
+            <p className="text-sm text-gray-600">{winnerPub.description}</p>
+          )}
+
+          {amenitiesPreview.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-gray-800">Highlights</p>
+              <div className="flex flex-wrap gap-2">
+                {amenitiesPreview.map((amenity) => (
+                  <span
+                    key={amenity}
+                    className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600"
+                  >
+                    {amenity}
+                  </span>
+                ))}
+                {winnerPub?.amenities && winnerPub.amenities.length > amenitiesPreview.length && (
+                  <span className="inline-flex items-center rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-600">
+                    +{winnerPub.amenities.length - amenitiesPreview.length} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onViewPub}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-black transition hover:bg-emerald-400 sm:w-auto"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View pub page
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+

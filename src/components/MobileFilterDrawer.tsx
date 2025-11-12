@@ -83,7 +83,7 @@ export default function MobileFilterDrawer({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 right-0 top-0 bottom-0 bg-white shadow-2xl z-50 overflow-y-auto"
+            className="fixed inset-0 z-[90] overflow-y-auto rounded-t-3xl bg-white shadow-2xl"
           >
             {/* Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 z-10">
@@ -126,7 +126,7 @@ export default function MobileFilterDrawer({
               >
                 <h3 className="font-semibold text-lg text-gray-900 mb-3">Search</h3>
                 <SearchBar
-                  placeholder="Search by pub name, area, or features..."
+                  placeholder="Quick search by features, area, or pub name..."
                   onSearch={onSearch}
                   variant="default"
                 />
