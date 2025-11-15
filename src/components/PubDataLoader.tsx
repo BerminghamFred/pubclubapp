@@ -22,6 +22,8 @@ import { MapSidebar } from './MapSidebar';
 import { MapCanvas } from './MapCanvas';
 import { ResultDrawer } from './ResultDrawer';
 import { useMapUrlState } from '@/hooks/useMapUrlState';
+import { useAnalytics } from '@/lib/analytics-client';
+import { useSession } from 'next-auth/react';
 
 // Google Maps types
 declare global {
@@ -33,6 +35,8 @@ declare global {
 export default function PubDataLoader() {
   const DEFAULT_AREA = 'All Areas';
   const DEFAULT_OPENING = 'Any Time';
+  const { trackSearch, trackFilterUsage } = useAnalytics();
+  const { data: session } = useSession();
 
   // URL state management for list view (original)
   const urlState = useUrlState();
@@ -341,6 +345,62 @@ export default function PubDataLoader() {
       return () => clearTimeout(timer);
     }
   }, [view, isMapLoaded, map]);
+
+  // Track search events - use ref to prevent duplicate tracking
+  const lastTrackedSearch = useRef<string>('');
+  
+  useEffect(() => {
+    // Only track if there's an actual search query and it's different from last tracked
+    const currentSearch = searchTerm?.trim() || (searchSelections.length > 0 
+      ? searchSelections.map(s => s.type === 'pub' ? s.data.pub : s.type === 'area' ? s.data.area : s.data.amenity).join(', ')
+      : '');
+    
+    if (currentSearch && currentSearch !== lastTrackedSearch.current) {
+      lastTrackedSearch.current = currentSearch;
+      trackSearch({
+        userId: session?.user?.id,
+        query: currentSearch,
+        resultsCount: filteredPubs.length,
+      });
+    }
+  }, [searchTerm, searchSelections, filteredPubs.length, session?.user?.id, trackSearch]);
+
+  // Track filter usage
+  useEffect(() => {
+    // Track area filter
+    if (selectedArea && selectedArea !== 'All Areas') {
+      trackFilterUsage({
+        filterKey: `area:${selectedArea}`,
+      });
+    }
+  }, [selectedArea, trackFilterUsage]);
+
+  useEffect(() => {
+    // Track amenity filters
+    selectedAmenities.forEach(amenity => {
+      trackFilterUsage({
+        filterKey: `amenity:${amenity}`,
+      });
+    });
+  }, [selectedAmenities, trackFilterUsage]);
+
+  useEffect(() => {
+    // Track rating filter
+    if (minRating > 0) {
+      trackFilterUsage({
+        filterKey: `minRating:${minRating}`,
+      });
+    }
+  }, [minRating, trackFilterUsage]);
+
+  useEffect(() => {
+    // Track opening hours filter
+    if (openingFilter && openingFilter !== 'Any Time') {
+      trackFilterUsage({
+        filterKey: `opening:${openingFilter}`,
+      });
+    }
+  }, [openingFilter, trackFilterUsage]);
 
   // Reset to first page when filters change or location is obtained
   useEffect(() => {

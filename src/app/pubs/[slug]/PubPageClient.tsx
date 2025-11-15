@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Heart, MapPin, Star, MessageSquare, CheckCircle, Plus, Minus } from 'lucide-react';
 import LoginModal from '@/components/LoginModal';
 import PubPhoto from '@/components/PubPhoto';
+import { useAnalytics } from '@/lib/analytics-client';
 
 interface Pub {
   id: string;
@@ -59,10 +60,20 @@ interface PubPageClientProps {
 
 export default function PubPageClient({ pub }: PubPageClientProps) {
   const { data: session } = useSession();
+  const { trackPageView, trackCtaClick } = useAnalytics();
   const [userState, setUserState] = useState<UserState>({
     isWishlisted: false,
     hasCheckedIn: false,
   });
+
+  // Track page view when pub page loads
+  useEffect(() => {
+    trackPageView({
+      userId: session?.user?.id,
+      pubId: pub.id,
+      areaSlug: pub.area,
+    });
+  }, [pub.id, pub.area, session?.user?.id, trackPageView]);
 
   // Debug: Log the pub data being received
   useEffect(() => {
@@ -501,6 +512,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-[#08d78c] hover:text-[#06b875] transition-colors"
+                      onClick={() => trackCtaClick({ pubId: pub.id, type: 'website' })}
                     >
                       Visit Website
                     </a>
@@ -526,6 +538,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors duration-200 text-center block"
+                    onClick={() => trackCtaClick({ pubId: pub.id, type: 'book' })}
                   >
                     Get Directions
                   </a>

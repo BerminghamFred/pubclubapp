@@ -15,36 +15,110 @@ export async function GET(request: NextRequest) {
     const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const toDate = to ? new Date(to) : new Date()
 
-    // Since we don't have real analytics data yet, show realistic starting values
-    // TODO: Replace with real analytics once event tracking is implemented
+    // Build where clause for city/borough filtering
+    const pageViewWhere: any = {
+      ts: { gte: fromDate, lte: toDate }
+    }
+    const searchWhere: any = {
+      ts: { gte: fromDate, lte: toDate }
+    }
+    const filterWhere: any = {
+      ts: { gte: fromDate, lte: toDate }
+    }
+
+    // Apply city/borough filters if provided
+    const cityIdFilter = cityId ? parseInt(cityId) : null
+    const boroughIdFilter = boroughId ? parseInt(boroughId) : null
+
+    // Query real analytics data
+    const totalViews = await prisma.eventPageView.count({
+      where: pageViewWhere
+    })
+
+    const totalSearches = await prisma.eventSearch.count({
+      where: searchWhere
+    })
+
+    // Get unique pubs viewed
+    const uniquePubsViewedResult = await prisma.eventPageView.findMany({
+      where: {
+        ...pageViewWhere,
+        pubId: { not: null }
+      },
+      select: { pubId: true },
+      distinct: ['pubId']
+    })
+    const uniquePubsViewed = uniquePubsViewedResult.length
+
+    // Get active managers (managers who logged in within last 90 days)
+    const managerLoginCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+    const activeManagersLogins = await prisma.managerLogin.findMany({
+      where: {
+        loggedInAt: { gte: managerLoginCutoff },
+        managerId: { not: null }
+      },
+      select: { managerId: true },
+      distinct: ['managerId']
+    })
+    const activeManagers = activeManagersLogins.length
+
+    // Get views by day - fetch all and group by date
+    const allViews = await prisma.eventPageView.findMany({
+      where: pageViewWhere,
+      select: { ts: true }
+    })
+
+    // Get searches by day - fetch all and group by date
+    const allSearches = await prisma.eventSearch.findMany({
+      where: searchWhere,
+      select: { ts: true }
+    })
+
+    // Get filter usage
+    const filterUsageRaw = await getFilterUsage(fromDate, toDate, cityIdFilter || undefined, boroughIdFilter || undefined)
     
-    const totalViews = 0; // Will track real page views
-    const totalSearches = 0; // Will track real searches
-    const uniquePubsViewed = 0; // Will track unique pubs viewed
-    const activeManagers = pubData.filter(pub => pub.manager_email).length; // Pubs with manager emails
+    // Format filter usage for display
+    const filtersTop = filterUsageRaw.map(item => ({
+      key: item.filterKey,
+      uses: item._count.id
+    }))
 
-    // Empty arrays for charts - will populate with real data
-    const viewsByDayFormatted: Array<{ date: string; views: number }> = [];
-    const searchesByDayFormatted: Array<{ date: string; searches: number }> = [];
-    const filtersTop: Array<{ key: string; uses: number }> = [];
-    const highPotentialPubs: Array<any> = [];
+    // Get high potential pubs
+    const highPotentialPubs = await getHighPotentialPubs(500, fromDate, toDate)
 
-    // Generate empty chart data for the last 30 days
-    const days = 30;
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+    // Format views by day - aggregate by date (not timestamp)
+    const viewsByDayMap = new Map<string, number>()
+    allViews.forEach(item => {
+      const dateStr = item.ts.toISOString().split('T')[0]
+      viewsByDayMap.set(dateStr, (viewsByDayMap.get(dateStr) || 0) + 1)
+    })
+
+    // Format searches by day
+    const searchesByDayMap = new Map<string, number>()
+    allSearches.forEach(item => {
+      const dateStr = item.ts.toISOString().split('T')[0]
+      searchesByDayMap.set(dateStr, (searchesByDayMap.get(dateStr) || 0) + 1)
+    })
+
+    // Generate chart data for the date range
+    const days = Math.ceil((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000))
+    const viewsByDayFormatted: Array<{ date: string; views: number }> = []
+    const searchesByDayFormatted: Array<{ date: string; searches: number }> = []
+
+    for (let i = 0; i <= days; i++) {
+      const date = new Date(fromDate)
+      date.setDate(date.getDate() + i)
+      const dateStr = date.toISOString().split('T')[0]
       
       viewsByDayFormatted.push({
         date: dateStr,
-        views: 0,
-      });
+        views: viewsByDayMap.get(dateStr) || 0,
+      })
       
       searchesByDayFormatted.push({
         date: dateStr,
-        searches: 0,
-      });
+        searches: searchesByDayMap.get(dateStr) || 0,
+      })
     }
 
     return NextResponse.json({

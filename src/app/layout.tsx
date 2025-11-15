@@ -4,6 +4,7 @@ import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { SessionProvider } from "@/components/SessionProvider";
+import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -107,11 +108,13 @@ export default function RootLayout({
         className={`${inter.variable} antialiased min-h-screen flex flex-col`}
       >
         <SessionProvider>
-          <Navigation />
-          <main className="flex-1">
-            {children}
-          </main>
-          <Footer />
+          <AnalyticsProvider>
+            <Navigation />
+            <main className="flex-1">
+              {children}
+            </main>
+            <Footer />
+          </AnalyticsProvider>
         </SessionProvider>
       </body>
     </html>

@@ -67,6 +67,7 @@ class AnalyticsClient {
 
   // Page view tracking
   trackPageView(data: {
+    userId?: string
     pubId?: string
     areaSlug?: string
     ref?: string
@@ -84,6 +85,7 @@ class AnalyticsClient {
 
   // Search tracking
   trackSearch(data: {
+    userId?: string
     query: string
     cityId?: number
     boroughId?: number
