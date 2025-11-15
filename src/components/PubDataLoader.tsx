@@ -387,40 +387,60 @@ export default function PubDataLoader() {
     }
   }, [filteredPubs.length, searchTerm, searchSelections, selectedArea, selectedAmenities, minRating, openingFilter, session?.user?.id, trackSearch]);
 
-  // Track filter usage
+  // Track filter usage only when filters are actually applied (not on every render)
+  // Use refs to track previous values and only track transitions from "not set" to "set"
+  const prevSelectedArea = useRef<string | undefined>(undefined);
+  const prevSelectedAmenities = useRef<string[]>([]);
+  const prevMinRating = useRef<number>(0);
+  const prevOpeningFilter = useRef<string | undefined>(undefined);
+
   useEffect(() => {
-    // Track area filter
-    if (selectedArea && selectedArea !== 'All Areas') {
+    // Track area filter only when it changes from "not set" or "All Areas" to a specific area
+    if (selectedArea && selectedArea !== 'All Areas' && selectedArea !== prevSelectedArea.current) {
       trackFilterUsage({
         filterKey: `area:${selectedArea}`,
       });
+      prevSelectedArea.current = selectedArea;
+    } else if ((!selectedArea || selectedArea === 'All Areas') && prevSelectedArea.current) {
+      // Reset when filter is cleared
+      prevSelectedArea.current = undefined;
     }
   }, [selectedArea, trackFilterUsage]);
 
   useEffect(() => {
-    // Track amenity filters
-    selectedAmenities.forEach(amenity => {
+    // Track amenity filters only when new amenities are added (not removed)
+    const newAmenities = selectedAmenities.filter(a => !prevSelectedAmenities.current.includes(a));
+    newAmenities.forEach(amenity => {
       trackFilterUsage({
         filterKey: `amenity:${amenity}`,
       });
     });
+    prevSelectedAmenities.current = [...selectedAmenities];
   }, [selectedAmenities, trackFilterUsage]);
 
   useEffect(() => {
-    // Track rating filter
-    if (minRating > 0) {
+    // Track rating filter only when it increases from 0 or changes to a higher value
+    if (minRating > 0 && minRating !== prevMinRating.current) {
       trackFilterUsage({
         filterKey: `minRating:${minRating}`,
       });
+      prevMinRating.current = minRating;
+    } else if (minRating === 0 && prevMinRating.current > 0) {
+      // Reset when filter is cleared
+      prevMinRating.current = 0;
     }
   }, [minRating, trackFilterUsage]);
 
   useEffect(() => {
-    // Track opening hours filter
-    if (openingFilter && openingFilter !== 'Any Time') {
+    // Track opening hours filter only when it changes from "Any Time" or undefined to a specific value
+    if (openingFilter && openingFilter !== 'Any Time' && openingFilter !== prevOpeningFilter.current) {
       trackFilterUsage({
         filterKey: `opening:${openingFilter}`,
       });
+      prevOpeningFilter.current = openingFilter;
+    } else if ((!openingFilter || openingFilter === 'Any Time') && prevOpeningFilter.current) {
+      // Reset when filter is cleared
+      prevOpeningFilter.current = undefined;
     }
   }, [openingFilter, trackFilterUsage]);
 

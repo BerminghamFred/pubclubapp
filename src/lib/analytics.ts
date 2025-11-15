@@ -29,7 +29,7 @@ export interface FilterUsageEvent {
 export interface CtaClickEvent {
   sessionId: string
   pubId: string
-  type: 'book' | 'call' | 'website'
+  type: 'book' | 'call' | 'website' | 'spin' | 'spin_view_pub'
 }
 
 // Event tracking functions
@@ -51,6 +51,32 @@ export async function trackPageView(event: PageViewEvent) {
     return result
   } catch (error) {
     console.error('[Analytics DB] Failed to track page view:', error)
+    throw error
+  }
+}
+
+// Batch create page view events with skipDuplicates
+export async function trackPageViewBatch(events: PageViewEvent[]) {
+  try {
+    if (events.length === 0) return []
+    
+    console.log('[Analytics DB] Creating page view events batch:', events.length)
+    const result = await prisma.eventPageView.createMany({
+      data: events.map(event => ({
+        userId: event.userId,
+        sessionId: event.sessionId,
+        pubId: event.pubId,
+        areaSlug: event.areaSlug,
+        ref: event.ref,
+        utm: event.utm,
+        device: event.device,
+      })),
+      skipDuplicates: true,
+    })
+    console.log('[Analytics DB] Page view events batch created:', result.count)
+    return result
+  } catch (error) {
+    console.error('[Analytics DB] Failed to track page view batch:', error)
     throw error
   }
 }
@@ -91,6 +117,29 @@ export async function trackFilterUsage(event: FilterUsageEvent) {
     return result
   } catch (error) {
     console.error('[Analytics DB] Failed to track filter usage:', error)
+    throw error
+  }
+}
+
+// Batch create filter usage events with skipDuplicates
+export async function trackFilterUsageBatch(events: FilterUsageEvent[]) {
+  try {
+    if (events.length === 0) return []
+    
+    console.log('[Analytics DB] Creating filter usage events batch:', events.length)
+    const result = await prisma.eventFilterUsage.createMany({
+      data: events.map(event => ({
+        sessionId: event.sessionId,
+        filterKey: event.filterKey,
+        cityId: event.cityId,
+        boroughId: event.boroughId,
+      })),
+      skipDuplicates: true,
+    })
+    console.log('[Analytics DB] Filter usage events batch created:', result.count)
+    return result
+  } catch (error) {
+    console.error('[Analytics DB] Failed to track filter usage batch:', error)
     throw error
   }
 }

@@ -169,10 +169,10 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
         return next.slice(0, 8);
       });
 
-      // Track spin the wheel event with analytics
+      // Track spin the wheel result event with analytics
       trackCtaClick({
         pubId: option.id,
-        type: 'book', // Using 'book' type for spin the wheel (we can add a new type later if needed)
+        type: 'spin', // Track when wheel finishes and shows result
       });
 
       if (typeof window !== 'undefined' && (window as any).gtag) {
@@ -209,6 +209,13 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
 
   const handleViewWinner = useCallback(() => {
     if (!winnerOption?.data) return;
+    
+    // Track "view pub" click after spin
+    trackCtaClick({
+      pubId: winnerOption.id,
+      type: 'spin_view_pub', // Track when user clicks "view pub" after spinning
+    });
+    
     onViewPub(winnerOption.data as Pub);
     if (typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', 'random_view_pub', {
@@ -217,7 +224,7 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
         source: 'random_picker',
       });
     }
-  }, [onViewPub, winnerOption]);
+  }, [onViewPub, winnerOption, trackCtaClick]);
 
   const areaOptions = useMemo(() => {
     const areas = new Set<string>();
@@ -335,7 +342,16 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
                       </button>
                     </div>
                   ) : (
-                    <SpinTheWheel options={wheelOptions} onWin={handleSpinWin} primary="#10B981" edgeGlow />
+                    <SpinTheWheel 
+                      options={wheelOptions} 
+                      onWin={handleSpinWin}
+                      onSpinStart={() => {
+                        // Spin start is tracked when wheel finishes in handleSpinWin
+                        // This callback is available for future use if needed
+                      }}
+                      primary="#10B981" 
+                      edgeGlow 
+                    />
                   )}
                 </div>
               </div>
@@ -392,7 +408,20 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
                     </button>
                   </div>
                 ) : (
-                  <SpinTheWheel options={wheelOptions} onWin={handleSpinWin} primary="#10B981" edgeGlow size={560} />
+                  <SpinTheWheel 
+                    options={wheelOptions} 
+                    onWin={handleSpinWin}
+                    onSpinStart={() => {
+                      // Track when user clicks spin button
+                      trackCtaClick({
+                        pubId: 'spin_start', // Placeholder - actual pubId tracked in handleSpinWin
+                        type: 'spin',
+                      });
+                    }}
+                    primary="#10B981" 
+                    edgeGlow 
+                    size={560} 
+                  />
                 )}
               </div>
             </div>

@@ -38,6 +38,7 @@ export default function AreaFeaturedPubsPage() {
   const [loadingPubs, setLoadingPubs] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Get list of all areas from pub data
   const [allAreas, setAllAreas] = useState<string[]>([]);
@@ -122,6 +123,8 @@ export default function AreaFeaturedPubsPage() {
 
   const setFeaturedPub = async (areaName: string, pubId: string) => {
     setSaving(pubId);
+    setError(null);
+    setSuccess(null);
     try {
       const response = await fetch('/api/admin/area-featured-pubs', {
         method: 'POST',
@@ -132,30 +135,22 @@ export default function AreaFeaturedPubsPage() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        setSuccess(`Featured pub for ${areaName} updated successfully!`);
         await fetchFeaturedPubs(); // Refresh the list
-        setSelectedArea(null); // Close the modal
-        setAreaPubs([]);
+        setTimeout(() => {
+          setSelectedArea(null); // Close the modal
+          setAreaPubs([]);
+          setSuccess(null);
+        }, 1500);
       } else {
-        console.error('Response status:', response.status);
-        console.error('Response status text:', response.statusText);
-        
-        // Check if there's any response body to parse
-        const responseText = await response.text();
-        console.error('Raw response text:', responseText);
-        
-        if (responseText) {
-          try {
-            const error = JSON.parse(responseText);
-            console.error('Error setting featured pub:', error);
-          } catch (parseError) {
-            console.error('Failed to parse error response:', parseError);
-            console.error('Response was not valid JSON:', responseText);
-          }
-        } else {
-          console.error('Empty response body from server');
-        }
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        setError(errorData.error || `Failed to set featured pub (${response.status})`);
+        console.error('Error setting featured pub:', errorData);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Network error occurred';
+      setError(errorMessage);
       console.error('Error setting featured pub:', error);
     } finally {
       setSaving(null);
@@ -202,7 +197,10 @@ export default function AreaFeaturedPubsPage() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <p className="text-red-800">{error}</p>
             <Button 
-              onClick={() => window.location.reload()} 
+              onClick={() => {
+                setError(null);
+                window.location.reload();
+              }} 
               variant="outline" 
               size="sm" 
               className="mt-2"
@@ -212,8 +210,15 @@ export default function AreaFeaturedPubsPage() {
           </div>
         )}
 
+        {/* Success State */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <p className="text-green-800">{success}</p>
+          </div>
+        )}
+
         {/* Areas Grid */}
-        {!loading && !error && (
+        {!loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {allAreas.length > 0 ? (
               allAreas.map((areaName) => {
@@ -380,11 +385,18 @@ export default function AreaFeaturedPubsPage() {
                 )}
               </div>
               
-              <div className="p-6 border-t flex justify-end">
+              <div className="p-6 border-t flex justify-end gap-2">
+                {error && (
+                  <div className="flex-1 text-red-600 text-sm">
+                    {error}
+                  </div>
+                )}
                 <Button
                   onClick={() => {
                     setSelectedArea(null);
                     setAreaPubs([]);
+                    setError(null);
+                    setSuccess(null);
                   }}
                   variant="outline"
                 >

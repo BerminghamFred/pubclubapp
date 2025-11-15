@@ -107,8 +107,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const pubId = searchParams.get('pubId');
+    // Try to get pubId from request body first, then fall back to query params
+    let pubId: string | null = null;
+    try {
+      const body = await request.json();
+      pubId = body.pubId;
+    } catch {
+      // If body parsing fails, try query params
+      const { searchParams } = new URL(request.url);
+      pubId = searchParams.get('pubId');
+    }
 
     if (!pubId) {
       return NextResponse.json(

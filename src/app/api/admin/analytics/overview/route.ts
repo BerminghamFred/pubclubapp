@@ -88,6 +88,30 @@ export async function GET(request: NextRequest) {
     // Get high potential pubs
     const highPotentialPubs = await getHighPotentialPubs(500, fromDate, toDate)
 
+    // Get spin the wheel metrics
+    const spinEvents = await prisma.eventCtaClick.findMany({
+      where: {
+        type: 'spin',
+        ts: { gte: fromDate, lte: toDate }
+      },
+      select: { ts: true }
+    })
+    const totalSpins = spinEvents.length
+
+    const spinViewPubEvents = await prisma.eventCtaClick.findMany({
+      where: {
+        type: 'spin_view_pub',
+        ts: { gte: fromDate, lte: toDate }
+      },
+      select: { ts: true }
+    })
+    const totalSpinViewPubClicks = spinViewPubEvents.length
+
+    // Calculate conversion rate (view pub clicks / spins * 100)
+    const spinConversionRate = totalSpins > 0 
+      ? ((totalSpinViewPubClicks / totalSpins) * 100).toFixed(1)
+      : '0.0'
+
     // Format views by day - aggregate by date (not timestamp)
     const viewsByDayMap = new Map<string, number>()
     allViews.forEach(item => {
@@ -132,6 +156,11 @@ export async function GET(request: NextRequest) {
       viewsByDay: viewsByDayFormatted,
       searchesByDay: searchesByDayFormatted,
       highPotentialPubs: highPotentialPubs.slice(0, 10), // Top 10
+      spinTheWheel: {
+        totalSpins,
+        totalViewPubClicks: totalSpinViewPubClicks,
+        conversionRate: parseFloat(spinConversionRate),
+      },
     })
   } catch (error) {
     console.error('Error fetching analytics overview:', error)

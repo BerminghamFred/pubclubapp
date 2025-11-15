@@ -1,40 +1,10 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { pubData } from '@/data/pubData';
-import fs from 'fs';
-import path from 'path';
-
-// File path for storing featured pubs
-const FEATURED_PUBS_FILE = path.join(process.cwd(), 'data', 'featured-pubs.json');
-
-// Helper functions for file operations
-function readFeaturedPubs() {
-  try {
-    if (!fs.existsSync(FEATURED_PUBS_FILE)) {
-      return {};
-    }
-    const data = fs.readFileSync(FEATURED_PUBS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error reading featured pubs file:', error);
-    return {};
-  }
-}
-
-function writeFeaturedPubs(data: any) {
-  try {
-    // Ensure data directory exists
-    const dataDir = path.dirname(FEATURED_PUBS_FILE);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    fs.writeFileSync(FEATURED_PUBS_FILE, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error writing featured pubs file:', error);
-    throw error;
-  }
-}
 
 // GET /api/admin/area-featured-pubs - Get all area featured pubs
 export async function GET() {
@@ -45,11 +15,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const featuredPubsData = readFeaturedPubs();
+    // Get all featured pubs from database
+    const featuredPubsFromDb = await prisma.areaFeaturedPub.findMany();
 
-    // Get pub data with proper photo URLs
-    const featuredPubsWithPhotos = Object.entries(featuredPubsData).map(([areaName, pubId]) => {
-      const pubFromData = pubData.find(pub => pub.id === pubId);
+    // Get pub data with proper photo URLs from static data
+    const featuredPubsWithPhotos = featuredPubsFromDb.map((featuredPub) => {
+      const pubFromData = pubData.find(pub => pub.id === featuredPub.pubId);
       if (!pubFromData) {
         return null;
       }
@@ -61,9 +32,9 @@ export async function GET() {
         : null;
 
       return {
-        id: `${areaName}-${pubId}`,
-        areaName: areaName,
-        pubId: pubId as string,
+        id: `${featuredPub.areaName}-${featuredPub.pubId}`,
+        areaName: featuredPub.areaName,
+        pubId: featuredPub.pubId,
         pub: {
           id: pubFromData.id,
           name: pubFromData.name,
@@ -71,6 +42,7 @@ export async function GET() {
           rating: pubFromData.rating,
           reviewCount: pubFromData.reviewCount,
           address: pubFromData.address,
+          amenities: pubFromData.amenities || [],
         }
       };
     }).filter(Boolean);
@@ -115,14 +87,51 @@ export async function POST(request: NextRequest) {
 
     console.log(`Setting featured pub for area: ${areaName}, pubId: ${pubId}`);
 
-    // Read current featured pubs data
-    const featuredPubsData = readFeaturedPubs();
-    
-    // Update the data with new selection
-    featuredPubsData[areaName] = pubId;
-    
-    // Write back to file
-    writeFeaturedPubs(featuredPubsData);
+    // Check if pub exists in database (create if it doesn't)
+    let dbPub = await prisma.pub.findUnique({
+      where: { id: pubId },
+    });
+
+    if (!dbPub) {
+      // Create pub in database if it doesn't exist
+      dbPub = await prisma.pub.create({
+        data: {
+          id: pubId,
+          name: pubFromData.name,
+          slug: pubFromData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+          address: pubFromData.address,
+          description: pubFromData.description,
+          phone: pubFromData.phone,
+          website: pubFromData.website,
+          rating: pubFromData.rating,
+          reviewCount: pubFromData.reviewCount,
+          openingHours: pubFromData.openingHours,
+          photoUrl: pubFromData._internal?.photo_url,
+          lat: pubFromData._internal?.lat,
+          lng: pubFromData._internal?.lng,
+        },
+      });
+    }
+
+    // Upsert the featured pub (update if exists, create if not)
+    await prisma.areaFeaturedPub.upsert({
+      where: {
+        areaName: areaName,
+      },
+      update: {
+        pubId: pubId,
+      },
+      create: {
+        areaName: areaName,
+        pubId: pubId,
+      },
+    });
+
+    const photoUrl = pubFromData._internal?.photo_name 
+      ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
+      : pubFromData._internal?.place_id
+      ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
+      : null;
 
     return NextResponse.json({ 
       message: 'Featured pub updated successfully',
@@ -133,14 +142,11 @@ export async function POST(request: NextRequest) {
         pub: {
           id: pubFromData.id,
           name: pubFromData.name,
-          photoUrl: pubFromData._internal?.photo_name 
-            ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
-            : pubFromData._internal?.place_id
-            ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
-            : null,
+          photoUrl: photoUrl,
           rating: pubFromData.rating,
           reviewCount: pubFromData.reviewCount,
           address: pubFromData.address,
+          amenities: pubFromData.amenities || [],
         }
       }
     });

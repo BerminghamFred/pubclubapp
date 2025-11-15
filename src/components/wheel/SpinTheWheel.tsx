@@ -12,6 +12,7 @@ type Option = {
 type SpinTheWheelProps = {
   options: Option[];
   onWin: (option: Option) => void;
+  onSpinStart?: () => void;
   size?: number;
   primary?: string;
   edgeGlow?: boolean;
@@ -122,6 +123,7 @@ const segmentColor = (index: number, primary: string) => {
 const SpinTheWheel = ({
   options,
   onWin,
+  onSpinStart,
   size,
   primary = DEFAULT_PRIMARY,
   edgeGlow = true,
@@ -217,6 +219,10 @@ const SpinTheWheel = ({
 
   const startSpin = useCallback(() => {
     if (disabled || isSpinning || !options.length) return;
+    
+    // Call onSpinStart callback if provided
+    onSpinStart?.();
+    
     const chosenIndex = Math.floor(Math.random() * options.length);
     const segmentAngle = 360 / options.length;
     const extraSegments = Math.floor(Math.random() * options.length);
@@ -246,7 +252,7 @@ const SpinTheWheel = ({
       cancelAnimationFrame(animationRef.current);
     }
     animationRef.current = requestAnimationFrame(animate);
-  }, [animate, currentRotation, disabled, isSpinning, options, reducedMotion]);
+  }, [animate, currentRotation, disabled, isSpinning, options, reducedMotion, onSpinStart]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {

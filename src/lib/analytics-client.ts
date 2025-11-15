@@ -84,7 +84,7 @@ class AnalyticsClient {
     }
   }
 
-  // Page view tracking
+  // Page view tracking with client-side deduping for pub pages
   trackPageView(data: {
     userId?: string
     pubId?: string
@@ -93,6 +93,32 @@ class AnalyticsClient {
     utm?: any
     device?: string
   }) {
+    // Client-side deduping: only dedupe pub page views (when pubId is present)
+    // Non-pub pages (homepage, area pages) should still be tracked
+    if (data.pubId && typeof window !== 'undefined') {
+      const STORAGE_KEY = 'pc_page_view_sent'
+      
+      try {
+        // Load already-sent pubIds from sessionStorage
+        const stored = sessionStorage.getItem(STORAGE_KEY)
+        const sentPubIds = stored ? new Set<string>(JSON.parse(stored)) : new Set<string>()
+        
+        // Check if this pubId was already viewed in this session
+        if (sentPubIds.has(data.pubId)) {
+          console.log('[Analytics] Page view already tracked for this session:', data.pubId)
+          return // Skip - already sent
+        }
+        
+        // Add to Set and save back to sessionStorage
+        sentPubIds.add(data.pubId)
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(sentPubIds)))
+      } catch (error) {
+        // If sessionStorage fails (e.g., private browsing), still try to send
+        console.warn('[Analytics] Failed to check sessionStorage for page view deduping:', error)
+      }
+    }
+    
+    // Track the event (for both pub and non-pub pages)
     this.track({
       type: 'page_view',
       data: {
@@ -119,19 +145,61 @@ class AnalyticsClient {
     })
   }
 
-  // Filter usage tracking
+  // Filter usage tracking with client-side deduping
   trackFilterUsage(data: {
     filterKey: string
     cityId?: number
     boroughId?: number
   }) {
-    this.track({
-      type: 'filter_usage',
-      data: {
-        sessionId: this.sessionId,
-        ...data,
+    // Client-side deduping: only send each filterKey once per session
+    if (typeof window === 'undefined') {
+      // Server-side rendering - skip deduping check
+      this.track({
+        type: 'filter_usage',
+        data: {
+          sessionId: this.sessionId,
+          ...data,
+        }
+      })
+      return
+    }
+
+    const STORAGE_KEY = 'pc_filter_usage_sent'
+    
+    try {
+      // Load already-sent filterKeys from sessionStorage
+      const stored = sessionStorage.getItem(STORAGE_KEY)
+      const sentFilterKeys = stored ? new Set<string>(JSON.parse(stored)) : new Set<string>()
+      
+      // Check if this filterKey was already sent in this session
+      if (sentFilterKeys.has(data.filterKey)) {
+        console.log('[Analytics] Filter usage already tracked for this session:', data.filterKey)
+        return // Skip - already sent
       }
-    })
+      
+      // Add to Set and save back to sessionStorage
+      sentFilterKeys.add(data.filterKey)
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(sentFilterKeys)))
+      
+      // Track the event
+      this.track({
+        type: 'filter_usage',
+        data: {
+          sessionId: this.sessionId,
+          ...data,
+        }
+      })
+    } catch (error) {
+      // If sessionStorage fails (e.g., private browsing), still try to send
+      console.warn('[Analytics] Failed to check sessionStorage for filter deduping:', error)
+      this.track({
+        type: 'filter_usage',
+        data: {
+          sessionId: this.sessionId,
+          ...data,
+        }
+      })
+    }
   }
 
   // CTA click tracking

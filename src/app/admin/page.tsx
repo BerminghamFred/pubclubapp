@@ -22,6 +22,11 @@ interface AnalyticsOverview {
     borough: { name: string } | null;
     monthlyViews: number;
   }>;
+  spinTheWheel?: {
+    totalSpins: number;
+    totalViewPubClicks: number;
+    conversionRate: number;
+  };
 }
 
 export default function AdminDashboard() {
@@ -250,6 +255,44 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Spin the Wheel Metrics */}
+        {analytics?.spinTheWheel && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Spin the Wheel</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics.spinTheWheel.totalSpins.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">Total spins (last 30 days)</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">View Pub Clicks</CardTitle>
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics.spinTheWheel.totalViewPubClicks.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">After spinning (last 30 days)</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics.spinTheWheel.conversionRate.toFixed(1)}%</div>
+                <p className="text-xs text-muted-foreground">Spin → View Pub (last 30 days)</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
