@@ -147,7 +147,8 @@ const SpinTheWheel = ({
   const wheelSize = useMemo(() => {
     if (typeof window === 'undefined') return size ?? 360;
     const isDesktop = window.matchMedia('(min-width: 768px)').matches;
-    return size ?? (isDesktop ? 480 : 320);
+    // Use smaller size on mobile, or respect the provided size prop
+    return size ?? (isDesktop ? 480 : 280);
   }, [size]);
 
   useEffect(() => {

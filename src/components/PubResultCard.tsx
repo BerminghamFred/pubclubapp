@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, MapPin, Star } from 'lucide-react';
+import { Heart, MapPin, Star, X } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { generatePubSlug } from '@/utils/slugUtils';
 import PubPhoto from './PubPhoto';
@@ -26,6 +26,9 @@ interface PubResultCardProps {
       lat?: number;
       lng?: number;
     };
+    _filterMatch?: number;
+    _filterTotal?: number;
+    _missingFilters?: string[];
   };
 }
 
@@ -158,6 +161,28 @@ export default function PubResultCard({ pub }: PubResultCardProps) {
           <p className="text-sm text-gray-600 mb-4 line-clamp-2 flex-1">
             {pub.description}
           </p>
+
+          {/* Filter Match Info */}
+          {pub._filterMatch !== undefined && pub._filterTotal !== undefined && pub._filterMatch < pub._filterTotal && (
+            <div className="mb-3">
+              <div className="text-xs text-gray-600 mb-2">
+                Matches {pub._filterMatch} of {pub._filterTotal} filters
+              </div>
+              {pub._missingFilters && pub._missingFilters.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {pub._missingFilters.map((filter, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-full text-xs font-medium transition-colors"
+                    >
+                      <span>{filter}</span>
+                      <X className="w-3 h-3" />
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Amenities */}
           {pub.amenities && pub.amenities.length > 0 && (

@@ -205,7 +205,7 @@ class AnalyticsClient {
   // CTA click tracking
   trackCtaClick(data: {
     pubId: string
-    type: 'book' | 'call' | 'website'
+    type: 'book' | 'call' | 'website' | 'spin' | 'spin_view_pub'
   }) {
     this.track({
       type: 'cta_click',

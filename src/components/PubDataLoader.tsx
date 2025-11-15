@@ -154,8 +154,8 @@ export default function PubDataLoader() {
   // SearchBar state
   const [searchSelections, setSearchSelections] = useState<SearchSuggestion[]>([]);
   
-  // Pagination state (for list view)
-  const [currentPage, setCurrentPage] = useState(1);
+  // Load more state (for list view)
+  const [itemsToShow, setItemsToShow] = useState(12);
   const pubsPerPage = 12;
   
   // Map state
@@ -215,29 +215,99 @@ export default function PubDataLoader() {
     return R * c;
   }, []);
 
-  // Filter pubs for list view (client-side)
+  // Filter pubs for list view (client-side) with partial matching support
+  // Calculate active filters count for partial matching
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedArea && selectedArea !== 'All Areas') count++;
+    if (selectedAmenities.length > 0) count += selectedAmenities.length;
+    if (minRating > 0) count++;
+    if (openingFilter && openingFilter !== 'Any Time') count++;
+    if (searchSelections.length > 0) count += searchSelections.length;
+    return count;
+  }, [selectedArea, selectedAmenities, minRating, openingFilter, searchSelections]);
+
+  // Helper function to check which filters a pub matches
+  const checkPubFilters = useCallback((pub: Pub) => {
+    const matches: string[] = [];
+    const missing: string[] = [];
+
+    // Check area filter
+    if (selectedArea && selectedArea !== 'All Areas') {
+      if (pub.area === selectedArea) {
+        matches.push(`area:${selectedArea}`);
+      } else {
+        missing.push(`📍 ${selectedArea}`);
+      }
+    }
+
+    // Check amenity filters
+    selectedAmenities.forEach(amenity => {
+      if (pub.amenities?.includes(amenity) || pub.features?.includes(amenity)) {
+        matches.push(`amenity:${amenity}`);
+      } else {
+        missing.push(amenity);
+      }
+    });
+
+    // Check rating filter
+    if (minRating > 0) {
+      if ((pub.rating || 0) >= minRating) {
+        matches.push(`rating:${minRating}`);
+      } else {
+        missing.push(`⭐ ${minRating}+ Rating`);
+      }
+    }
+
+    // Check opening filter
+    if (openingFilter && openingFilter !== 'Any Time') {
+      if (openingFilter === 'Open Now' && isPubOpenNow(pub.openingHours)) {
+        matches.push(`opening:${openingFilter}`);
+      } else if (openingFilter === 'Open Now') {
+        missing.push(`🕒 ${openingFilter}`);
+      }
+    }
+
+    // Check search selections
+    searchSelections.forEach(selection => {
+      let matched = false;
+      switch (selection.type) {
+        case 'area':
+          if (pub.area === selection.data.area) {
+            matched = true;
+            matches.push(`search:area:${selection.data.area}`);
+          } else {
+            missing.push(selection.text);
+          }
+          break;
+        case 'amenity':
+          if (pub.amenities?.includes(selection.data.amenity) || pub.features?.includes(selection.data.amenity)) {
+            matched = true;
+            matches.push(`search:amenity:${selection.data.amenity}`);
+          } else {
+            missing.push(selection.text);
+          }
+          break;
+        case 'pub':
+          if (pub.name.toLowerCase().includes(selection.data.pub.toLowerCase())) {
+            matched = true;
+            matches.push(`search:pub:${selection.data.pub}`);
+          } else {
+            missing.push(selection.text);
+          }
+          break;
+      }
+    });
+
+    return { matches, missing, matchCount: matches.length, totalFilters: activeFiltersCount };
+  }, [selectedArea, selectedAmenities, minRating, openingFilter, searchSelections, activeFiltersCount]);
+
   const filteredPubs = useMemo(() => {
     console.log('filteredPubs useMemo recalculating, userLocation:', userLocation, 'sortRefreshTrigger:', sortRefreshTrigger);
     let filtered = pubData;
 
-    // Handle SearchBar selections
-    if (searchSelections.length > 0) {
-      filtered = filtered.filter(pub => {
-        return searchSelections.every(selection => {
-          switch (selection.type) {
-            case 'area':
-              return pub.area === selection.data.area;
-            case 'amenity':
-              return pub.amenities?.includes(selection.data.amenity) || pub.features?.includes(selection.data.amenity);
-            case 'pub':
-              return pub.name.toLowerCase().includes(selection.data.pub.toLowerCase());
-            default:
-              return true;
-          }
-        });
-      });
-    } else if (searchTerm) {
-      // Fallback to simple text search if no SearchBar selections
+    // First, apply text search if present (this is always required)
+    if (searchTerm && searchSelections.length === 0) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(pub => 
         pub.name.toLowerCase().includes(searchLower) ||
@@ -247,47 +317,84 @@ export default function PubDataLoader() {
       );
     }
 
-    if (selectedArea && selectedArea !== 'All Areas') {
-      filtered = filtered.filter(pub => pub.area === selectedArea);
-      }
-
-      if (selectedAmenities.length > 0) {
-        filtered = filtered.filter(pub => {
-        return selectedAmenities.every(amenity => 
-            pub.amenities?.includes(amenity) || pub.features?.includes(amenity)
-          );
-        });
-      }
-
-    if (minRating > 0) {
-      filtered = filtered.filter(pub => (pub.rating || 0) >= minRating);
-      }
-
-    if (openingFilter && openingFilter !== 'Any Time') {
-      if (openingFilter === 'Open Now') {
-        filtered = filtered.filter(pub => isPubOpenNow(pub.openingHours));
-      }
+    // If no filters are active, just return filtered results (text search only)
+    if (activeFiltersCount === 0) {
+      // Sort by proximity first (if user location is available), then by rating
+      filtered.sort((a, b) => {
+        if (userLocation && a._internal?.lat && a._internal?.lng && b._internal?.lat && b._internal?.lng) {
+          const distanceA = calculateDistance(userLocation.lat, userLocation.lng, a._internal.lat, a._internal.lng);
+          const distanceB = calculateDistance(userLocation.lat, userLocation.lng, b._internal.lat, b._internal.lng);
+          const distanceDiff = distanceA - distanceB;
+          if (Math.abs(distanceDiff) > 0.001) {
+            return distanceDiff;
+          }
+        }
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
+        return a.name.localeCompare(b.name);
+      });
+      return filtered;
     }
 
-    // Sort by proximity first (if user location is available), then by rating
-    filtered.sort((a, b) => {
-      // If user has shared location, sort by proximity first
-      if (userLocation && a._internal?.lat && a._internal?.lng && b._internal?.lat && b._internal?.lng) {
-        const distanceA = calculateDistance(userLocation.lat, userLocation.lng, a._internal.lat, a._internal.lng);
-        const distanceB = calculateDistance(userLocation.lat, userLocation.lng, b._internal.lat, b._internal.lng);
-        
-        // Always sort by distance first when location is available (closer pubs first)
-        const distanceDiff = distanceA - distanceB;
-        if (Math.abs(distanceDiff) > 0.001) { // Small threshold to handle floating point precision
-          return distanceDiff;
-        }
-      }
-      
-      // Then sort by rating (only if distances are very similar or no location)
-      if (b.rating !== a.rating) return b.rating - a.rating;
-      if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
-      return a.name.localeCompare(b.name);
+    // Try exact matching first (all filters must match)
+    let exactMatches = filtered.filter(pub => {
+      const { matchCount, totalFilters } = checkPubFilters(pub);
+      return matchCount === totalFilters && totalFilters > 0;
     });
+
+    // If we have exact matches, use them (no need to show match info for exact matches)
+    if (exactMatches.length > 0) {
+      filtered = exactMatches;
+      // Sort exact matches by proximity first, then by rating
+      filtered.sort((a, b) => {
+        if (userLocation && a._internal?.lat && a._internal?.lng && b._internal?.lat && b._internal?.lng) {
+          const distanceA = calculateDistance(userLocation.lat, userLocation.lng, a._internal.lat, a._internal.lng);
+          const distanceB = calculateDistance(userLocation.lat, userLocation.lng, b._internal.lat, b._internal.lng);
+          const distanceDiff = distanceA - distanceB;
+          if (Math.abs(distanceDiff) > 0.001) {
+            return distanceDiff;
+          }
+        }
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      // No exact matches - use partial matching
+      // Calculate match scores for all pubs
+      const pubsWithScores = filtered.map(pub => {
+        const filterInfo = checkPubFilters(pub);
+        return {
+          ...pub,
+          _filterMatch: filterInfo.matchCount,
+          _filterTotal: filterInfo.totalFilters,
+          _missingFilters: filterInfo.missing,
+        };
+      });
+
+      // Filter out pubs with 0 matches (only show pubs that match at least one filter)
+      filtered = pubsWithScores
+        .filter(pub => pub._filterMatch > 0)
+        .sort((a, b) => {
+          // Sort by match count (highest first)
+          if (b._filterMatch !== a._filterMatch) {
+            return b._filterMatch - a._filterMatch;
+          }
+          // If match counts are equal, sort by proximity (if location available)
+          if (userLocation && a._internal?.lat && a._internal?.lng && b._internal?.lat && b._internal?.lng) {
+            const distanceA = calculateDistance(userLocation.lat, userLocation.lng, a._internal.lat, a._internal.lng);
+            const distanceB = calculateDistance(userLocation.lat, userLocation.lng, b._internal.lat, b._internal.lng);
+            const distanceDiff = distanceA - distanceB;
+            if (Math.abs(distanceDiff) > 0.001) {
+              return distanceDiff;
+            }
+          }
+          // Then by rating
+          if (b.rating !== a.rating) return b.rating - a.rating;
+          if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
+          return a.name.localeCompare(b.name);
+        });
+    }
 
     // Debug log when location-based sorting is active
     if (userLocation && filtered.length > 0) {
@@ -302,21 +409,18 @@ export default function PubDataLoader() {
     }
 
     return filtered;
-  }, [searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger]);
+  }, [searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger, activeFiltersCount, checkPubFilters]);
 
-  // Pagination for list view
+  // Load more for list view - show all pubs up to itemsToShow
   const displayedPubs = useMemo(() => {
-    console.log('displayedPubs recalculating, currentPage:', currentPage, 'filteredPubs length:', filteredPubs.length, 'sortRefreshTrigger:', sortRefreshTrigger);
-    const startIndex = (currentPage - 1) * pubsPerPage;
-    const endIndex = startIndex + pubsPerPage;
-    const result = filteredPubs.slice(startIndex, endIndex);
+    console.log('displayedPubs recalculating, itemsToShow:', itemsToShow, 'filteredPubs length:', filteredPubs.length, 'sortRefreshTrigger:', sortRefreshTrigger);
+    const result = filteredPubs.slice(0, itemsToShow);
     console.log('displayedPubs result:', result.slice(0, 3).map(p => ({ name: p.name, rating: p.rating })));
     return result;
-  }, [filteredPubs, currentPage, pubsPerPage, sortRefreshTrigger]);
+  }, [filteredPubs, itemsToShow, sortRefreshTrigger]);
 
-  const totalPages = Math.ceil(filteredPubs.length / pubsPerPage);
-  const hasMore = currentPage < totalPages;
-  const hasPrevious = currentPage > 1;
+  const hasMore = itemsToShow < filteredPubs.length;
+  const remainingCount = filteredPubs.length - itemsToShow;
 
   // Initialize map when loaded and view is map
   useEffect(() => {
@@ -446,16 +550,16 @@ export default function PubDataLoader() {
 
   // Reset to first page when filters change or location is obtained
   useEffect(() => {
-    setCurrentPage(1);
+    setItemsToShow(12); // Reset to initial count when filters change
   }, [searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation]);
 
   // Force refresh when user location is set
   useEffect(() => {
     if (userLocation && view === 'list') {
-      console.log('User location changed, forcing page refresh');
-      // Force a re-render by temporarily changing and resetting the page
-      setCurrentPage(2);
-      setTimeout(() => setCurrentPage(1), 0);
+      console.log('User location changed, forcing refresh');
+      // Reset to initial count
+      setItemsToShow(12);
+      setSortRefreshTrigger(prev => prev + 1);
     }
   }, [userLocation, view]);
 
@@ -575,7 +679,7 @@ export default function PubDataLoader() {
         setUserLocation({ lat: latitude, lng: longitude });
         setLocationPermission('granted');
         setShowLocationPopup(false);
-        setCurrentPage(1);
+        setItemsToShow(12); // Reset to initial count
         setSortRefreshTrigger(prev => {
           console.log('Triggering sort refresh, prev value:', prev);
           return prev + 1;
@@ -910,6 +1014,11 @@ export default function PubDataLoader() {
                 <>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{filteredPubs.length}</span> pubs found
+                    {activeFiltersCount > 0 && filteredPubs.length > 0 && (filteredPubs[0] as any)?._filterMatch !== undefined && (filteredPubs[0] as any)._filterMatch < (filteredPubs[0] as any)._filterTotal && (
+                      <span className="text-sm text-amber-600 font-medium">
+                        (showing partial matches)
+                      </span>
+                    )}
                     {userLocation && (
                       <button 
                         onClick={requestUserLocation}
@@ -1002,42 +1111,38 @@ export default function PubDataLoader() {
                       amenities: pub.amenities || [],
                       address: pub.address,
                       description: pub.description,
-                            _internal: pub._internal
+                            _internal: pub._internal,
+                            _filterMatch: (pub as any)._filterMatch,
+                            _filterTotal: (pub as any)._filterTotal,
+                            _missingFilters: (pub as any)._missingFilters
                           }}
                   />
                 ))}
                     </AnimatePresence>
                   </div>
 
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-3 mt-8">
+                  {/* Load More */}
+                  {hasMore && (
+                    <div className="flex items-center justify-center mt-8">
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={!hasPrevious}
-                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        onClick={() => setItemsToShow(prev => Math.min(prev + pubsPerPage, filteredPubs.length))}
+                        className="px-6 py-3 bg-[#08d78c] text-black rounded-lg font-medium hover:bg-[#06b875] transition-colors shadow-md hover:shadow-lg"
                       >
-                        ← Previous
+                        Load More {remainingCount > 0 && `(${remainingCount} remaining)`}
                       </button>
-                      <span className="text-sm text-gray-600">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={!hasMore}
-                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Next →
-                      </button>
-              </div>
+                    </div>
                   )}
                 </>
               ) : (
                 <div className="text-center py-20">
                   <div className="text-6xl mb-6">🍺</div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">No pubs found</h3>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                    {activeFiltersCount > 0 ? 'No pubs match all filters' : 'No pubs found'}
+                  </h3>
                   <p className="text-gray-600 mb-6">
-                    Try adjusting your filters or search terms
+                    {activeFiltersCount > 0 
+                      ? `We couldn't find any pubs matching all ${activeFiltersCount} selected filters. Try removing some filters to see more results.`
+                      : 'Try adjusting your filters or search terms'}
                   </p>
                   <button
                     onClick={handleClearAllFilters}

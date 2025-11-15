@@ -77,8 +77,22 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
   const [winnerOpen, setWinnerOpen] = useState(false);
   const winnerRevealTimeoutRef = useRef<number | null>(null);
   const [recentWinners, setRecentWinners] = useState<string[]>([]);
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
   const isPageVariant = variant === 'page';
   const isOverlayVariant = !isPageVariant;
+
+  // Detect screen size for responsive wheel sizing
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -412,15 +426,15 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
                     options={wheelOptions} 
                     onWin={handleSpinWin}
                     onSpinStart={() => {
-                      // Track when user clicks spin button
-                      trackCtaClick({
-                        pubId: 'spin_start', // Placeholder - actual pubId tracked in handleSpinWin
-                        type: 'spin',
-                      });
+                      // Spin start is tracked when wheel finishes in handleSpinWin
+                      // This callback is available for future use if needed
                     }}
                     primary="#10B981" 
                     edgeGlow 
-                    size={560} 
+                    // Responsive: smaller on mobile, larger on desktop
+                    // Let the component handle responsive sizing (defaults to 280px mobile, 480px desktop)
+                    // Only override for large desktop screens
+                    size={isLargeScreen ? 560 : undefined}
                   />
                 )}
               </div>
