@@ -113,28 +113,29 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
   const [loginAction, setLoginAction] = useState<'save' | 'checkin' | 'review'>('save');
 
   // Define functions first to avoid reference errors
-  const loadUserState = useCallback(async () => {
-    if (userStateLoaded) return;
+  const loadUserState = useCallback(async (forceReload = false) => {
+    // Allow force reload after actions, but prevent duplicate initial loads
+    if (!forceReload && userStateLoaded) return;
     
     try {
       const [wishlistResponse, checkinsResponse] = await Promise.all([
         fetch(`/api/users/me/wishlist`, {
-          headers: { 'Cache-Control': 'max-age=60' }
+          headers: { 'Cache-Control': 'no-cache' }
         }),
         fetch(`/api/users/me/checkins`, {
-          headers: { 'Cache-Control': 'max-age=60' }
+          headers: { 'Cache-Control': 'no-cache' }
         })
       ]);
 
       if (wishlistResponse.ok) {
         const wishlistData = await wishlistResponse.json();
-        const isWishlisted = wishlistData.pubs.some((p: any) => p.id === pub.id);
+        const isWishlisted = wishlistData.pubs?.some((p: any) => p.id === pub.id) || false;
         setUserState(prev => ({ ...prev, isWishlisted }));
       }
 
       if (checkinsResponse.ok) {
         const checkinsData = await checkinsResponse.json();
-        const hasCheckedIn = checkinsData.pubs.some((p: any) => p.id === pub.id);
+        const hasCheckedIn = checkinsData.pubs?.some((p: any) => p.id === pub.id) || false;
         setUserState(prev => ({ ...prev, hasCheckedIn }));
       }
       
@@ -217,30 +218,21 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
     };
   }, [pub.rating, pub.reviewCount, userDataLoaded, userData.userRatingAvg, userData.userReviewCount, userReviews]);
 
-  // Load user data and reviews only when user scrolls or interacts (more deferred)
+  // Load user state immediately when user is logged in
   useEffect(() => {
-    if (session?.user && !userDataLoaded && !reviewsLoading) {
-      // Load user data and reviews after user scrolls or after longer delay
-      const handleScroll = () => {
-        if (!userDataLoaded) loadUserData();
-        if (!reviewsLoading) loadUserReviews();
-        window.removeEventListener('scroll', handleScroll);
-      };
-      
-      // Load after 3 seconds OR when user scrolls (increased delay)
-      const timer = setTimeout(() => {
-        if (!userDataLoaded) loadUserData();
-        if (!reviewsLoading) loadUserReviews();
-      }, 3000);
-      
-      window.addEventListener('scroll', handleScroll, { once: true });
-      
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('scroll', handleScroll);
-      };
+    if (session?.user && !userStateLoaded) {
+      loadUserState();
     }
-  }, [session, pub.id, userDataLoaded, reviewsLoading, loadUserData, loadUserReviews]);
+  }, [session?.user, pub.id, userStateLoaded, loadUserState]);
+
+  // Load user data and reviews when user is logged in
+  useEffect(() => {
+    if (session?.user) {
+      // Load user data and reviews immediately (no delay)
+      loadUserData();
+      loadUserReviews();
+    }
+  }, [session?.user, pub.id, loadUserData, loadUserReviews]);
 
   const toggleWishlist = async () => {
     if (!session?.user) {
@@ -261,10 +253,16 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
       });
 
       if (response.ok) {
-        setUserState(prev => ({ ...prev, isWishlisted: !prev.isWishlisted }));
+        // Reload user state from server to ensure consistency
+        await loadUserState(true);
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Error updating wishlist:', errorData);
+        alert(errorData.error || 'Failed to update wishlist');
       }
     } catch (error) {
       console.error('Error updating wishlist:', error);
+      alert('Failed to update wishlist. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -289,7 +287,8 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
       });
 
       if (response.ok) {
-        setUserState(prev => ({ ...prev, hasCheckedIn: !prev.hasCheckedIn }));
+        // Reload user state from server to ensure consistency
+        await loadUserState(true);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         console.error('Error updating check-in:', errorData);
@@ -453,9 +452,12 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
               {showReviewForm && (
                 <ReviewForm 
                   pubId={pub.id} 
-                  onReviewSubmitted={() => {
+                  onReviewSubmitted={async () => {
                     setShowReviewForm(false);
-                    loadUserReviews();
+                    await loadUserReviews();
+                    if (session?.user) {
+                      await loadUserState(true);
+                    }
                   }}
                   existingReview={userState.userReview}
                 />
@@ -689,6 +691,7 @@ function ReviewForm({ pubId, onReviewSubmitted, existingReview }: {
       });
 
       if (response.ok) {
+        // Call the callback which will reload reviews and user state
         onReviewSubmitted();
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
