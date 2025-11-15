@@ -12,7 +12,7 @@ import { generatePubSlug } from '@/utils/slugUtils';
 const createReviewSchema = z.object({
   pubId: z.string().min(1),
   rating: z.number().min(1).max(5),
-  title: z.string().optional(),
+  title: z.union([z.string(), z.literal('')]).optional(),
   body: z.string().min(10).max(2000),
   photos: z.array(z.string().url()).max(5).optional(),
 });
@@ -85,12 +85,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the review
+    // Convert empty title string to null/undefined
+    const reviewTitle = validatedData.title && validatedData.title.trim() 
+      ? validatedData.title.trim() 
+      : null;
+    
     const review = await prisma.review.create({
       data: {
         userId: session.user.id,
         pubId: validatedData.pubId,
         rating: validatedData.rating,
-        title: validatedData.title,
+        title: reviewTitle,
         body: validatedData.body,
         photos: validatedData.photos ? JSON.stringify(validatedData.photos) : null,
       },
@@ -112,15 +117,23 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('[Review API] Validation error:', error.issues);
       return NextResponse.json(
         { error: 'Invalid data', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error creating review:', error);
+    if (error instanceof Error && error.message === 'Pub not found in static data') {
+      return NextResponse.json(
+        { error: 'Pub not found' },
+        { status: 404 }
+      );
+    }
+
+    console.error('[Review API] Error creating review:', error);
     return NextResponse.json(
-      { error: 'Failed to create review' },
+      { error: 'Failed to create review', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

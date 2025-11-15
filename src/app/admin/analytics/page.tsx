@@ -104,12 +104,20 @@ export default function AdminAnalyticsPage() {
       const response = await fetch(`/api/admin/analytics/spin-wheel?days=${dateRange}`);
       if (response.ok) {
         const data = await response.json();
+        console.log('[Admin Analytics] Spin wheel data received:', {
+          totalSpins: data.overview?.totalSpins,
+          totalViewPubClicks: data.overview?.totalViewPubClicks,
+          spinToViewPubRate: data.overview?.spinToViewPubRate,
+          spinsByDayCount: data.spinsByDay?.length,
+          topPubsCount: data.topPubsBySpins?.length
+        });
         setSpinWheelAnalytics(data);
       } else {
-        console.error('Failed to fetch spin wheel analytics');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[Admin Analytics] Failed to fetch spin wheel analytics:', response.status, errorData);
       }
     } catch (error) {
-      console.error('Failed to fetch spin wheel analytics:', error);
+      console.error('[Admin Analytics] Failed to fetch spin wheel analytics:', error);
     } finally {
       setSpinWheelLoading(false);
     }

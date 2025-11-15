@@ -290,9 +290,15 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
 
       if (response.ok) {
         setUserState(prev => ({ ...prev, hasCheckedIn: !prev.hasCheckedIn }));
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Error updating check-in:', errorData);
+        // Show error to user if needed
+        alert(errorData.error || 'Failed to update check-in');
       }
     } catch (error) {
       console.error('Error updating check-in:', error);
+      alert('Failed to update check-in. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -662,24 +668,37 @@ function ReviewForm({ pubId, onReviewSubmitted, existingReview }: {
       const method = existingReview ? 'PATCH' : 'POST';
       const url = existingReview ? `/api/reviews/${existingReview.id}` : '/api/reviews';
       
+      // Prepare request body - convert empty title to undefined
+      const requestBody: any = {
+        pubId,
+        rating,
+        body: body.trim(),
+      };
+      
+      // Only include title if it's not empty
+      if (title.trim()) {
+        requestBody.title = title.trim();
+      }
+      
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          pubId,
-          rating,
-          title: title.trim() || undefined,
-          body: body.trim(),
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
         onReviewSubmitted();
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Error submitting review:', errorData);
+        // Show error to user
+        alert(errorData.error || errorData.details?.map((d: any) => d.message).join(', ') || 'Failed to submit review');
       }
     } catch (error) {
       console.error('Error submitting review:', error);
+      alert('Failed to submit review. Please try again.');
     } finally {
       setLoading(false);
     }

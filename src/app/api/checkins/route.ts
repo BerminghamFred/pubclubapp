@@ -110,15 +110,23 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('[Check-in API] Validation error:', error.issues);
       return NextResponse.json(
         { error: 'Invalid data', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error creating check-in:', error);
+    if (error instanceof Error && error.message === 'Pub not found in static data') {
+      return NextResponse.json(
+        { error: 'Pub not found' },
+        { status: 404 }
+      );
+    }
+
+    console.error('[Check-in API] Error creating check-in:', error);
     return NextResponse.json(
-      { error: 'Failed to create check-in' },
+      { error: 'Failed to create check-in', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
