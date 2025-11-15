@@ -35,7 +35,8 @@ export interface CtaClickEvent {
 // Event tracking functions
 export async function trackPageView(event: PageViewEvent) {
   try {
-    await prisma.eventPageView.create({
+    console.log('[Analytics DB] Creating page view event:', event)
+    const result = await prisma.eventPageView.create({
       data: {
         userId: event.userId,
         sessionId: event.sessionId,
@@ -46,14 +47,18 @@ export async function trackPageView(event: PageViewEvent) {
         device: event.device,
       }
     })
+    console.log('[Analytics DB] Page view created:', result.id)
+    return result
   } catch (error) {
-    console.error('Failed to track page view:', error)
+    console.error('[Analytics DB] Failed to track page view:', error)
+    throw error
   }
 }
 
 export async function trackSearch(event: SearchEvent) {
   try {
-    await prisma.eventSearch.create({
+    console.log('[Analytics DB] Creating search event:', event)
+    const result = await prisma.eventSearch.create({
       data: {
         userId: event.userId,
         sessionId: event.sessionId,
@@ -63,14 +68,18 @@ export async function trackSearch(event: SearchEvent) {
         resultsCount: event.resultsCount,
       }
     })
+    console.log('[Analytics DB] Search event created:', result.id)
+    return result
   } catch (error) {
-    console.error('Failed to track search:', error)
+    console.error('[Analytics DB] Failed to track search:', error)
+    throw error
   }
 }
 
 export async function trackFilterUsage(event: FilterUsageEvent) {
   try {
-    await prisma.eventFilterUsage.create({
+    console.log('[Analytics DB] Creating filter usage event:', event)
+    const result = await prisma.eventFilterUsage.create({
       data: {
         sessionId: event.sessionId,
         filterKey: event.filterKey,
@@ -78,8 +87,11 @@ export async function trackFilterUsage(event: FilterUsageEvent) {
         boroughId: event.boroughId,
       }
     })
+    console.log('[Analytics DB] Filter usage event created:', result.id)
+    return result
   } catch (error) {
-    console.error('Failed to track filter usage:', error)
+    console.error('[Analytics DB] Failed to track filter usage:', error)
+    throw error
   }
 }
 
