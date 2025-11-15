@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { pubData } from '@/data/pubData';
 import { z } from 'zod';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 // Validation schema
 const createReviewSchema = z.object({
@@ -15,6 +16,39 @@ const createReviewSchema = z.object({
   body: z.string().min(10).max(2000),
   photos: z.array(z.string().url()).max(5).optional(),
 });
+
+// Helper function to ensure pub exists in database
+async function ensurePubExists(pubId: string) {
+  const pub = pubData.find(p => p.id === pubId);
+  if (!pub) {
+    throw new Error('Pub not found in static data');
+  }
+
+  // Check if pub exists in database, create if not
+  await prisma.pub.upsert({
+    where: { id: pubId },
+    create: {
+      id: pub.id,
+      name: pub.name,
+      slug: generatePubSlug(pub.name, pub.id),
+      address: pub.address,
+      description: pub.description,
+      phone: pub.phone,
+      website: pub.website,
+      openingHours: pub.openingHours,
+      rating: pub.rating,
+      reviewCount: pub.reviewCount,
+      lat: pub._internal?.lat,
+      lng: pub._internal?.lng,
+      managerEmail: pub.manager_email,
+      managerPassword: pub.manager_password,
+      checkinCount: 0,
+      wishlistCount: 0,
+      userReviewCount: 0,
+    },
+    update: {}, // Don't update existing pubs
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,14 +64,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createReviewSchema.parse(body);
 
-    // Check if pub exists in your static data
-    const pub = pubData.find(p => p.id === validatedData.pubId);
-    if (!pub) {
-      return NextResponse.json(
-        { error: 'Pub not found' },
-        { status: 404 }
-      );
-    }
+    // Ensure pub exists in database
+    await ensurePubExists(validatedData.pubId);
 
     // Check if user already has a review for this pub
     const existingReview = await prisma.review.findUnique({
@@ -117,7 +145,10 @@ async function updatePubCounters(pubId: string) {
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
     : null;
 
-  // Update the pub
+  // Ensure pub exists before updating
+  await ensurePubExists(pubId);
+
+  // Update the pub (guaranteed to exist)
   await prisma.pub.update({
     where: { id: pubId },
     data: {

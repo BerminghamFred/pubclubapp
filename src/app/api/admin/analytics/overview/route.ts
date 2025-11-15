@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
         type: 'spin',
         ts: { gte: fromDate, lte: toDate }
       },
-      select: { ts: true }
+      select: { ts: true, type: true }
     })
     const totalSpins = spinEvents.length
 
@@ -103,9 +103,18 @@ export async function GET(request: NextRequest) {
         type: 'spin_view_pub',
         ts: { gte: fromDate, lte: toDate }
       },
-      select: { ts: true }
+      select: { ts: true, type: true }
     })
     const totalSpinViewPubClicks = spinViewPubEvents.length
+
+    // Debug logging
+    console.log('[Analytics API] Spin the Wheel Metrics:', {
+      totalSpins,
+      totalSpinViewPubClicks,
+      dateRange: { from: fromDate.toISOString(), to: toDate.toISOString() },
+      sampleSpinEvents: spinEvents.slice(0, 3),
+      sampleViewPubEvents: spinViewPubEvents.slice(0, 3)
+    })
 
     // Calculate conversion rate (view pub clicks / spins * 100)
     const spinConversionRate = totalSpins > 0 

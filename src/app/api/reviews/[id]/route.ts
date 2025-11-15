@@ -5,12 +5,47 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { pubData } from '@/data/pubData';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 const updateReviewSchema = z.object({
   rating: z.number().min(1).max(5).optional(),
   title: z.string().optional(),
   body: z.string().min(10).max(2000).optional(),
 });
+
+// Helper function to ensure pub exists in database
+async function ensurePubExists(pubId: string) {
+  const pub = pubData.find(p => p.id === pubId);
+  if (!pub) {
+    throw new Error('Pub not found in static data');
+  }
+
+  // Check if pub exists in database, create if not
+  await prisma.pub.upsert({
+    where: { id: pubId },
+    create: {
+      id: pub.id,
+      name: pub.name,
+      slug: generatePubSlug(pub.name, pub.id),
+      address: pub.address,
+      description: pub.description,
+      phone: pub.phone,
+      website: pub.website,
+      openingHours: pub.openingHours,
+      rating: pub.rating,
+      reviewCount: pub.reviewCount,
+      lat: pub._internal?.lat,
+      lng: pub._internal?.lng,
+      managerEmail: pub.manager_email,
+      managerPassword: pub.manager_password,
+      checkinCount: 0,
+      wishlistCount: 0,
+      userReviewCount: 0,
+    },
+    update: {}, // Don't update existing pubs
+  });
+}
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -77,6 +112,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 // Helper function to update pub counters
 async function updatePubCounters(pubId: string) {
+  // Ensure pub exists before updating
+  await ensurePubExists(pubId);
+
   // Get all visible reviews for this pub
   const reviews = await prisma.review.findMany({
     where: {
@@ -94,7 +132,7 @@ async function updatePubCounters(pubId: string) {
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
     : null;
 
-  // Update the pub
+  // Update the pub (guaranteed to exist)
   await prisma.pub.update({
     where: { id: pubId },
     data: {

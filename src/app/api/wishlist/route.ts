@@ -6,10 +6,44 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { pubData } from '@/data/pubData';
 import { z } from 'zod';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 const wishlistSchema = z.object({
   pubId: z.string().min(1),
 });
+
+// Helper function to ensure pub exists in database
+async function ensurePubExists(pubId: string) {
+  const pub = pubData.find(p => p.id === pubId);
+  if (!pub) {
+    throw new Error('Pub not found in static data');
+  }
+
+  // Check if pub exists in database, create if not
+  await prisma.pub.upsert({
+    where: { id: pubId },
+    create: {
+      id: pub.id,
+      name: pub.name,
+      slug: generatePubSlug(pub.name, pub.id),
+      address: pub.address,
+      description: pub.description,
+      phone: pub.phone,
+      website: pub.website,
+      openingHours: pub.openingHours,
+      rating: pub.rating,
+      reviewCount: pub.reviewCount,
+      lat: pub._internal?.lat,
+      lng: pub._internal?.lng,
+      managerEmail: pub.manager_email,
+      managerPassword: pub.manager_password,
+      checkinCount: 0,
+      wishlistCount: 0,
+      userReviewCount: 0,
+    },
+    update: {}, // Don't update existing pubs
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,14 +59,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { pubId } = wishlistSchema.parse(body);
 
-    // Check if pub exists in your static data
-    const pub = pubData.find(p => p.id === pubId);
-    if (!pub) {
-      return NextResponse.json(
-        { error: 'Pub not found' },
-        { status: 404 }
-      );
-    }
+    // Ensure pub exists in database
+    await ensurePubExists(pubId);
 
     // Check if already in wishlist
     const existing = await prisma.wishlist.findUnique({
@@ -59,7 +87,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Update pub counter
+    // Update pub counter (pub is guaranteed to exist)
     await prisma.pub.update({
       where: { id: pubId },
       data: {
@@ -130,7 +158,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Update pub counter
+    // Ensure pub exists before decrementing
+    await ensurePubExists(pubId);
+
+    // Update pub counter (pub is guaranteed to exist)
     await prisma.pub.update({
       where: { id: pubId },
       data: {
