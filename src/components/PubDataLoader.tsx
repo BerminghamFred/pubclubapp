@@ -346,24 +346,46 @@ export default function PubDataLoader() {
     }
   }, [view, isMapLoaded, map]);
 
-  // Track search events - use ref to prevent duplicate tracking
-  const lastTrackedSearch = useRef<string>('');
+  // Track search events when pubs are loaded/filtered (not just when search term changes)
+  const lastTrackedSearchHash = useRef<string>('');
   
   useEffect(() => {
-    // Only track if there's an actual search query and it's different from last tracked
-    const currentSearch = searchTerm?.trim() || (searchSelections.length > 0 
+    // Create a hash of the current filter/search state to track when pubs are actually loaded
+    const searchQuery = searchTerm?.trim() || (searchSelections.length > 0 
       ? searchSelections.map(s => s.type === 'pub' ? s.data.pub : s.type === 'area' ? s.data.area : s.data.amenity).join(', ')
       : '');
     
-    if (currentSearch && currentSearch !== lastTrackedSearch.current) {
-      lastTrackedSearch.current = currentSearch;
+    // Build a hash of all active filters
+    const filtersHash = [
+      searchQuery || 'no-search',
+      selectedArea !== 'All Areas' ? `area:${selectedArea}` : '',
+      selectedAmenities.length > 0 ? `amenities:${selectedAmenities.sort().join(',')}` : '',
+      minRating > 0 ? `rating:${minRating}` : '',
+      openingFilter !== 'Any Time' ? `opening:${openingFilter}` : '',
+      filteredPubs.length > 0 ? `results:${filteredPubs.length}` : 'no-results',
+    ].filter(Boolean).join('|');
+    
+    // Only track if the filter/search state has changed (meaning pubs were loaded/filtered)
+    if (filtersHash && filtersHash !== lastTrackedSearchHash.current) {
+      lastTrackedSearchHash.current = filtersHash;
+      
+      // Build a readable query string for tracking
+      const queryParts: string[] = [];
+      if (searchQuery) queryParts.push(searchQuery);
+      if (selectedArea !== 'All Areas') queryParts.push(`Area: ${selectedArea}`);
+      if (selectedAmenities.length > 0) queryParts.push(`${selectedAmenities.length} amenities`);
+      if (minRating > 0) queryParts.push(`Rating: ${minRating}+`);
+      if (openingFilter !== 'Any Time') queryParts.push(openingFilter);
+      
+      const query = queryParts.length > 0 ? queryParts.join(', ') : 'All pubs';
+      
       trackSearch({
         userId: session?.user?.id,
-        query: currentSearch,
+        query: query,
         resultsCount: filteredPubs.length,
       });
     }
-  }, [searchTerm, searchSelections, filteredPubs.length, session?.user?.id, trackSearch]);
+  }, [filteredPubs.length, searchTerm, searchSelections, selectedArea, selectedAmenities, minRating, openingFilter, session?.user?.id, trackSearch]);
 
   // Track filter usage
   useEffect(() => {

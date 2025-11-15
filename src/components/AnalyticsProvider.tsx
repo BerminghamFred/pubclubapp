@@ -1,17 +1,27 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { analytics } from '@/lib/analytics-client'
 import { usePathname } from 'next/navigation'
 import { extractPubIdFromSlug } from '@/utils/slugUtils'
 
 export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  // Track the last pathname we've tracked to prevent duplicates
+  const lastTrackedPathname = useRef<string | null>(null)
 
   // Track page views on route changes
   useEffect(() => {
     // Get page type and identifiers from pathname
     const path = pathname || ''
+    
+    // Skip if we've already tracked this pathname (prevents duplicates from React StrictMode)
+    if (lastTrackedPathname.current === path) {
+      return
+    }
+    
+    // Mark this pathname as tracked
+    lastTrackedPathname.current = path
     
     // Determine page type and extract relevant data
     let pubId: string | undefined
@@ -49,13 +59,12 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
         utm: Object.keys(utm).length > 0 ? utm : undefined,
         device: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
       })
+      
+      // Flush after a short delay (only for non-pub pages)
+      setTimeout(async () => {
+        await analytics.flush()
+      }, 2000)
     }
-    
-    // Force immediate flush for testing (remove in production or make it conditional)
-    // This ensures events are sent right away
-    setTimeout(async () => {
-      await analytics.flush()
-    }, 1000)
   }, [pathname])
 
   return <>{children}</>

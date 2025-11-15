@@ -10,6 +10,8 @@ import { isPubOpenNow } from '@/utils/openingHours';
 import { MapSidebar } from './MapSidebar';
 import MobileFilterDrawer from './MobileFilterDrawer';
 import PubPhoto from './PubPhoto';
+import { useAnalytics } from '@/lib/analytics-client';
+import { useSession } from 'next-auth/react';
 
 type RandomPickerFilters = {
   area?: string;
@@ -64,6 +66,8 @@ const buildOption = (pub: Pub): Option => ({
 
 const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay' }: RandomPickerProps) => {
   const dialogTitleId = useId();
+  const { trackCtaClick } = useAnalytics();
+  const { data: session } = useSession();
   const [selectedArea, setSelectedArea] = useState(filters.area ?? DEFAULT_AREA);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(filters.amenities ?? []);
   const [minRating, setMinRating] = useState(filters.minRating ?? DEFAULT_MIN_RATING);
@@ -163,6 +167,12 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
       setRecentWinners((prev) => {
         const next = [option.id, ...prev];
         return next.slice(0, 8);
+      });
+
+      // Track spin the wheel event with analytics
+      trackCtaClick({
+        pubId: option.id,
+        type: 'book', // Using 'book' type for spin the wheel (we can add a new type later if needed)
       });
 
       if (typeof window !== 'undefined' && (window as any).gtag) {

@@ -60,32 +60,32 @@ interface PubPageClientProps {
 
 export default function PubPageClient({ pub }: PubPageClientProps) {
   const { data: session } = useSession();
-  const { trackPageView, trackCtaClick } = useAnalytics();
+  const { trackPageView, trackCtaClick, flush } = useAnalytics();
   const [userState, setUserState] = useState<UserState>({
     isWishlisted: false,
     hasCheckedIn: false,
   });
   
-  // Use ref to track if we've already tracked this page view (prevents duplicates on re-renders)
-  const hasTrackedPageView = useRef(false);
+  // Use ref to track the last pub ID we've tracked (prevents duplicates on re-renders)
+  const lastTrackedPubId = useRef<string | null>(null);
 
   // Track page view when pub page loads (only once per page visit)
   useEffect(() => {
-    // Only track if we haven't tracked this page view yet
-    if (!hasTrackedPageView.current) {
-      hasTrackedPageView.current = true;
+    // Only track if this is a different pub than we last tracked
+    if (lastTrackedPubId.current !== pub.id) {
+      lastTrackedPubId.current = pub.id;
       trackPageView({
         userId: session?.user?.id,
         pubId: pub.id,
         areaSlug: pub.area,
       });
+      
+      // Flush after a short delay
+      setTimeout(async () => {
+        await flush();
+      }, 2000);
     }
-  }, [pub.id, pub.area, session?.user?.id, trackPageView]);
-  
-  // Reset tracking flag when pub ID changes (user navigates to different pub)
-  useEffect(() => {
-    hasTrackedPageView.current = false;
-  }, [pub.id]);
+  }, [pub.id, pub.area, session?.user?.id, trackPageView, flush]);
 
   // Debug: Log the pub data being received
   useEffect(() => {

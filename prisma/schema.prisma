@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,98 +7,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Cities & Boroughs
 model City {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  boroughs Borough[]
-  pubs     Pub[]
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  boroughs  Borough[]
+  pubs      Pub[]
 
   @@map("cities")
 }
 
 model Borough {
-  id      Int    @id @default(autoincrement())
-  name    String
-  cityId  Int
-  city    City   @relation(fields: [cityId], references: [id])
-
-  pubs Pub[]
+  id     Int    @id @default(autoincrement())
+  name   String
+  cityId Int
+  city   City   @relation(fields: [cityId], references: [id])
+  pubs   Pub[]
 
   @@unique([cityId, name])
   @@map("boroughs")
 }
 
-// Pubs & Amenities
 model Pub {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  address     String?
-  postcode    String?
-  lat         Float?
-  lng         Float?
-  cityId      Int?
-  boroughId   Int?
-  priceRange  String?
-  description String?
-  phone       String?
-  website     String?
-  rating      Float?   // Google reviews rating
-  reviewCount Int?     // Google reviews count
-  openingHours String?
-  photoUrl    String?
-  managerEmail String?
-  managerPassword String? // Hashed password
-  lastUpdated DateTime?
-  updatedBy   String? // 'admin' or 'manager'
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // User-generated content counters (denormalized for speed)
-  userReviewCount   Int      @default(0)
-  userRatingAvg     Float?   // null when no user ratings
-  wishlistCount     Int      @default(0)
-  checkinCount      Int      @default(0)
-
-  city      City?           @relation(fields: [cityId], references: [id])
-  borough   Borough?        @relation(fields: [boroughId], references: [id])
-  amenities PubAmenity[]
-  photos    PubPhoto[]
-  managers  PubManager[]
-  logins    ManagerLogin[]
-
-  // User account relations
-  reviews   Review[]
-  wishlist  Wishlist[]
-  checkins  Checkin[]
-  
-  // Admin relations
-  // Note: AreaFeaturedPub relation removed since we're using pubData IDs
+  id              String         @id @default(cuid())
+  name            String
+  slug            String         @unique
+  address         String?
+  postcode        String?
+  lat             Float?
+  lng             Float?
+  cityId          Int?
+  boroughId       Int?
+  priceRange      String?
+  description     String?
+  phone           String?
+  website         String?
+  rating          Float?
+  reviewCount     Int?
+  openingHours    String?
+  photoUrl        String?
+  managerEmail    String?
+  managerPassword String?
+  lastUpdated     DateTime?
+  updatedBy       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  userReviewCount Int            @default(0)
+  userRatingAvg   Float?
+  wishlistCount   Int            @default(0)
+  checkinCount    Int            @default(0)
+  checkins        Checkin[]
+  logins          ManagerLogin[]
+  amenities       PubAmenity[]
+  managers        PubManager[]
+  photos          PubPhoto[]
+  borough         Borough?       @relation(fields: [boroughId], references: [id])
+  city            City?          @relation(fields: [cityId], references: [id])
+  reviews         Review[]
+  wishlist        Wishlist[]
 
   @@map("pubs")
 }
 
 model Amenity {
-  id    Int    @id @default(autoincrement())
-  key   String @unique // e.g. 'beer_garden', 'dog_friendly'
-  label String // e.g. 'Beer Garden'
-
-  pubs PubAmenity[]
+  id    Int          @id @default(autoincrement())
+  key   String       @unique
+  label String
+  pubs  PubAmenity[]
 
   @@map("amenities")
 }
 
 model PubAmenity {
-  pubId    String
+  pubId     String
   amenityId Int
-  value    Boolean @default(true)
-
-  pub     Pub     @relation(fields: [pubId], references: [id], onDelete: Cascade)
-  amenity Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  value     Boolean @default(true)
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  pub       Pub     @relation(fields: [pubId], references: [id], onDelete: Cascade)
 
   @@id([pubId, amenityId])
   @@map("pub_amenities")
@@ -112,24 +95,21 @@ model PubPhoto {
   pubId      String
   url        String
   isCover    Boolean  @default(false)
-  uploadedBy String? // admin or manager id
+  uploadedBy String?
   createdAt  DateTime @default(now())
-
-  pub Pub @relation(fields: [pubId], references: [id], onDelete: Cascade)
+  pub        Pub      @relation(fields: [pubId], references: [id], onDelete: Cascade)
 
   @@map("pub_photos")
 }
 
-// Manager Portal
 model Manager {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String         @id @default(cuid())
+  email     String         @unique
   name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  pubs   PubManager[]
-  logins ManagerLogin[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  logins    ManagerLogin[]
+  pubs      PubManager[]
 
   @@map("managers")
 }
@@ -137,46 +117,42 @@ model Manager {
 model PubManager {
   pubId     String
   managerId String
-  role      String @default("owner") // 'owner' or 'editor'
-
-  pub     Pub     @relation(fields: [pubId], references: [id], onDelete: Cascade)
-  manager Manager @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  role      String  @default("owner")
+  manager   Manager @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  pub       Pub     @relation(fields: [pubId], references: [id], onDelete: Cascade)
 
   @@id([pubId, managerId])
   @@map("pub_managers")
 }
 
 model ManagerLogin {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   managerId  String?
   pubId      String?
-  loggedInAt DateTime  @default(now())
-
-  manager Manager? @relation(fields: [managerId], references: [id], onDelete: SetNull)
-  pub     Pub?     @relation(fields: [pubId], references: [id], onDelete: SetNull)
+  loggedInAt DateTime @default(now())
+  manager    Manager? @relation(fields: [managerId], references: [id])
+  pub        Pub?     @relation(fields: [pubId], references: [id])
 
   @@map("manager_logins")
 }
 
-// Admin Users
 model AdminUser {
   id        String   @id @default(cuid())
   email     String   @unique
   password  String
   name      String?
-  role      String   @default("content_admin") // 'superadmin', 'content_admin', 'analytics_viewer', 'support'
+  role      String   @default("content_admin")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("admin_users")
 }
 
-// Admin Audit
 model AdminAudit {
   id        String   @id @default(cuid())
   actorId   String?
   action    String
-  entity    String   // 'pub','photo','amenity', etc.
+  entity    String
   entityId  String
   diff      Json?
   createdAt DateTime @default(now())
@@ -184,7 +160,6 @@ model AdminAudit {
   @@map("admin_audit")
 }
 
-// Event Tracking (OLAP - for analytics)
 model EventPageView {
   id        String   @id @default(cuid())
   ts        DateTime @default(now())
@@ -200,13 +175,13 @@ model EventPageView {
 }
 
 model EventSearch {
-  id          String   @id @default(cuid())
-  ts          DateTime @default(now())
-  userId      String?
-  sessionId   String
-  query       String
-  cityId      Int?
-  boroughId   Int?
+  id           String   @id @default(cuid())
+  ts           DateTime @default(now())
+  userId       String?
+  sessionId    String
+  query        String
+  cityId       Int?
+  boroughId    Int?
   resultsCount Int?
 
   @@map("events_search")
@@ -228,17 +203,16 @@ model EventCtaClick {
   ts        DateTime @default(now())
   sessionId String
   pubId     String
-  type      String // 'book', 'call', 'website'
+  type      String
 
   @@map("events_cta_click")
 }
 
-// Materialized views for performance (daily aggregates)
 model PubViewsDaily {
-  id      String   @id @default(cuid())
-  pubId   String
-  date    DateTime
-  views   Int      @default(0)
+  id    String   @id @default(cuid())
+  pubId String
+  date  DateTime
+  views Int      @default(0)
 
   @@unique([pubId, date])
   @@map("pub_views_daily")
@@ -267,20 +241,17 @@ model SearchesDaily {
   @@map("searches_daily")
 }
 
-// User Accounts & Reviews
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  password      String?
-  name          String?
-  image         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  reviews       Review[]
-  wishlist      Wishlist[]
-  checkins      Checkin[]
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String?
+  name      String?
+  image     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  checkins  Checkin[]
+  reviews   Review[]
+  wishlist  Wishlist[]
 
   @@map("users")
 }
@@ -289,20 +260,19 @@ model Review {
   id            String   @id @default(cuid())
   userId        String
   pubId         String
-  rating        Int      // 1..5
-  title         String?  // optional short headline
-  body          String   // 10..2000 chars
-  photos        String?  // JSON array of urls (optional)
+  rating        Int
+  title         String?
+  body          String
+  photos        String?
   isEdited      Boolean  @default(false)
-  isVisible     Boolean  @default(true) // moderation flag
+  isVisible     Boolean  @default(true)
   reportedCount Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  user          User     @relation(fields: [userId], references: [id])
   pub           Pub      @relation(fields: [pubId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
 
-  @@unique([userId, pubId]) // one review per user per pub (editable)
+  @@unique([userId, pubId])
   @@index([pubId])
   @@index([userId])
   @@map("reviews")
@@ -313,9 +283,8 @@ model Wishlist {
   userId    String
   pubId     String
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id])
   pub       Pub      @relation(fields: [pubId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, pubId])
   @@index([userId])
@@ -327,41 +296,35 @@ model Checkin {
   id        String   @id @default(cuid())
   userId    String
   pubId     String
-  note      String?      // optional: "with friends", "quiz night", etc.
+  note      String?
   visitedAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id])
   pub       Pub      @relation(fields: [pubId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
-  @@unique([userId, pubId]) // can also choose to allow multiple by removing this
+  @@unique([userId, pubId])
   @@index([userId])
   @@index([pubId])
   @@map("checkins")
 }
 
-// Homepage Trending Tiles
 model HomepageSlot {
-  id          String   @id @default(cuid())
-  title       String
-  subtitle    String
-  href        String
-  icon        String
-  areaSlug    String
-  amenitySlug String?
-  pubCount    Int
-  score       Float
-  isSeasonal  Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  position    Int?     // 1-6 for homepage display order
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Analytics tracking
-  views       Int      @default(0)
-  clicks      Int      @default(0)
-  lastViewed  DateTime?
-
-  // Relations
+  id           String                    @id @default(cuid())
+  title        String
+  subtitle     String
+  href         String
+  icon         String
+  areaSlug     String
+  amenitySlug  String?
+  pubCount     Int
+  score        Float
+  isSeasonal   Boolean                   @default(false)
+  isActive     Boolean                   @default(true)
+  position     Int?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  views        Int                       @default(0)
+  clicks       Int                       @default(0)
+  lastViewed   DateTime?
   interactions HomepageSlotInteraction[]
 
   @@unique([areaSlug, amenitySlug])
@@ -370,14 +333,12 @@ model HomepageSlot {
   @@map("homepage_slots")
 }
 
-// Track homepage slot interactions
 model HomepageSlotInteraction {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   slotId    String
   sessionId String
-  type      String   // 'view', 'click'
-  createdAt DateTime @default(now())
-
+  type      String
+  createdAt DateTime     @default(now())
   slot      HomepageSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
 
   @@index([slotId])
@@ -385,12 +346,10 @@ model HomepageSlotInteraction {
   @@map("homepage_slot_interactions")
 }
 
-// Area Featured Pubs for homepage carousel
 model AreaFeaturedPub {
   id        String   @id @default(cuid())
-  areaName  String   @unique // e.g. "Camden", "Islington"
-  pubId     String   // Google Place ID from pubData
-  
+  areaName  String   @unique
+  pubId     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
