@@ -111,6 +111,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
   const [userStateLoaded, setUserStateLoaded] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginAction, setLoginAction] = useState<'save' | 'checkin' | 'review'>('save');
+  const reviewsLoadedRef = useRef(false);
 
   // Define functions first to avoid reference errors
   const loadUserState = useCallback(async (forceReload = false) => {
@@ -129,13 +130,15 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
 
       if (wishlistResponse.ok) {
         const wishlistData = await wishlistResponse.json();
-        const isWishlisted = wishlistData.pubs?.some((p: any) => p.id === pub.id) || false;
+        // API returns { pubs: [{ pub: { id, name, ... } }] }
+        const isWishlisted = wishlistData.pubs?.some((item: any) => item.pub?.id === pub.id) || false;
         setUserState(prev => ({ ...prev, isWishlisted }));
       }
 
       if (checkinsResponse.ok) {
         const checkinsData = await checkinsResponse.json();
-        const hasCheckedIn = checkinsData.pubs?.some((p: any) => p.id === pub.id) || false;
+        // API returns { pubs: [{ pub: { id, name, ... } }] }
+        const hasCheckedIn = checkinsData.pubs?.some((item: any) => item.pub?.id === pub.id) || false;
         setUserState(prev => ({ ...prev, hasCheckedIn }));
       }
       
@@ -150,7 +153,7 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
     
     try {
       const response = await fetch(`/api/pubs/${pub.id}/user-data`, {
-        headers: { 'Cache-Control': 'max-age=300' }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       if (response.ok) {
         const data = await response.json();
@@ -160,15 +163,16 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
     } catch (error) {
       console.error('Error loading user data:', error);
     }
-  }, [pub.id, userDataLoaded]);
+  }, [pub.id]);
 
   const loadUserReviews = useCallback(async () => {
-    if (reviewsLoading) return;
+    if (reviewsLoading || reviewsLoadedRef.current) return;
     
     setReviewsLoading(true);
+    reviewsLoadedRef.current = true;
     try {
       const response = await fetch(`/api/pubs/${pub.id}/reviews`, {
-        headers: { 'Cache-Control': 'max-age=120' }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       if (response.ok) {
         const data = await response.json();
@@ -182,10 +186,11 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
       }
     } catch (error) {
       console.error('Error loading reviews:', error);
+      reviewsLoadedRef.current = false; // Reset on error so it can retry
     } finally {
       setReviewsLoading(false);
     }
-  }, [pub.id, session?.user, reviewsLoading]);
+  }, [pub.id, session?.user?.id]);
 
   // Load user state only when user interacts with action buttons
   const loadUserStateOnDemand = () => {
@@ -220,19 +225,28 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
 
   // Load user state immediately when user is logged in
   useEffect(() => {
-    if (session?.user && !userStateLoaded) {
+    if (session?.user?.id && !userStateLoaded) {
       loadUserState();
     }
-  }, [session?.user, pub.id, userStateLoaded, loadUserState]);
+  }, [session?.user?.id, pub.id, userStateLoaded, loadUserState]);
 
-  // Load user data and reviews when user is logged in
+  // Load user data and reviews when user is logged in (only once per pub)
   useEffect(() => {
-    if (session?.user) {
-      // Load user data and reviews immediately (no delay)
+    if (session?.user?.id && !userDataLoaded && !reviewsLoading) {
       loadUserData();
+    }
+  }, [session?.user?.id, pub.id, userDataLoaded, loadUserData]);
+
+  useEffect(() => {
+    // Reset reviews loaded ref when pub changes
+    reviewsLoadedRef.current = false;
+  }, [pub.id]);
+
+  useEffect(() => {
+    if (session?.user?.id && !reviewsLoading && !reviewsLoadedRef.current) {
       loadUserReviews();
     }
-  }, [session?.user, pub.id, loadUserData, loadUserReviews]);
+  }, [session?.user?.id, pub.id, loadUserReviews]);
 
   const toggleWishlist = async () => {
     if (!session?.user) {
@@ -454,6 +468,8 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
                   pubId={pub.id} 
                   onReviewSubmitted={async () => {
                     setShowReviewForm(false);
+                    // Reset ref to allow reload
+                    reviewsLoadedRef.current = false;
                     await loadUserReviews();
                     if (session?.user) {
                       await loadUserState(true);
