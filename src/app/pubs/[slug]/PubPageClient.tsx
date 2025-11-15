@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Heart, MapPin, Star, MessageSquare, CheckCircle, Plus, Minus } from 'lucide-react';
@@ -65,15 +65,27 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
     isWishlisted: false,
     hasCheckedIn: false,
   });
+  
+  // Use ref to track if we've already tracked this page view (prevents duplicates on re-renders)
+  const hasTrackedPageView = useRef(false);
 
-  // Track page view when pub page loads
+  // Track page view when pub page loads (only once per page visit)
   useEffect(() => {
-    trackPageView({
-      userId: session?.user?.id,
-      pubId: pub.id,
-      areaSlug: pub.area,
-    });
+    // Only track if we haven't tracked this page view yet
+    if (!hasTrackedPageView.current) {
+      hasTrackedPageView.current = true;
+      trackPageView({
+        userId: session?.user?.id,
+        pubId: pub.id,
+        areaSlug: pub.area,
+      });
+    }
   }, [pub.id, pub.area, session?.user?.id, trackPageView]);
+  
+  // Reset tracking flag when pub ID changes (user navigates to different pub)
+  useEffect(() => {
+    hasTrackedPageView.current = false;
+  }, [pub.id]);
 
   // Debug: Log the pub data being received
   useEffect(() => {

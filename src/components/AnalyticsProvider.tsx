@@ -41,13 +41,15 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
       })
     }
     
-    // Track page view for all pages (pub pages will also be tracked in PubPageClient, but that's okay - we can dedupe later if needed)
-    analytics.trackPageView({
-      pubId,
-      areaSlug,
-      utm: Object.keys(utm).length > 0 ? utm : undefined,
-      device: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-    })
+    // Track page view (skip pub pages - they're tracked in PubPageClient with more context)
+    if (!path.startsWith('/pubs/')) {
+      analytics.trackPageView({
+        pubId,
+        areaSlug,
+        utm: Object.keys(utm).length > 0 ? utm : undefined,
+        device: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      })
+    }
     
     // Force immediate flush for testing (remove in production or make it conditional)
     // This ensures events are sent right away
