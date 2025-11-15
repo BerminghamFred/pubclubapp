@@ -658,7 +658,7 @@ export default function PubDataLoader() {
       openingFilter: '',
     });
     setSearchSelections([]);
-    setCurrentPage(1);
+    setItemsToShow(12); // Reset to initial count
   };
 
   const handleViewPub = useCallback((pub: Pub) => {
