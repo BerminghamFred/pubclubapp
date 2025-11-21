@@ -5,6 +5,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { SessionProvider } from "@/components/SessionProvider";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -116,6 +117,7 @@ export default function RootLayout({
             <Footer />
           </AnalyticsProvider>
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   );
