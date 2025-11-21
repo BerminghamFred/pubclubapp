@@ -358,3 +358,27 @@ model AreaFeaturedPub {
 
   @@map("area_featured_pubs")
 }
+
+model PubRequest {
+  id            String   @id @default(cuid())
+  pubName       String
+  postcode      String
+  managerName   String
+  contactEmail  String
+  contactPhone  String
+  status        String   @default("pending") // pending, reviewed, approved, rejected
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("pub_requests")
+}
+
+model BlogSubscription {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("blog_subscriptions")
+}

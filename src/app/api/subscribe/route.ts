@@ -1,5 +1,8 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
 
 // Email validation schema
 const subscribeSchema = z.object({
@@ -11,12 +14,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email } = subscribeSchema.parse(body);
 
-    // TODO: Integrate with your email service (Mailchimp, ConvertKit, etc.)
-    // For now, we'll just log the subscription
-    console.log('New email subscription:', email);
+    // Check if email already exists
+    const existing = await prisma.blogSubscription.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (existing) {
+      return NextResponse.json(
+        { 
+          success: true, 
+          message: 'You\'re already subscribed! Thanks for your interest.' 
+        },
+        { status: 200 }
+      );
+    }
+
+    // Save to database
+    await prisma.blogSubscription.create({
+      data: {
+        email: email.toLowerCase().trim(),
+      },
+    });
 
     return NextResponse.json(
       { 

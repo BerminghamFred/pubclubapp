@@ -1,7 +1,10 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { pubData } from '@/data/pubData';
 import fs from 'fs';
 import path from 'path';
+import { prisma } from '@/lib/prisma';
 
 interface Area {
   slug: string;
@@ -43,36 +46,54 @@ async function generateAreas(): Promise<Area[]> {
     }
   });
   
-  // Get featured pubs from file
-  const FEATURED_PUBS_FILE = path.join(process.cwd(), 'data', 'featured-pubs.json');
-  let featuredPubsData = {};
+  // Get featured pubs from DATABASE instead of file
+  const featuredPubMap = new Map<string, string>();
   
   try {
-    if (fs.existsSync(FEATURED_PUBS_FILE)) {
-      const data = fs.readFileSync(FEATURED_PUBS_FILE, 'utf8');
-      featuredPubsData = JSON.parse(data);
-    }
-  } catch (error) {
-    console.error('Error reading featured pubs file:', error);
-  }
-  
-  const featuredPubMap = new Map<string, string>();
-  Object.entries(featuredPubsData).forEach(([areaName, pubId]) => {
-    // Find the pub in pubData to get the photo
-    const pubFromData = pubData.find(pub => pub.id === pubId);
-    if (pubFromData) {
-      // Construct proper photo URL using the photo API
-      const photoUrl = pubFromData._internal?.photo_name 
-        ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
-        : pubFromData._internal?.place_id
-        ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
-        : null;
-      
-      if (photoUrl) {
-        featuredPubMap.set(areaName, photoUrl);
+    const featuredPubsFromDb = await prisma.areaFeaturedPub.findMany();
+    
+    featuredPubsFromDb.forEach((featuredPub) => {
+      // Find the pub in pubData to get the photo
+      const pubFromData = pubData.find(pub => pub.id === featuredPub.pubId);
+      if (pubFromData) {
+        // Construct proper photo URL using the photo API
+        const photoUrl = pubFromData._internal?.photo_name 
+          ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
+          : pubFromData._internal?.place_id
+          ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
+          : null;
+        
+        if (photoUrl) {
+          featuredPubMap.set(featuredPub.areaName, photoUrl);
+        }
       }
+    });
+  } catch (error) {
+    console.error('Error reading featured pubs from database:', error);
+    // Fallback: try reading from file if database fails
+    const FEATURED_PUBS_FILE = path.join(process.cwd(), 'data', 'featured-pubs.json');
+    try {
+      if (fs.existsSync(FEATURED_PUBS_FILE)) {
+        const data = fs.readFileSync(FEATURED_PUBS_FILE, 'utf8');
+        const featuredPubsData = JSON.parse(data);
+        Object.entries(featuredPubsData).forEach(([areaName, pubId]) => {
+          const pubFromData = pubData.find(pub => pub.id === pubId as string);
+          if (pubFromData) {
+            const photoUrl = pubFromData._internal?.photo_name 
+              ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
+              : pubFromData._internal?.place_id
+              ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
+              : null;
+            if (photoUrl) {
+              featuredPubMap.set(areaName, photoUrl);
+            }
+          }
+        });
+      }
+    } catch (fileError) {
+      console.error('Error reading featured pubs file:', fileError);
     }
-  });
+  }
   
   // Convert to areas array
   const areas: Area[] = Array.from(areaCounts.entries())

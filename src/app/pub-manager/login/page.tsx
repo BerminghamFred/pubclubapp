@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PubRequestModal } from '@/components/PubRequestModal';
 
 export default function PubManagerLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showContactModal, setShowContactModal] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,9 +137,13 @@ export default function PubManagerLogin() {
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Don't have access?{' '}
-                <Link href="/contact" className="font-medium text-[#08d78c] hover:text-[#06b875]">
+                <button
+                  type="button"
+                  onClick={() => setShowContactModal(true)}
+                  className="font-medium text-[#08d78c] hover:text-[#06b875] underline"
+                >
                   Contact Pub Club
-                </Link>
+                </button>
               </p>
             </div>
           </div>
@@ -162,6 +168,8 @@ export default function PubManagerLogin() {
           ← Back to Pub Club
         </Link>
       </div>
+
+      <PubRequestModal open={showContactModal} onOpenChange={setShowContactModal} />
     </div>
   );
 }
