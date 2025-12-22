@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { getCachedPhotoUrl, isGooglePlacesPhotoUrl, convertToCachedUrl } from '@/utils/photoUtils';
+import { getCachedPhotoUrl, isGooglePlacesPhotoUrl, convertToCachedUrl, extractPhotoReference } from '@/utils/photoUtils';
 
 interface PubPhotoProps {
   src?: string;
@@ -37,51 +37,64 @@ export default function PubPhoto({
 
   // Determine the best photo source
   const getPhotoSrc = (): string | null => {
-         // Debug: Log what we're receiving
-         if (typeof window !== 'undefined') {
-           console.log('[PubPhoto] Props:', { 
-             photoName: photoName ? 'exists' : 'missing', 
-             placeId: placeId ? 'exists' : 'missing', 
-             src: src ? 'exists' : 'missing', 
-             photoRef: photoRef ? 'exists' : 'missing', 
-             width 
-           });
-         }
+    // Debug: Log what we're receiving
+    if (typeof window !== 'undefined') {
+      console.log('[PubPhoto] Props:', { 
+        photoName: photoName ? 'exists' : 'missing', 
+        placeId: placeId ? 'exists' : 'missing', 
+        src: src ? 'exists' : 'missing', 
+        photoRef: photoRef ? 'exists' : 'missing', 
+        width 
+      });
+    }
+
+    // Priority 1: Use photo_reference directly (most reliable - legacy API)
+    if (photoRef) {
+      const url = getCachedPhotoUrl({ ref: photoRef, width });
+      if (typeof window !== 'undefined') {
+        console.log('[PubPhoto] Using photoRef');
+      }
+      return url;
+    }
     
-    // Priority 1: Use new photo name format (Google Places API New)
+    // Priority 2: Extract photo_reference from src URL (legacy API - most reliable fallback)
+    if (src && isGooglePlacesPhotoUrl(src)) {
+      const extractedRef = extractPhotoReference(src);
+      if (extractedRef) {
+        const url = getCachedPhotoUrl({ ref: extractedRef, width });
+        if (typeof window !== 'undefined') {
+          console.log('[PubPhoto] Using extracted photoRef from src');
+        }
+        return url;
+      }
+    }
+    
+    // Priority 3: Use new photo name format (Google Places API New)
     if (photoName) {
       const url = getCachedPhotoUrl({ photoName, placeId, width });
-           if (typeof window !== 'undefined') {
-             console.log('[PubPhoto] Using photoName');
-           }
+      if (typeof window !== 'undefined') {
+        console.log('[PubPhoto] Using photoName');
+      }
       return url;
     }
     
-    // Priority 2: Use place ID to fetch photo (Google Places API New)
+    // Priority 4: Use place ID to fetch photo (Places API New - may fail with 403)
     if (placeId) {
       const url = getCachedPhotoUrl({ placeId, width });
-           if (typeof window !== 'undefined') {
-             console.log('[PubPhoto] Using placeId');
-           }
+      if (typeof window !== 'undefined') {
+        console.log('[PubPhoto] Using placeId');
+      }
       return url;
     }
     
-    // Priority 3: Use src URL, convert if it's a Google Places photo
-    if (src) {
-      if (isGooglePlacesPhotoUrl(src)) {
-        return convertToCachedUrl(src, width);
-      }
+    // Priority 5: Use src URL directly if it's a valid HTTP(S) URL
+    if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
       return src;
     }
     
-    // Priority 4: Use old photo reference format (legacy support) - TEMPORARILY DISABLED
-    // if (photoRef) {
-    //   return getCachedPhotoUrl({ ref: photoRef, width });
-    // }
-    
-           if (typeof window !== 'undefined') {
-             console.log('[PubPhoto] No valid photo source found');
-           }
+    if (typeof window !== 'undefined') {
+      console.log('[PubPhoto] No valid photo source found');
+    }
     return null;
   };
 

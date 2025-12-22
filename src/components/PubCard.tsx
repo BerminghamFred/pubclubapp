@@ -156,6 +156,7 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
           href={pubUrl}
           photoName={pub._internal?.photo_name}
           placeId={pub._internal?.place_id}
+          src={pub._internal?.photo_url}
           alt={`${pub.name} pub`}
           width={480}
           height={320}

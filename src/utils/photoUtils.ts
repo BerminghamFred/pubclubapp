@@ -40,13 +40,13 @@ export function getCachedPhotoUrl(options: PhotoUrlOptions): string {
     return `/api/photo-by-place?${params.toString()}`;
   }
   
-  // Priority 3: Fall back to old photo reference format
+  // Priority 3: Fall back to old photo reference format (use photo-by-place route)
   if (ref) {
     const params = new URLSearchParams({
       ref: ref,
       w: width.toString(),
     });
-    return `/api/photo?${params.toString()}`;
+    return `/api/photo-by-place?${params.toString()}`;
   }
 
   return options.fallbackUrl || '/images/placeholders/pub-default.webp';
@@ -86,7 +86,9 @@ export function extractPhotoReference(googleUrl: string): string | null {
     const url = new URL(googleUrl);
     return url.searchParams.get('photo_reference');
   } catch {
-    return null;
+    // Try to extract from URL string if URL parsing fails
+    const match = googleUrl.match(/photo_reference=([^&]+)/);
+    return match ? match[1] : null;
   }
 }
 

@@ -1,11 +1,11 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY!;
 const DEFAULT_TTL = Number(process.env.PHOTO_CACHE_TTL_SECONDS ?? 604800);
 const MAXWIDTH_DEFAULT = Number(process.env.PHOTO_CACHE_MAXWIDTH_DEFAULT ?? 480);
 const MAXWIDTH_MAX = Number(process.env.PHOTO_CACHE_MAXWIDTH_MAX ?? 1280);
-
-// Use default Node.js runtime on Vercel (avoid explicit edge runtime)
 
 export async function GET(req: NextRequest) {
   try {
