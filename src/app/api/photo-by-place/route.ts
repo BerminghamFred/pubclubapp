@@ -51,7 +51,7 @@ async function getFallbackImage(): Promise<{ buffer: Buffer; contentType: string
  */
 async function returnFallbackImage(): Promise<NextResponse> {
   const { buffer, contentType } = await getFallbackImage();
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       'Content-Type': contentType,
@@ -338,7 +338,7 @@ export async function GET(req: NextRequest) {
     if (photoRef) {
       const result = await fetchPhotoByReference(photoRef, requestedWidth);
       if (result.success) {
-        return new NextResponse(result.buffer, {
+        return new NextResponse(new Uint8Array(result.buffer), {
           status: 200,
           headers: {
             "Content-Type": result.contentType,
@@ -356,7 +356,7 @@ export async function GET(req: NextRequest) {
     if (photoName) {
       const result = await fetchPhotoByName(photoName, requestedWidth);
       if (result.success) {
-        return new NextResponse(result.buffer, {
+        return new NextResponse(new Uint8Array(result.buffer), {
           status: 200,
           headers: {
             "Content-Type": result.contentType,
@@ -377,7 +377,7 @@ export async function GET(req: NextRequest) {
       if (photoReference) {
         const result = await fetchPhotoByReference(photoReference, requestedWidth);
         if (result.success) {
-          return new NextResponse(result.buffer, {
+          return new NextResponse(new Uint8Array(result.buffer), {
             status: 200,
             headers: {
               "Content-Type": result.contentType,
