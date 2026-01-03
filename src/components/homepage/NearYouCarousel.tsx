@@ -58,6 +58,7 @@ export default function NearYouCarousel() {
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
+        console.log('[NearYouCarousel] Received areas data:', data.areas?.map((a: Area) => ({ name: a.name, image: a.image })));
         setAreas(data.areas || []);
       } else {
         // Fallback to static top cities
