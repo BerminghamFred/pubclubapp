@@ -143,14 +143,18 @@ export default function NearYouCarousel() {
                           className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {
+                            console.error(`[NearYouCarousel] Failed to load image for ${area.name}: ${area.image}`);
                             e.currentTarget.style.display = 'none';
                             const fallback = e.currentTarget.nextElementSibling as HTMLElement;
                             if (fallback) fallback.style.display = 'flex';
                           }}
+                          onLoad={() => {
+                            console.log(`[NearYouCarousel] Successfully loaded image for ${area.name}: ${area.image}`);
+                          }}
                         />
                       ) : null}
                       <div 
-                        className="w-full h-full flex items-center justify-center"
+                        className="w-full h-full flex items-center justify-center absolute inset-0"
                         style={{ display: area.image ? 'none' : 'flex' }}
                       >
                         <MapPin className="w-12 h-12 text-[#08d78c]" />
