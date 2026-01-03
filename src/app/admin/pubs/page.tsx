@@ -4,6 +4,16 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Search, Filter, Download, Edit, Eye, MoreHorizontal, Plus, ChevronsUpDown, BarChart3, Building, Users, TrendingUp } from 'lucide-react';
 
 interface Pub {
@@ -36,6 +46,10 @@ export default function AdminPubsPage() {
   const [boroughs, setBoroughs] = useState<Array<{ id: number; name: string; cityId: number; cityName?: string }>>([]);
   const [sortField, setSortField] = useState<'name' | 'createdAt'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPub, setEditingPub] = useState<Pub | null>(null);
+  const [deletingPubId, setDeletingPubId] = useState<string | null>(null);
 
   const limit = 50;
 
@@ -152,6 +166,53 @@ export default function AdminPubsPage() {
     }
   };
 
+  const handleAddPub = () => {
+    setShowAddModal(true);
+  };
+
+  const handleEditPub = async (pubId: string) => {
+    try {
+      const response = await fetch(`/api/admin/pubs/${pubId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setEditingPub(data);
+        setShowEditModal(true);
+      } else {
+        alert('Failed to load pub details');
+      }
+    } catch (error) {
+      console.error('Error loading pub:', error);
+      alert('Error loading pub details');
+    }
+  };
+
+  const handleDeletePub = async (pubId: string, pubName: string) => {
+    if (!confirm(`Are you sure you want to delete "${pubName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingPubId(pubId);
+    try {
+      const response = await fetch(`/api/admin/pubs/${pubId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Refresh the list
+        fetchPubs();
+        alert('Pub deleted successfully');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to delete pub');
+      }
+    } catch (error) {
+      console.error('Error deleting pub:', error);
+      alert('Error deleting pub');
+    } finally {
+      setDeletingPubId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -163,7 +224,7 @@ export default function AdminPubsPage() {
               <p className="text-gray-600 mt-2">Manage and monitor all pubs in the system</p>
             </div>
             <div className="flex space-x-3">
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button onClick={handleAddPub} className="bg-purple-600 hover:bg-purple-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Pub
               </Button>
@@ -377,6 +438,7 @@ export default function AdminPubsPage() {
                         <div className="flex justify-center space-x-2">
                           <Button 
                             size="sm" 
+                            onClick={() => handleEditPub(pub.id)}
                             className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1"
                           >
                             Edit
@@ -384,9 +446,11 @@ export default function AdminPubsPage() {
                           <Button 
                             size="sm" 
                             variant="outline"
+                            onClick={() => handleDeletePub(pub.id, pub.name)}
+                            disabled={deletingPubId === pub.id}
                             className="text-red-600 border-red-300 hover:bg-red-50 text-xs px-3 py-1"
                           >
-                            Delete
+                            {deletingPubId === pub.id ? 'Deleting...' : 'Delete'}
                           </Button>
                         </div>
                       </td>
@@ -430,6 +494,124 @@ export default function AdminPubsPage() {
           )}
         </div>
       </div>
+
+      {/* Add Pub Modal */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Pub</DialogTitle>
+            <DialogDescription>
+              Add a new pub to the system. All fields marked with * are required.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-600 text-sm">
+              This feature is coming soon. For now, please use the CSV upload feature on the main admin dashboard to add pubs.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Pub Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="sm:max-w-[700px] bg-white max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Pub: {editingPub?.name}</DialogTitle>
+            <DialogDescription>
+              Update pub information. Changes will be saved immediately.
+            </DialogDescription>
+          </DialogHeader>
+          {editingPub && (
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Name *</Label>
+                  <Input
+                    id="edit-name"
+                    defaultValue={editingPub.name}
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Input
+                    id="edit-address"
+                    defaultValue={editingPub.address || ''}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-city">City</Label>
+                  <Input
+                    id="edit-city"
+                    defaultValue={editingPub.city?.name || ''}
+                    className="w-full"
+                    disabled
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-borough">Borough</Label>
+                  <Input
+                    id="edit-borough"
+                    defaultValue={editingPub.borough?.name || ''}
+                    className="w-full"
+                    disabled
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Manager Status</Label>
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(editingPub.managerStatus)}
+                  {editingPub.lastLoginAt && (
+                    <span className="text-xs text-gray-500">
+                      Last login: {new Date(editingPub.lastLoginAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Views (Last 30 days)</Label>
+                <div className="text-lg font-semibold">{editingPub.views.toLocaleString()}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>Amenities</Label>
+                <div className="flex flex-wrap gap-2">
+                  {editingPub.amenities.map((a, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-gray-100 rounded text-sm">
+                      {a.amenity.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <p className="text-gray-600 text-sm pt-4 border-t">
+                Full editing functionality is coming soon. For now, you can view the pub details above.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowEditModal(false);
+              setEditingPub(null);
+            }}>
+              Close
+            </Button>
+            <Button 
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              disabled
+            >
+              Save Changes (Coming Soon)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
