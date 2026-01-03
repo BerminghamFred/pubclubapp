@@ -90,9 +90,12 @@ export default function PubMap({ pubs, selectedArea, selectedType, selectedFeatu
         return;
       }
 
-      const apiKey = 'AIzaSyAJC2FaVnXp8HQO6OvMLwmvLCsCAeD1xo';
-      console.log('Using API key:', apiKey);
-      console.log('API key length:', apiKey.length);
+      // Get API key from environment variable
+      const apiKey = process.env.NEXT_PUBLIC_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GMAPS_BROWSER_KEY;
+      if (!apiKey) {
+        throw new Error('Missing Google Maps API key. Please set NEXT_PUBLIC_MAPS_BROWSER_KEY or NEXT_PUBLIC_GMAPS_BROWSER_KEY in your environment variables.');
+      }
+      console.log('Using API key from environment variable');
 
       const loader = new Loader({
         apiKey: apiKey,

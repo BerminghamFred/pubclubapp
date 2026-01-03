@@ -31,9 +31,17 @@ export const loadGoogleMaps = (): Promise<void> => {
       return;
     }
 
+    // Get API key from environment variable
+    const apiKey = process.env.NEXT_PUBLIC_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GMAPS_BROWSER_KEY;
+    if (!apiKey) {
+      googleMapsLoading = false;
+      reject(new Error('Missing Google Maps API key. Please set NEXT_PUBLIC_MAPS_BROWSER_KEY or NEXT_PUBLIC_GMAPS_BROWSER_KEY in your environment variables.'));
+      return;
+    }
+
     // Create script element
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCUMtS8YR9mG1Phzlq2Z15WEIAe-ePYD28&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
     

@@ -35,8 +35,13 @@ export function useMapLoader(shouldLoad: boolean) {
 
     // Initialize loader only once
     if (!loaderInstance) {
-      // Use the Google Maps API key
-      const apiKey = 'AIzaSyCUMtS8YR9mG1Phzlq2Z15WEIAe-ePYD28';
+      // Get API key from environment variable
+      const apiKey = process.env.NEXT_PUBLIC_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GMAPS_BROWSER_KEY;
+      
+      if (!apiKey) {
+        setError(new Error('Missing Google Maps API key. Please set NEXT_PUBLIC_MAPS_BROWSER_KEY or NEXT_PUBLIC_GMAPS_BROWSER_KEY in your environment variables.'));
+        return;
+      }
       
       loaderInstance = new Loader({
         apiKey,
