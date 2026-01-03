@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, Users, Settings, Plus, Edit } from 'lucide-react';
+import { MapPin, Star, Users, Settings, Plus, Edit, Upload, Trash2 } from 'lucide-react';
 
 interface Pub {
   id: string;
@@ -39,6 +39,10 @@ export default function AreaFeaturedPubsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [areaImages, setAreaImages] = useState<Map<string, string>>(new Map());
 
   // Get list of all areas from pub data
   const [allAreas, setAllAreas] = useState<string[]>([]);
@@ -62,6 +66,54 @@ export default function AreaFeaturedPubsPage() {
     
     loadData();
   }, []);
+
+  // Check for existing uploaded images when areas are loaded
+  useEffect(() => {
+    if (allAreas.length > 0) {
+      checkExistingImages();
+    }
+  }, [allAreas]);
+
+  const checkExistingImages = () => {
+    const imageMap = new Map<string, string>();
+    let checkedCount = 0;
+    
+    allAreas.forEach(areaName => {
+      const safeAreaName = areaName
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
+      
+      // Try to load image (will fail gracefully if doesn't exist)
+      const img = new Image();
+      img.onload = () => {
+        imageMap.set(areaName, `/images/areas/${safeAreaName}.jpg`);
+        checkedCount++;
+        if (checkedCount === allAreas.length) {
+          setAreaImages(new Map(imageMap));
+        }
+      };
+      img.onerror = () => {
+        // Try PNG
+        const imgPng = new Image();
+        imgPng.onload = () => {
+          imageMap.set(areaName, `/images/areas/${safeAreaName}.png`);
+          checkedCount++;
+          if (checkedCount === allAreas.length) {
+            setAreaImages(new Map(imageMap));
+          }
+        };
+        imgPng.onerror = () => {
+          checkedCount++;
+          if (checkedCount === allAreas.length) {
+            setAreaImages(new Map(imageMap));
+          }
+        };
+        imgPng.src = `/images/areas/${safeAreaName}.png`;
+      };
+      img.src = `/images/areas/${safeAreaName}.jpg`;
+    });
+  };
 
   const fetchFeaturedPubs = async () => {
     try {
@@ -161,6 +213,67 @@ export default function AreaFeaturedPubsPage() {
     return featuredPubs.find(fp => fp.areaName === areaName)?.pub;
   };
 
+  const handleImageUpload = async (areaName: string, file: File) => {
+    setUploadingImage(areaName);
+    setUploadError(null);
+    setUploadSuccess(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('areaName', areaName);
+
+    try {
+      const response = await fetch('/api/admin/area-featured-pubs/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUploadSuccess(`Image uploaded for ${areaName}`);
+        setAreaImages(prev => new Map(prev).set(areaName, data.imageUrl));
+        setTimeout(() => setUploadSuccess(null), 3000);
+      } else {
+        const errorData = await response.json();
+        setUploadError(errorData.error || 'Failed to upload image');
+        setTimeout(() => setUploadError(null), 5000);
+      }
+    } catch (error) {
+      setUploadError('Network error uploading image');
+      setTimeout(() => setUploadError(null), 5000);
+    } finally {
+      setUploadingImage(null);
+    }
+  };
+
+  const handleImageDelete = async (areaName: string) => {
+    if (!confirm(`Delete uploaded image for ${areaName}?`)) return;
+
+    try {
+      const response = await fetch(
+        `/api/admin/area-featured-pubs/upload-image?areaName=${encodeURIComponent(areaName)}`,
+        { method: 'DELETE' }
+      );
+
+      if (response.ok) {
+        setUploadSuccess(`Image deleted for ${areaName}`);
+        setAreaImages(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(areaName);
+          return newMap;
+        });
+        setTimeout(() => setUploadSuccess(null), 3000);
+      } else {
+        const errorData = await response.json();
+        setUploadError(errorData.error || 'Failed to delete image');
+        setTimeout(() => setUploadError(null), 5000);
+      }
+    } catch (error) {
+      setUploadError('Failed to delete image');
+      setTimeout(() => setUploadError(null), 5000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -214,6 +327,20 @@ export default function AreaFeaturedPubsPage() {
         {success && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
             <p className="text-green-800">{success}</p>
+          </div>
+        )}
+
+        {/* Upload Success State */}
+        {uploadSuccess && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <p className="text-green-800">{uploadSuccess}</p>
+          </div>
+        )}
+
+        {/* Upload Error State */}
+        {uploadError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-red-800">{uploadError}</p>
           </div>
         )}
 
@@ -283,6 +410,65 @@ export default function AreaFeaturedPubsPage() {
                       </Button>
                     </div>
                   )}
+
+                  {/* Area Image Upload Section */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Area Image (JPG/PNG)
+                    </label>
+                    
+                    {/* Show current uploaded image if exists */}
+                    {areaImages.get(areaName) && (
+                      <div className="mb-2">
+                        <img
+                          src={areaImages.get(areaName) || ''}
+                          alt={`${areaName} area`}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                          onError={() => {
+                            // Image doesn't exist, remove from map
+                            setAreaImages(prev => {
+                              const newMap = new Map(prev);
+                              newMap.delete(areaName);
+                              return newMap;
+                            });
+                          }}
+                        />
+                        <Button
+                          onClick={() => handleImageDelete(areaName)}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 w-full"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Image
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* File upload input */}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleImageUpload(areaName, file);
+                        }
+                      }}
+                      disabled={uploadingImage === areaName}
+                      className="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-[#08d78c] file:text-black
+                        hover:file:bg-[#06b875]
+                        disabled:opacity-50"
+                    />
+                    
+                    {uploadingImage === areaName && (
+                      <p className="text-sm text-gray-500 mt-2">Uploading...</p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );

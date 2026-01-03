@@ -14,6 +14,27 @@ interface Area {
   isNearby?: boolean;
 }
 
+// Helper function to check for uploaded area images
+function getAreaImagePath(areaName: string): string | null {
+  const safeAreaName = areaName
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+  
+  // Check if uploaded image exists (try both extensions)
+  const jpgPath = path.join(process.cwd(), 'public', 'images', 'areas', `${safeAreaName}.jpg`);
+  const pngPath = path.join(process.cwd(), 'public', 'images', 'areas', `${safeAreaName}.png`);
+  
+  if (fs.existsSync(jpgPath)) {
+    return `/images/areas/${safeAreaName}.jpg`;
+  }
+  if (fs.existsSync(pngPath)) {
+    return `/images/areas/${safeAreaName}.png`;
+  }
+  
+  return null;
+}
+
 // Mock geolocation service - in production, you'd use a real geocoding service
 async function getLocationFromCoords(lat: number, lng: number): Promise<string | null> {
   // This is a simplified mock - in production, use Google Geocoding API or similar
@@ -102,11 +123,14 @@ async function generateAreas(): Promise<Area[]> {
       const slug = name.toLowerCase().replace(/\s+/g, '-');
       const featuredPubPhoto = featuredPubMap.get(name);
       
+      // Priority: 1) Uploaded image, 2) Featured pub photo, 3) undefined
+      const uploadedImage = getAreaImagePath(name);
+      
       return {
         slug,
         name,
         pubCount,
-        image: featuredPubPhoto || undefined, // Use featured pub photo or no image
+        image: uploadedImage || featuredPubPhoto || undefined,
         isNearby: false
       };
     })
