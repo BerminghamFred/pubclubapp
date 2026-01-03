@@ -53,6 +53,30 @@ async function transformRecord(record, index) {
   const rating = parseFloat(record.rating) || 0;
   const reviewCount = Math.floor(Math.random() * 200) + 50; // Generate realistic review count
 
+  // Process amenities from CSV columns
+  // Exclude non-amenity columns
+  const nonAmenityColumns = [
+    'place_id', 'photo_name', 'name', 'address', 'lat', 'lng', 'types', 
+    'website', 'phone', 'rating', 'user_ratings_total', 'opening_hours', 
+    'photo_url', 'borough', 'summary', 'manager_email', 'manager_password'
+  ];
+  
+  const amenities = [];
+  Object.keys(record).forEach(key => {
+    // Skip non-amenity columns
+    if (nonAmenityColumns.includes(key)) {
+      return;
+    }
+    
+    // Check if this column has a TRUE value (amenity is present)
+    const value = record[key];
+    const isTrue = value === 'TRUE' || value === 'true' || value === 'True' || value === '1';
+    
+    if (isTrue) {
+      amenities.push(key);
+    }
+  });
+
   // Handle manager credentials (optional fields)
   let manager_email;
   let manager_password;
@@ -98,6 +122,7 @@ async function transformRecord(record, index) {
     phone: record.phone?.trim() || '',
     website: record.website?.trim() || undefined,
     openingHours: record.opening_hours?.trim() || 'Check website for hours',
+    amenities: amenities.length > 0 ? amenities : undefined, // Only include if there are amenities
     manager_email: manager_email,
     manager_password: manager_password,
     last_updated: new Date().toISOString(),
@@ -142,7 +167,13 @@ async function main() {
 
   // Count pubs with photo_name
   const pubsWithPhotoName = pubs.filter(pub => pub._internal?.photo_name).length;
-  console.log(`📸 Pubs with photo_name: ${pubsWithPhotoName}/${pubs.length}\n`);
+  console.log(`📸 Pubs with photo_name: ${pubsWithPhotoName}/${pubs.length}`);
+
+  // Count pubs with amenities
+  const pubsWithAmenities = pubs.filter(pub => pub.amenities && pub.amenities.length > 0).length;
+  const totalAmenities = pubs.reduce((sum, pub) => sum + (pub.amenities?.length || 0), 0);
+  console.log(`🏷️  Pubs with amenities: ${pubsWithAmenities}/${pubs.length}`);
+  console.log(`   Total amenity assignments: ${totalAmenities}\n`);
 
   // Generate pubData.ts content
   console.log('💾 Writing pubData.ts...');
@@ -159,6 +190,8 @@ export const pubData: Pub[] = ${JSON.stringify(pubs, null, 2)};
   console.log(`   Total pubs: ${pubs.length}`);
   console.log(`   Pubs with photo_name: ${pubsWithPhotoName}`);
   console.log(`   Pubs without photo_name: ${pubs.length - pubsWithPhotoName}`);
+  console.log(`   Pubs with amenities: ${pubsWithAmenities}`);
+  console.log(`   Total amenity assignments: ${totalAmenities}`);
   console.log(`\n🎉 Import complete!`);
 }
 
