@@ -9,12 +9,6 @@ interface Pub {
   id: string;
   name: string;
   url: string;
-  _internal?: {
-    place_id?: string;
-    photo_name?: string;
-    photo_reference?: string;
-    photo_url?: string;
-  };
   image?: string;
   rating: number;
   reviewCount: number;
@@ -24,6 +18,7 @@ interface Pub {
     place_id?: string;
     photo_name?: string;
     photo_reference?: string;
+    photo_url?: string;
   };
 }
 
