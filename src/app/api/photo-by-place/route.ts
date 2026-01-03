@@ -264,6 +264,7 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
     return cached.photoName;
   }
 
+  // Places API (New) prefers header authentication, but also accepts query parameter
   const placeUrl = `https://places.googleapis.com/v1/places/${placeId}?fields=photos&key=${GOOGLE_API_KEY}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -274,7 +275,8 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
       signal: controller.signal,
       headers: {
         "User-Agent": USER_AGENT,
-        Accept: "application/json",
+        "Accept": "application/json",
+        "X-Goog-Api-Key": GOOGLE_API_KEY || "",
       },
     });
 
@@ -293,9 +295,17 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
       return null;
     }
 
-    const placeData = await placeRes.json();
+    let placeData;
+    try {
+      placeData = await placeRes.json();
+    } catch (jsonError) {
+      console.error(`[Photo API] Failed to parse place data JSON:`, jsonError);
+      placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
+      return null;
+    }
     
     if (!placeData.photos || placeData.photos.length === 0) {
+      console.log(`[Photo API] No photos found for place_id: ${placeId}`);
       placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
       return null;
     }
@@ -303,6 +313,12 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
     // Extract photo name from Places API (New) format
     // Format: "places/PLACE_ID/photos/PHOTO_RESOURCE"
     const firstPhotoName = placeData.photos?.[0]?.name ?? null;
+    
+    if (!firstPhotoName) {
+      console.log(`[Photo API] Photo name not found in response for place_id: ${placeId}`);
+      placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
+      return null;
+    }
     
     // Cache the result (including null)
     placeCache.set(placeId, { photoName: firstPhotoName, timestamp: Date.now() });
