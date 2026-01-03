@@ -177,7 +177,8 @@ async function fetchPhotoByName(
   ).filter((width) => width >= 64 && width <= MAXWIDTH_MAX);
 
   for (const width of widthCandidates) {
-    const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${width}&key=${GOOGLE_API_KEY}`;
+    // Use header authentication only (remove key from query parameter)
+    const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${width}`;
     
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -189,7 +190,8 @@ async function fetchPhotoByName(
         redirect: "follow",
         headers: {
           "User-Agent": USER_AGENT,
-          Accept: "image/*",
+          "Accept": "image/*",
+          "X-Goog-Api-Key": GOOGLE_API_KEY || "",
         },
       });
 
@@ -203,11 +205,30 @@ async function fetchPhotoByName(
         console.error(`[Photo API] Content-Type: ${contentType}`);
         console.error(`[Photo API] Error body: ${errorText.substring(0, 200)}`);
         
-        // If 403, try next width or fall back
+        // 400 = Invalid request (expired name, missing params, null values) - return fallback immediately
+        if (res.status === 400) {
+          return {
+            success: false,
+            status: 400,
+            message: "Invalid photo name (may have expired or invalid parameters)",
+          };
+        }
+        
+        // 429 = Too many requests - return fallback
+        if (res.status === 429) {
+          return {
+            success: false,
+            status: 429,
+            message: "Too many photo requests - rate limited",
+          };
+        }
+        
+        // 403/404 - try next width (might be size-specific)
         if (res.status === 403 || res.status === 404) {
           continue; // Try next width
         }
         
+        // Other errors
         return {
           success: false,
           status: res.status,
@@ -266,8 +287,8 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
     return cached.photoName;
   }
 
-  // Places API (New) prefers header authentication, but also accepts query parameter
-  const placeUrl = `https://places.googleapis.com/v1/places/${placeId}?fields=photos&key=${GOOGLE_API_KEY}`;
+  // Places API (New) - use X-Goog-FieldMask header for field selection
+  const placeUrl = `https://places.googleapis.com/v1/places/${placeId}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -279,6 +300,7 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
         "User-Agent": USER_AGENT,
         "Accept": "application/json",
         "X-Goog-Api-Key": GOOGLE_API_KEY || "",
+        "X-Goog-FieldMask": "photos", // Use header instead of query parameter
       },
     });
 
