@@ -87,9 +87,15 @@ export default function PubPhoto({
       return url;
     }
     
-    // Priority 5: Use src URL directly if it's a valid HTTP(S) URL
-    if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
-      return src;
+    // Priority 5: Use src URL directly if it's a valid HTTP(S) URL or our API endpoint
+    if (src) {
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        return src;
+      }
+      // Also accept our photo API endpoints
+      if (src.startsWith('/api/photo') || src.startsWith('/api/photo-by-place')) {
+        return src;
+      }
     }
     
     if (typeof window !== 'undefined') {
@@ -102,10 +108,16 @@ export default function PubPhoto({
 
   useEffect(() => {
     setHasError(false);
+    if (photoSrc && typeof window !== 'undefined') {
+      console.log(`[PubPhoto] Loading image from: ${photoSrc}`);
+    }
   }, [photoSrc]);
 
   if (!photoSrc || hasError) {
     // Show fallback placeholder
+    if (typeof window !== 'undefined') {
+      console.log(`[PubPhoto] Showing fallback placeholder (photoSrc: ${photoSrc}, hasError: ${hasError})`);
+    }
     return (
       <div className={`w-full h-full flex items-center justify-center bg-[#08d78c]/20 ${className}`}>
         <div className="text-[#08d78c] text-4xl">{fallbackIcon}</div>
@@ -124,12 +136,17 @@ export default function PubPhoto({
       priority={priority}
       sizes={sizes}
       onError={(e) => {
-        console.warn(`Failed to load image: ${photoSrc}`);
+        console.error(`[PubPhoto] Failed to load image: ${photoSrc}`, e);
         setHasError(true);
         
         // Show fallback if onError callback is provided
         if (onError) {
           onError();
+        }
+      }}
+      onLoad={() => {
+        if (typeof window !== 'undefined') {
+          console.log(`[PubPhoto] Image loaded successfully: ${photoSrc}`);
         }
       }}
     />

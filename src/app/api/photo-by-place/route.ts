@@ -428,11 +428,14 @@ export async function GET(req: NextRequest) {
     // Priority 3: Use place_id to lookup photo_name (Places API New)
     if (placeId) {
       try {
+        console.log(`[Photo API] Attempting to fetch photo for place_id: ${placeId}`);
         const fetchedPhotoName = await fetchPlacePhotoName(placeId);
         
         if (fetchedPhotoName) {
+          console.log(`[Photo API] Found photo name: ${fetchedPhotoName.substring(0, 50)}...`);
           const result = await fetchPhotoByName(fetchedPhotoName, requestedWidth);
           if (result.success) {
+            console.log(`[Photo API] Successfully fetched photo for place_id: ${placeId}`);
             return new NextResponse(new Uint8Array(result.buffer), {
               status: 200,
               headers: {
@@ -446,7 +449,11 @@ export async function GET(req: NextRequest) {
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
               },
             });
+          } else {
+            console.warn(`[Photo API] Failed to fetch photo by name: ${result.message} (status: ${result.status})`);
           }
+        } else {
+          console.warn(`[Photo API] No photo name found for place_id: ${placeId}`);
         }
       } catch (placeIdError) {
         console.error(`[Photo API] Error processing place_id ${placeId}:`, placeIdError);
@@ -458,6 +465,7 @@ export async function GET(req: NextRequest) {
 
     // All methods failed - return fallback image
     console.warn(`[Photo API] All photo fetch methods failed for place_id=${placeId}, photo_name=${photoName}, ref=${photoRef}`);
+    console.log(`[Photo API] Returning fallback image`);
     return returnFallbackImage();
 
   } catch (error) {
