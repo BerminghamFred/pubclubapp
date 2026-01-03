@@ -125,6 +125,9 @@ export default function PubPhoto({
     );
   }
 
+  // Use unoptimized for API routes to avoid Next.js Image optimization issues
+  const isApiRoute = photoSrc?.startsWith('/api/');
+  
   return (
     <Image
       src={photoSrc}
@@ -135,6 +138,7 @@ export default function PubPhoto({
       loading={priority ? 'eager' : 'lazy'}
       priority={priority}
       sizes={sizes}
+      unoptimized={isApiRoute} // Bypass Next.js optimization for API routes
       onError={(e) => {
         console.error(`[PubPhoto] Failed to load image: ${photoSrc}`, e);
         setHasError(true);

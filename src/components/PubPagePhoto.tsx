@@ -99,9 +99,15 @@ export default function PubPagePhoto({
       return url;
     }
     
-    // Priority 5: Use src URL directly if it's a valid HTTP(S) URL
-    if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
-      return src;
+    // Priority 5: Use src URL directly if it's a valid HTTP(S) URL or our API endpoint
+    if (src) {
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        return src;
+      }
+      // Also accept our photo API endpoints
+      if (src.startsWith('/api/photo') || src.startsWith('/api/photo-by-place')) {
+        return src;
+      }
     }
 
     if (typeof window !== 'undefined') {
@@ -150,6 +156,9 @@ export default function PubPagePhoto({
     );
   }
 
+  // Use unoptimized for API routes to avoid Next.js Image optimization issues
+  const isApiRoute = photoSrc?.startsWith('/api/');
+  
   return (
     <Image
       src={photoSrc}
@@ -160,6 +169,7 @@ export default function PubPagePhoto({
       loading={priority ? 'eager' : 'lazy'}
       priority={priority}
       sizes={sizes}
+      unoptimized={isApiRoute} // Bypass Next.js optimization for API routes
       onLoad={handleImageLoad}
       onError={handleImageError}
     />
