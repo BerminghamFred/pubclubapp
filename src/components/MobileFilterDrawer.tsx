@@ -128,6 +128,7 @@ export default function MobileFilterDrawer({
                 <SearchBar
                   placeholder="Search by features, area, or pub name"
                   onSearch={onSearch}
+                  selections={searchSelections}
                   variant="default"
                 />
               </motion.div>

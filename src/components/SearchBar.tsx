@@ -10,16 +10,21 @@ interface SearchBarProps {
   className?: string;
   onSearch?: (selections: SearchSuggestion[]) => void;
   variant?: 'default' | 'hero';
+  selections?: SearchSuggestion[]; // Controlled selections from parent
 }
 
 export default function SearchBar({ 
   placeholder = "Search by features, area, or pub name", 
   className = "",
   onSearch,
-  variant = 'default'
+  variant = 'default',
+  selections: externalSelections // Use external selections if provided (controlled component)
 }: SearchBarProps) {
   const [query, setQuery] = useState('');
-  const [selections, setSelections] = useState<SearchSuggestion[]>([]);
+  // Use external selections if provided (controlled), otherwise maintain internal state (uncontrolled)
+  const [internalSelections, setInternalSelections] = useState<SearchSuggestion[]>([]);
+  const isControlled = externalSelections !== undefined;
+  const selections = isControlled ? externalSelections : internalSelections;
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -54,12 +59,13 @@ export default function SearchBar({
     }
   }, [selections]);
 
-  // Automatically trigger search when selections change
+  // Automatically trigger search when selections change (only for uncontrolled/internal state)
+  // For controlled components, the parent handles updates
   useEffect(() => {
-    if (onSearchRef.current) {
-      onSearchRef.current(selections);
+    if (!isControlled && onSearchRef.current && internalSelections.length > 0) {
+      onSearchRef.current(internalSelections);
     }
-  }, [selections]);
+  }, [internalSelections, isControlled]);
 
   // Handle clicking outside to close suggestions
   useEffect(() => {
@@ -121,7 +127,14 @@ export default function SearchBar({
     
     if (!isAlreadySelected) {
       const newSelections = [...selections, suggestion];
-      setSelections(newSelections);
+      // If controlled, call onSearch; otherwise update internal state
+      if (isControlled) {
+        if (onSearchRef.current) {
+          onSearchRef.current(newSelections);
+        }
+      } else {
+        setInternalSelections(newSelections);
+      }
     }
     
     // Clear the input and hide suggestions
@@ -135,10 +148,13 @@ export default function SearchBar({
 
   const removeSelection = (selectionId: string) => {
     const newSelections = selections.filter(s => s.id !== selectionId);
-    setSelections(newSelections);
-    // Automatically trigger search when selection is removed
-    if (onSearchRef.current) {
-      onSearchRef.current(newSelections);
+    // If controlled, call onSearch; otherwise update internal state
+    if (isControlled) {
+      if (onSearchRef.current) {
+        onSearchRef.current(newSelections);
+      }
+    } else {
+      setInternalSelections(newSelections);
     }
   };
 

@@ -949,6 +949,7 @@ export default function PubDataLoader() {
               <SearchBar
                 placeholder="Search by features, area, or pub name"
                 onSearch={handleSearchSelections}
+                selections={searchSelections}
                 variant="default"
               />
             </div>
