@@ -39,6 +39,7 @@ export default function AdminDashboard() {
   const [amenitiesLoading, setAmenitiesLoading] = useState(false);
   const [replaceAllStatus, setReplaceAllStatus] = useState<string>('');
   const [replaceAllLoading, setReplaceAllLoading] = useState(false);
+  const [replaceAllFileContent, setReplaceAllFileContent] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
@@ -178,9 +179,15 @@ export default function AdminDashboard() {
 
       if (result.success) {
         setReplaceAllStatus(`✅ ${result.message}`);
+        setReplaceAllFileContent(null);
         fetchAnalytics(); // Refresh analytics
+      } else if (result.error === 'SERVERLESS_FILESYSTEM' && result.fileContent) {
+        // Serverless environment - show file content for manual update
+        setReplaceAllFileContent(result.fileContent);
+        setReplaceAllStatus(`⚠️ ${result.message}\n\n${result.instructions}`);
       } else {
         setReplaceAllStatus(`❌ ${result.message || 'Failed to replace pub data'}`);
+        setReplaceAllFileContent(null);
       }
     } catch (error) {
       setReplaceAllStatus('❌ An error occurred while uploading the file.');
@@ -579,9 +586,41 @@ export default function AdminDashboard() {
 
               {replaceAllStatus && (
                 <div className={`mt-4 p-3 rounded-lg ${
-                  replaceAllStatus.startsWith('✅') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                  replaceAllStatus.startsWith('✅') ? 'bg-green-50 text-green-800' : 
+                  replaceAllStatus.startsWith('⚠️') ? 'bg-orange-50 text-orange-800' : 
+                  'bg-red-50 text-red-800'
                 }`}>
-                  {replaceAllStatus}
+                  <div className="whitespace-pre-line">{replaceAllStatus}</div>
+                </div>
+              )}
+
+              {replaceAllFileContent && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Generated pubData.ts file content:
+                    </label>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-gray-500">Copy this content to src/data/pubData.ts</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(replaceAllFileContent);
+                          alert('File content copied to clipboard!');
+                        }}
+                      >
+                        Copy to Clipboard
+                      </Button>
+                    </div>
+                  </div>
+                  <textarea
+                    readOnly
+                    value={replaceAllFileContent}
+                    className="w-full h-64 p-3 font-mono text-xs bg-white border border-gray-300 rounded-lg resize-none"
+                    style={{ fontFamily: 'monospace' }}
+                  />
                 </div>
               )}
             </CardContent>

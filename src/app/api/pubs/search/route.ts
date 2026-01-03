@@ -130,24 +130,25 @@ function buildPhotoProxyUrl(pub: (typeof pubData)[number], width: number): strin
   const placeId = pub._internal?.place_id;
   const photoRef = pub._internal?.photo_reference;
 
+  // Priority 1: Use photo_name (Places API New)
   if (photoName) {
     params.set('photo_name', photoName);
-  }
-
-  if (placeId) {
-    params.set('place_id', placeId);
-  }
-
-  if (photoName || placeId) {
+    if (placeId) {
+      params.set('place_id', placeId);
+    }
     return `/api/photo-by-place?${params.toString()}`;
   }
 
+  // Priority 2: Use place_id (Places API New - will fetch photo_name)
+  if (placeId) {
+    params.set('place_id', placeId);
+    return `/api/photo-by-place?${params.toString()}`;
+  }
+
+  // Priority 3: Use photo_reference (legacy API - still supported)
   if (photoRef) {
-    const refParams = new URLSearchParams({
-      ref: photoRef,
-      w: String(width),
-    });
-    return `/api/photo?${refParams.toString()}`;
+    params.set('ref', photoRef);
+    return `/api/photo-by-place?${params.toString()}`;
   }
 
   return null;

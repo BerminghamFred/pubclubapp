@@ -120,8 +120,33 @@ export async function POST(request: NextRequest) {
 export const pubData: Pub[] = ${JSON.stringify(allPubs, null, 2)};
 `;
 
-    // Write the updated data back to pubData.ts
-    await fs.writeFile(pubDataPath, newFileContent, 'utf-8');
+    // Try to write the updated data back to pubData.ts
+    // In serverless environments (like Vercel), the filesystem is read-only
+    // so we need to handle this gracefully
+    let fileWriteSuccess = false;
+    try {
+      await fs.writeFile(pubDataPath, newFileContent, 'utf-8');
+      fileWriteSuccess = true;
+    } catch (writeError: any) {
+      // Check if this is a filesystem permission error (serverless environment)
+      if (writeError.code === 'ENOENT' || writeError.code === 'EACCES' || writeError.code === 'EROFS') {
+        console.log('File write failed - likely in serverless environment:', writeError.code);
+        // Return the file content so it can be manually updated
+        const removedCount = Math.max(0, previousCount - pubs.length);
+        return NextResponse.json({ 
+          success: false,
+          message: `Cannot write to filesystem in serverless environment. Please update pubData.ts manually.`,
+          error: 'SERVERLESS_FILESYSTEM',
+          fileContent: newFileContent,
+          totalPubs: allPubs.length,
+          previousCount: previousCount,
+          removedCount: removedCount,
+          instructions: 'The file content has been generated. Please copy the fileContent and manually update src/data/pubData.ts in your repository, then commit and redeploy.'
+        }, { status: 200 }); // 200 because the processing was successful, just can't write
+      }
+      // If it's a different error, re-throw it
+      throw writeError;
+    }
 
     const removedCount = Math.max(0, previousCount - pubs.length);
 

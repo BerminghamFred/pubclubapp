@@ -13,9 +13,11 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB max
 const REQUEST_TIMEOUT_MS = 8000;
 const USER_AGENT = "pubclub-photo-proxy/1.0";
 
-// In-memory cache for place_id -> photo_reference lookups (24h TTL)
+// In-memory cache for place_id -> photo_name lookups (24h TTL)
+// Note: We should not store photoName long-term in DB because it can expire;
+// use place_id and refresh when needed.
 interface PlaceCacheEntry {
-  photoReference: string | null;
+  photoName: string | null;
   timestamp: number;
 }
 
@@ -251,13 +253,15 @@ async function fetchPhotoByName(
 }
 
 /**
- * Fetch place details and extract photo_reference (with caching)
+ * Fetch place details and extract photo_name from Places API (New) (with caching)
+ * Note: We should not store photoName long-term in DB because it can expire;
+ * use place_id and refresh when needed.
  */
-async function fetchPlacePhotoReference(placeId: string): Promise<string | null> {
+async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
   // Check cache first
   const cached = placeCache.get(placeId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.photoReference;
+    return cached.photoName;
   }
 
   const placeUrl = `https://places.googleapis.com/v1/places/${placeId}?fields=photos&key=${GOOGLE_API_KEY}`;
@@ -284,31 +288,30 @@ async function fetchPlacePhotoReference(placeId: string): Promise<string | null>
       console.error(`[Photo API] Content-Type: ${contentType}`);
       console.error(`[Photo API] Error body: ${errorText.substring(0, 200)}`);
       
-      // Cache negative result for 1 hour
-      placeCache.set(placeId, { photoReference: null, timestamp: Date.now() });
+      // Cache negative result
+      placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
       return null;
     }
 
     const placeData = await placeRes.json();
     
     if (!placeData.photos || placeData.photos.length === 0) {
-      placeCache.set(placeId, { photoReference: null, timestamp: Date.now() });
+      placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
       return null;
     }
 
-    // Try to get photo_reference from first photo (legacy format)
-    // If not available, we'll use photo.name for new API
-    const firstPhoto = placeData.photos[0];
-    const photoReference = firstPhoto?.photoReference || null;
+    // Extract photo name from Places API (New) format
+    // Format: "places/PLACE_ID/photos/PHOTO_RESOURCE"
+    const firstPhotoName = placeData.photos?.[0]?.name ?? null;
     
-    // Cache the result
-    placeCache.set(placeId, { photoReference, timestamp: Date.now() });
+    // Cache the result (including null)
+    placeCache.set(placeId, { photoName: firstPhotoName, timestamp: Date.now() });
     
-    return photoReference;
+    return firstPhotoName;
   } catch (err) {
     clearTimeout(timeout);
     console.error("[Photo API] Place Details fetch error:", err);
-    placeCache.set(placeId, { photoReference: null, timestamp: Date.now() });
+    placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
     return null;
   }
 }
@@ -370,28 +373,28 @@ export async function GET(req: NextRequest) {
       // Fall through to place_id lookup or fallback
     }
 
-    // Priority 3: Use place_id to lookup photo_reference
+    // Priority 3: Use place_id to lookup photo_name (Places API New)
     if (placeId) {
-      const photoReference = await fetchPlacePhotoReference(placeId);
+      const fetchedPhotoName = await fetchPlacePhotoName(placeId);
       
-      if (photoReference) {
-        const result = await fetchPhotoByReference(photoReference, requestedWidth);
+      if (fetchedPhotoName) {
+        const result = await fetchPhotoByName(fetchedPhotoName, requestedWidth);
         if (result.success) {
           return new NextResponse(new Uint8Array(result.buffer), {
             status: 200,
             headers: {
               "Content-Type": result.contentType,
               "Cache-Control": `public, max-age=${DEFAULT_TTL}, s-maxage=${DEFAULT_TTL}, stale-while-revalidate=86400`,
-              "X-Source": "google-places-legacy-via-place-id",
+              "X-Source": "google-places-api-new-via-place-id",
               "X-Place-ID": placeId,
+              "X-Photo-Name": fetchedPhotoName,
               "X-Requested-Width": String(requestedWidth),
             },
           });
         }
       }
       
-      // If place_id lookup failed, try fetching photo_name from place details
-      // (This would require another API call, but let's skip it for now and use fallback)
+      // If place_id lookup failed or photo fetch failed, fall through to fallback
     }
 
     // All methods failed - return fallback image
