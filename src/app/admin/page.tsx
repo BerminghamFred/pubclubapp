@@ -37,6 +37,8 @@ export default function AdminDashboard() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [amenitiesStatus, setAmenitiesStatus] = useState<string>('');
   const [amenitiesLoading, setAmenitiesLoading] = useState(false);
+  const [replaceAllStatus, setReplaceAllStatus] = useState<string>('');
+  const [replaceAllLoading, setReplaceAllLoading] = useState(false);
 
   useEffect(() => {
     fetchAnalytics();
@@ -136,6 +138,54 @@ export default function AdminDashboard() {
       setAmenitiesStatus('❌ An error occurred while uploading the file.');
     } finally {
       setAmenitiesLoading(false);
+    }
+  };
+
+  const handleReplaceAllSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setReplaceAllLoading(true);
+    setReplaceAllStatus('');
+
+    const formData = new FormData(event.currentTarget);
+    const file = formData.get('replaceAllFile') as File;
+
+    if (!file) {
+      setReplaceAllStatus('Please select a file to upload.');
+      setReplaceAllLoading(false);
+      return;
+    }
+
+    // Confirm before proceeding
+    const confirmed = window.confirm(
+      '⚠️ WARNING: This will completely replace ALL pub data. Any pubs not in the uploaded CSV will be permanently removed. Are you sure you want to continue?'
+    );
+
+    if (!confirmed) {
+      setReplaceAllLoading(false);
+      return;
+    }
+
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+
+      const response = await fetch('/api/admin/replace-all-pubs', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setReplaceAllStatus(`✅ ${result.message}`);
+        fetchAnalytics(); // Refresh analytics
+      } else {
+        setReplaceAllStatus(`❌ ${result.message || 'Failed to replace pub data'}`);
+      }
+    } catch (error) {
+      setReplaceAllStatus('❌ An error occurred while uploading the file.');
+    } finally {
+      setReplaceAllLoading(false);
     }
   };
 
@@ -404,7 +454,7 @@ export default function AdminDashboard() {
           </div>
 
         {/* Data Upload Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Pub Data Upload */}
           <Card>
             <CardHeader>
@@ -484,6 +534,56 @@ export default function AdminDashboard() {
               {amenitiesStatus}
             </div>
           )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Replace All Pub Data Section */}
+        <div className="mb-8">
+          <Card className="border-2 border-orange-200">
+            <CardHeader>
+              <CardTitle className="text-orange-700">⚠️ Replace All Pub Data</CardTitle>
+              <CardDescription>
+                Completely replace all pub data. Any pubs not in the uploaded CSV will be permanently removed.
+                Use this when refreshing pub selection with new scrapes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleReplaceAllSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="replaceAllFile" className="block text-sm font-medium text-gray-700 mb-2">
+                    Select CSV File (Complete Pub List)
+                  </label>
+                  <input
+                    type="file"
+                    id="replaceAllFile"
+                    name="replaceAllFile"
+                    accept=".csv"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800">
+                  <strong>⚠️ Warning:</strong> This operation will permanently delete all pubs that are not included in the uploaded CSV file.
+                </div>
+                
+                <Button
+                  type="submit"
+                  disabled={replaceAllLoading}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {replaceAllLoading ? 'Replacing All Pubs...' : 'Replace All Pub Data'}
+                </Button>
+              </form>
+
+              {replaceAllStatus && (
+                <div className={`mt-4 p-3 rounded-lg ${
+                  replaceAllStatus.startsWith('✅') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                }`}>
+                  {replaceAllStatus}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
