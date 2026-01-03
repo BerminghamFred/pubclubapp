@@ -13,7 +13,7 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({ 
-  placeholder = "Quick search by features, area, or pub name...", 
+  placeholder = "Search by features, area, or pub name", 
   className = "",
   onSearch,
   variant = 'default'
@@ -26,7 +26,13 @@ export default function SearchBar({
   
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const onSearchRef = useRef(onSearch);
   const router = useRouter();
+
+  // Keep onSearch ref up to date
+  useEffect(() => {
+    onSearchRef.current = onSearch;
+  }, [onSearch]);
 
   // Update suggestions when query changes
   useEffect(() => {
@@ -45,6 +51,13 @@ export default function SearchBar({
   useEffect(() => {
     if (selections.length > 0) {
       setShowSuggestions(false);
+    }
+  }, [selections]);
+
+  // Automatically trigger search when selections change
+  useEffect(() => {
+    if (onSearchRef.current) {
+      onSearchRef.current(selections);
     }
   }, [selections]);
 
@@ -121,7 +134,12 @@ export default function SearchBar({
   };
 
   const removeSelection = (selectionId: string) => {
-    setSelections(selections.filter(s => s.id !== selectionId));
+    const newSelections = selections.filter(s => s.id !== selectionId);
+    setSelections(newSelections);
+    // Automatically trigger search when selection is removed
+    if (onSearchRef.current) {
+      onSearchRef.current(newSelections);
+    }
   };
 
   const handleSearch = () => {
@@ -160,40 +178,15 @@ export default function SearchBar({
           onKeyDown={handleKeyDown}
           onFocus={() => query.length >= 2 && setShowSuggestions(true)}
           placeholder={placeholder}
-          className={`w-full pl-12 pr-4 py-4 text-xs md:text-lg rounded-lg focus:outline-none focus:ring-4 ${
+          className={`w-full pl-12 pr-4 py-4 text-sm md:text-base rounded-lg focus:outline-none focus:ring-4 ${
             variant === 'hero' 
               ? 'focus:ring-white/20 text-gray-900 placeholder-gray-500 border-0' 
               : 'focus:ring-[#08d78c]/20 text-gray-900 placeholder-gray-500 border border-gray-300 bg-white'
           }`}
         />
-        <button
-          onClick={handleSearch}
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#08d78c] hover:bg-[#06b875] text-black px-4 md:px-6 py-2 rounded-lg text-sm md:text-base font-semibold transition-colors duration-200"
-        >
-          Search
-        </button>
       </div>
 
-      {/* Selected Items */}
-      {selections.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {selections.map((selection) => (
-            <div
-              key={selection.id}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border ${selection.color}`}
-            >
-              {getTypeIcon(selection.type)}
-              <span>{selection.text}</span>
-              <button
-                onClick={() => removeSelection(selection.id)}
-                className="hover:bg-black/10 rounded-full p-0.5 transition-colors"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Selected Items - Removed to avoid duplication with FilterChips */}
 
       {/* Suggestions Dropdown */}
       {showSuggestions && (
@@ -239,14 +232,7 @@ export default function SearchBar({
         </div>
       )}
 
-      {/* Helper Text */}
-      {selections.length > 0 && (
-        <div className={`mt-2 text-sm ${
-          variant === 'hero' ? 'text-white/80' : 'text-gray-600'
-        }`}>
-          {selections.length} item{selections.length !== 1 ? 's' : ''} selected. Click "Search" to find pubs.
-        </div>
-      )}
+      {/* Helper Text - Removed since search is now automatic */}
     </div>
   );
 }

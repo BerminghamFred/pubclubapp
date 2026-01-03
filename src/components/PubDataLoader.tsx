@@ -947,7 +947,7 @@ export default function PubDataLoader() {
             {/* Search Bar */}
             <div className="md:col-span-5">
               <SearchBar
-                placeholder="Quick search by features, area, or pub name..."
+                placeholder="Search by features, area, or pub name"
                 onSearch={handleSearchSelections}
                 variant="default"
               />

@@ -126,7 +126,7 @@ export default function MobileFilterDrawer({
               >
                 <h3 className="font-semibold text-lg text-gray-900 mb-3">Search</h3>
                 <SearchBar
-                  placeholder="Quick search by features, area, or pub name..."
+                  placeholder="Search by features, area, or pub name"
                   onSearch={onSearch}
                   variant="default"
                 />
