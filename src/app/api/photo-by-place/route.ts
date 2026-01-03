@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-// Server-side API key only
-const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+// Server-side API keys
+const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY; // Legacy API key
+const NEW_PLACES_API_KEY = process.env.NEW_PLACES_API; // New Places API key
 const DEFAULT_TTL = Number(process.env.PHOTO_CACHE_TTL_SECONDS ?? 604800);
 const MAXWIDTH_DEFAULT = Number(process.env.PHOTO_CACHE_MAXWIDTH_DEFAULT ?? 480);
 const MAXWIDTH_MAX = Number(process.env.PHOTO_CACHE_MAXWIDTH_MAX ?? 1280);
@@ -191,7 +192,7 @@ async function fetchPhotoByName(
         headers: {
           "User-Agent": USER_AGENT,
           "Accept": "image/*",
-          "X-Goog-Api-Key": GOOGLE_API_KEY || "",
+          "X-Goog-Api-Key": NEW_PLACES_API_KEY || "",
         },
       });
 
@@ -299,7 +300,7 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
       headers: {
         "User-Agent": USER_AGENT,
         "Accept": "application/json",
-        "X-Goog-Api-Key": GOOGLE_API_KEY || "",
+        "X-Goog-Api-Key": NEW_PLACES_API_KEY || "",
         "X-Goog-FieldMask": "photos", // Use header instead of query parameter
       },
     });
@@ -379,9 +380,9 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
 
 export async function GET(req: NextRequest) {
   try {
-    // Validate API key at startup
-    if (!GOOGLE_API_KEY) {
-      console.error("[Photo API] GOOGLE_MAPS_API_KEY not configured");
+    // Validate API keys - need at least one for legacy or new API
+    if (!GOOGLE_API_KEY && !NEW_PLACES_API_KEY) {
+      console.error("[Photo API] Neither GOOGLE_MAPS_API_KEY nor NEW_PLACES_API configured");
       return returnFallbackImage();
     }
 
@@ -397,6 +398,12 @@ export async function GET(req: NextRequest) {
     const placeId = (searchParams.get("place_id") || "").trim();
     const photoName = (searchParams.get("photo_name") || "").trim();
     const photoRef = (searchParams.get("ref") || "").trim(); // Legacy support
+    
+    // Validate new API key if using place_id or photo_name
+    if ((placeId || photoName) && !NEW_PLACES_API_KEY) {
+      console.error("[Photo API] NEW_PLACES_API not configured but required for place_id/photo_name");
+      return returnFallbackImage();
+    }
 
     if (!placeId && !photoName && !photoRef) {
       console.error("[Photo API] Missing place_id, photo_name, or ref parameter");
