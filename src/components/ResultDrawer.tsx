@@ -82,7 +82,7 @@ export function ResultDrawer({ isOpen, onClose, pubs, total }: ResultDrawerProps
                     {/* 16:9 Image */}
                     <div className="aspect-video bg-gray-100">
                       <PubPhoto
-                        photoRef={pub.photo ? extractPhotoReference(pub.photo) : undefined}
+                        photoRef={pub.photo ? (extractPhotoReference(pub.photo) ?? undefined) : undefined}
                         photoName={pub.photoName ?? undefined}
                         placeId={(pub.placeId ?? pub.id) || undefined}
                         src={pub.photo ?? undefined}

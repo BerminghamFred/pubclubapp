@@ -74,7 +74,7 @@ export default function AreaPubsGridWithPagination({
             {/* Pub Image */}
             <div className="h-48 relative overflow-hidden">
               <PubPhoto
-                photoRef={getPhotoRefFromPub(pub._internal)}
+                photoRef={getPhotoRefFromPub(pub._internal) ?? undefined}
                 photoName={pub._internal?.photo_name}
                 placeId={pub._internal?.place_id}
                 src={pub._internal?.photo_url}

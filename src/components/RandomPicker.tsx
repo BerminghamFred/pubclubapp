@@ -529,7 +529,7 @@ const WinnerModal = ({ option, onClose, onViewPub }: WinnerModalProps) => {
 
         <div className="h-56 w-full overflow-hidden bg-gray-200 sm:h-auto sm:w-[360px] sm:shrink-0">
           <PubPhoto
-            photoRef={getPhotoRefFromPub(winnerPub?._internal)}
+            photoRef={getPhotoRefFromPub(winnerPub?._internal) ?? undefined}
             photoName={winnerPub?._internal?.photo_name}
             placeId={winnerPub?._internal?.place_id}
             src={winnerPub?._internal?.photo_url}

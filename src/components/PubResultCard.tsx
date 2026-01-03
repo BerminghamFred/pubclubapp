@@ -100,7 +100,7 @@ export default function PubResultCard({ pub }: PubResultCardProps) {
           <a href={pubUrl} className="block h-full">
             <div className="h-full transform group-hover:scale-105 transition-transform duration-300">
               <PubPhoto
-                photoRef={getPhotoRefFromPub(pub._internal)}
+                photoRef={getPhotoRefFromPub(pub._internal) ?? undefined}
                 photoName={pub._internal?.photo_name}
                 placeId={pub._internal?.place_id}
                 src={pub._internal?.photo_url}

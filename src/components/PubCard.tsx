@@ -155,7 +155,7 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
       <div className="w-full h-48 overflow-hidden">
         <ClickablePubPhoto
           href={pubUrl}
-          photoRef={getPhotoRefFromPub(pub._internal)}
+          photoRef={getPhotoRefFromPub(pub._internal) ?? undefined}
           photoName={pub._internal?.photo_name}
           placeId={pub._internal?.place_id}
           src={pub._internal?.photo_url}
