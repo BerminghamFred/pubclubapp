@@ -336,10 +336,30 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
 
     // Extract photo name from Places API (New) format
     // Format: "places/PLACE_ID/photos/PHOTO_RESOURCE"
-    const firstPhotoName = placeData.photos?.[0]?.name ?? null;
+    // IMPORTANT: Use photos[0].name (new format), NOT photoReference (legacy)
+    const firstPhoto = placeData.photos[0];
+    const firstPhotoName = firstPhoto?.name ?? null;
+    
+    // Log the photo structure for debugging
+    console.log(`[Photo API] Photo structure for place_id ${placeId}:`, {
+      hasPhotos: !!placeData.photos,
+      photoCount: placeData.photos?.length || 0,
+      firstPhotoName: firstPhotoName,
+      firstPhotoKeys: firstPhoto ? Object.keys(firstPhoto) : [],
+      // Explicitly check we're NOT using photoReference
+      hasPhotoReference: !!firstPhoto?.photoReference,
+    });
     
     if (!firstPhotoName) {
-      console.log(`[Photo API] Photo name not found in response for place_id: ${placeId}`);
+      console.error(`[Photo API] Photo name (photos[0].name) not found in response for place_id: ${placeId}`);
+      console.error(`[Photo API] First photo object:`, JSON.stringify(firstPhoto, null, 2));
+      placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
+      return null;
+    }
+    
+    // Verify we're using the new format (should start with "places/")
+    if (!firstPhotoName.startsWith('places/')) {
+      console.error(`[Photo API] Invalid photo name format (expected "places/..."): ${firstPhotoName}`);
       placeCache.set(placeId, { photoName: null, timestamp: Date.now() });
       return null;
     }
@@ -347,6 +367,7 @@ async function fetchPlacePhotoName(placeId: string): Promise<string | null> {
     // Cache the result (including null)
     placeCache.set(placeId, { photoName: firstPhotoName, timestamp: Date.now() });
     
+    console.log(`[Photo API] Successfully extracted photo name: ${firstPhotoName.substring(0, 60)}...`);
     return firstPhotoName;
   } catch (err) {
     clearTimeout(timeout);
@@ -426,16 +447,30 @@ export async function GET(req: NextRequest) {
     }
 
     // Priority 3: Use place_id to lookup photo_name (Places API New)
+    // Flow: place_id → Places Details (New) → photos[0].name → fetchPhotoByName → return image
     if (placeId) {
       try {
-        console.log(`[Photo API] Attempting to fetch photo for place_id: ${placeId}`);
+        console.log(`[Photo API] Priority 3: Fetching photo for place_id: ${placeId}`);
+        console.log(`[Photo API] Step 1: Calling Places Details (New) API...`);
+        
+        // Step 1: Call Places Details (New) to get photos[0].name
         const fetchedPhotoName = await fetchPlacePhotoName(placeId);
         
-        if (fetchedPhotoName) {
-          console.log(`[Photo API] Found photo name: ${fetchedPhotoName.substring(0, 50)}...`);
+        if (!fetchedPhotoName) {
+          console.warn(`[Photo API] Step 1 failed: No photo name found for place_id: ${placeId}`);
+          // Fall through to fallback
+        } else {
+          console.log(`[Photo API] Step 1 success: Found photo name: ${fetchedPhotoName.substring(0, 60)}...`);
+          console.log(`[Photo API] Step 2: Calling fetchPhotoByName with photoName (NOT photoReference)...`);
+          
+          // Step 2: Call fetchPhotoByName with the photo name (new format)
           const result = await fetchPhotoByName(fetchedPhotoName, requestedWidth);
+          
           if (result.success) {
-            console.log(`[Photo API] Successfully fetched photo for place_id: ${placeId}`);
+            console.log(`[Photo API] Step 2 success: Successfully fetched photo for place_id: ${placeId}`);
+            console.log(`[Photo API] Step 3: Returning image response`);
+            
+            // Step 3: Return image
             return new NextResponse(new Uint8Array(result.buffer), {
               status: 200,
               headers: {
@@ -450,17 +485,17 @@ export async function GET(req: NextRequest) {
               },
             });
           } else {
-            console.warn(`[Photo API] Failed to fetch photo by name: ${result.message} (status: ${result.status})`);
+            console.error(`[Photo API] Step 2 failed: fetchPhotoByName returned error: ${result.message} (status: ${result.status})`);
+            // Fall through to fallback
           }
-        } else {
-          console.warn(`[Photo API] No photo name found for place_id: ${placeId}`);
         }
       } catch (placeIdError) {
-        console.error(`[Photo API] Error processing place_id ${placeId}:`, placeIdError);
+        console.error(`[Photo API] Error in Priority 3 (place_id) flow:`, placeIdError);
         // Fall through to fallback
       }
       
       // If place_id lookup failed or photo fetch failed, fall through to fallback
+      // DO NOT fall back to legacy photoReference - always use fallback image
     }
 
     // All methods failed - return fallback image
