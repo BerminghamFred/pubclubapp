@@ -84,7 +84,7 @@ export function PubRequestModal({ open, onOpenChange }: PubRequestModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-white">
         <DialogHeader>
           <DialogTitle>Contact Pub Club</DialogTitle>
           <DialogDescription>
