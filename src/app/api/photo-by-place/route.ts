@@ -59,6 +59,8 @@ async function returnFallbackImage(): Promise<NextResponse> {
       'Content-Type': contentType,
       'Cache-Control': 'public, max-age=3600, s-maxage=3600',
       'X-Source': 'fallback',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
     },
   });
 }
@@ -340,7 +342,15 @@ export async function GET(req: NextRequest) {
       return returnFallbackImage();
     }
 
-    const { searchParams } = new URL(req.url);
+    // Safely parse URL - handle any URL parsing errors
+    let searchParams;
+    try {
+      const url = new URL(req.url);
+      searchParams = url.searchParams;
+    } catch (urlError) {
+      console.error("[Photo API] Invalid URL:", req.url, urlError);
+      return returnFallbackImage();
+    }
     const placeId = (searchParams.get("place_id") || "").trim();
     const photoName = (searchParams.get("photo_name") || "").trim();
     const photoRef = (searchParams.get("ref") || "").trim(); // Legacy support
@@ -365,6 +375,8 @@ export async function GET(req: NextRequest) {
             "X-Source": "google-places-legacy",
             "X-Photo-Reference": photoRef,
             "X-Requested-Width": String(requestedWidth),
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
           },
         });
       }
@@ -383,6 +395,8 @@ export async function GET(req: NextRequest) {
             "X-Source": "google-places-api-new",
             "X-Photo-Name": photoName,
             "X-Requested-Width": String(requestedWidth),
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
           },
         });
       }
@@ -391,23 +405,30 @@ export async function GET(req: NextRequest) {
 
     // Priority 3: Use place_id to lookup photo_name (Places API New)
     if (placeId) {
-      const fetchedPhotoName = await fetchPlacePhotoName(placeId);
-      
-      if (fetchedPhotoName) {
-        const result = await fetchPhotoByName(fetchedPhotoName, requestedWidth);
-        if (result.success) {
-          return new NextResponse(new Uint8Array(result.buffer), {
-            status: 200,
-            headers: {
-              "Content-Type": result.contentType,
-              "Cache-Control": `public, max-age=${DEFAULT_TTL}, s-maxage=${DEFAULT_TTL}, stale-while-revalidate=86400`,
-              "X-Source": "google-places-api-new-via-place-id",
-              "X-Place-ID": placeId,
-              "X-Photo-Name": fetchedPhotoName,
-              "X-Requested-Width": String(requestedWidth),
-            },
-          });
+      try {
+        const fetchedPhotoName = await fetchPlacePhotoName(placeId);
+        
+        if (fetchedPhotoName) {
+          const result = await fetchPhotoByName(fetchedPhotoName, requestedWidth);
+          if (result.success) {
+            return new NextResponse(new Uint8Array(result.buffer), {
+              status: 200,
+              headers: {
+                "Content-Type": result.contentType,
+                "Cache-Control": `public, max-age=${DEFAULT_TTL}, s-maxage=${DEFAULT_TTL}, stale-while-revalidate=86400`,
+                "X-Source": "google-places-api-new-via-place-id",
+                "X-Place-ID": placeId,
+                "X-Photo-Name": fetchedPhotoName,
+                "X-Requested-Width": String(requestedWidth),
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+              },
+            });
+          }
         }
+      } catch (placeIdError) {
+        console.error(`[Photo API] Error processing place_id ${placeId}:`, placeIdError);
+        // Fall through to fallback
       }
       
       // If place_id lookup failed or photo fetch failed, fall through to fallback
