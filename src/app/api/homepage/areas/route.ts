@@ -25,13 +25,23 @@ function getAreaImagePath(areaName: string): string | null {
   const jpgPath = path.join(process.cwd(), 'public', 'images', 'areas', `${safeAreaName}.jpg`);
   const pngPath = path.join(process.cwd(), 'public', 'images', 'areas', `${safeAreaName}.png`);
   
+  // Debug: log what we're checking
+  console.log(`[Areas API] Checking for images for area: ${areaName} (safe: ${safeAreaName})`);
+  console.log(`[Areas API] JPG path: ${jpgPath}, exists: ${fs.existsSync(jpgPath)}`);
+  console.log(`[Areas API] PNG path: ${pngPath}, exists: ${fs.existsSync(pngPath)}`);
+  
   if (fs.existsSync(jpgPath)) {
-    return `/images/areas/${safeAreaName}.jpg`;
+    const imagePath = `/images/areas/${safeAreaName}.jpg`;
+    console.log(`[Areas API] Returning JPG image path: ${imagePath}`);
+    return imagePath;
   }
   if (fs.existsSync(pngPath)) {
-    return `/images/areas/${safeAreaName}.png`;
+    const imagePath = `/images/areas/${safeAreaName}.png`;
+    console.log(`[Areas API] Returning PNG image path: ${imagePath}`);
+    return imagePath;
   }
   
+  console.log(`[Areas API] No uploaded image found for ${areaName}`);
   return null;
 }
 
@@ -126,11 +136,18 @@ async function generateAreas(): Promise<Area[]> {
       // Priority: 1) Uploaded image, 2) Featured pub photo, 3) undefined
       const uploadedImage = getAreaImagePath(name);
       
+      // Debug logging
+      if (uploadedImage) {
+        console.log(`[Areas API] Found uploaded image for ${name}: ${uploadedImage}`);
+      }
+      
+      const finalImage = uploadedImage || featuredPubPhoto || undefined;
+      
       return {
         slug,
         name,
         pubCount,
-        image: uploadedImage || featuredPubPhoto || undefined,
+        image: finalImage,
         isNearby: false
       };
     })
