@@ -1111,7 +1111,7 @@ export default function PubDataLoader() {
                       amenities: pub.amenities || [],
                       address: pub.address,
                       description: pub.description,
-                            _internal: pub._internal,
+                            _internal: pub._internal as { place_id?: string; photo_name?: string; photo_reference?: string; photo_url?: string; lat?: number; lng?: number; } | undefined,
                             _filterMatch: (pub as any)._filterMatch,
                             _filterTotal: (pub as any)._filterTotal,
                             _missingFilters: (pub as any)._missingFilters

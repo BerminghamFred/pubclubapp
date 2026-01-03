@@ -24,6 +24,7 @@ interface PubResultCardProps {
       place_id?: string;
       photo_name?: string;
       photo_reference?: string;
+      photo_url?: string;
       lat?: number;
       lng?: number;
     };
