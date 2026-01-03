@@ -6,6 +6,7 @@ import { Heart, MapPin, Star, X } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { generatePubSlug } from '@/utils/slugUtils';
 import PubPhoto from './PubPhoto';
+import { getPhotoRefFromPub } from '@/utils/photoUtils';
 import LoginModal from './LoginModal';
 
 interface PubResultCardProps {
@@ -99,8 +100,10 @@ export default function PubResultCard({ pub }: PubResultCardProps) {
           <a href={pubUrl} className="block h-full">
             <div className="h-full transform group-hover:scale-105 transition-transform duration-300">
               <PubPhoto
+                photoRef={getPhotoRefFromPub(pub._internal)}
                 photoName={pub._internal?.photo_name}
                 placeId={pub._internal?.place_id}
+                src={pub._internal?.photo_url}
                 alt={pub.name}
                 width={480}
                 height={320}

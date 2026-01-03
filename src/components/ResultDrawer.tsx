@@ -3,6 +3,7 @@
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import PubPhoto from './PubPhoto';
+import { extractPhotoReference } from '@/utils/photoUtils';
 
 interface PubPin {
   id: string;
@@ -81,6 +82,7 @@ export function ResultDrawer({ isOpen, onClose, pubs, total }: ResultDrawerProps
                     {/* 16:9 Image */}
                     <div className="aspect-video bg-gray-100">
                       <PubPhoto
+                        photoRef={pub.photo ? extractPhotoReference(pub.photo) : undefined}
                         photoName={pub.photoName ?? undefined}
                         placeId={(pub.placeId ?? pub.id) || undefined}
                         src={pub.photo ?? undefined}

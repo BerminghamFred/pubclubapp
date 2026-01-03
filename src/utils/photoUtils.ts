@@ -19,7 +19,16 @@ export interface PhotoUrlOptions {
 export function getCachedPhotoUrl(options: PhotoUrlOptions): string {
   const { ref, photoName, placeId, width = 480 } = options;
   
-  // Priority 1: Use new photo name format
+  // Priority 1: Use photo reference (legacy API - most reliable)
+  if (ref) {
+    const params = new URLSearchParams({
+      ref: ref,
+      w: width.toString(),
+    });
+    return `/api/photo-by-place?${params.toString()}`;
+  }
+  
+  // Priority 2: Use new photo name format
   if (photoName) {
     const params = new URLSearchParams({
       photo_name: photoName,
@@ -31,19 +40,10 @@ export function getCachedPhotoUrl(options: PhotoUrlOptions): string {
     return `/api/photo-by-place?${params.toString()}`;
   }
   
-  // Priority 2: Use place ID to fetch photo
+  // Priority 3: Use place ID to fetch photo (may fail with 403)
   if (placeId) {
     const params = new URLSearchParams({
       place_id: placeId,
-      w: width.toString(),
-    });
-    return `/api/photo-by-place?${params.toString()}`;
-  }
-  
-  // Priority 3: Fall back to old photo reference format (use photo-by-place route)
-  if (ref) {
-    const params = new URLSearchParams({
-      ref: ref,
       w: width.toString(),
     });
     return `/api/photo-by-place?${params.toString()}`;
@@ -114,6 +114,31 @@ export function convertToCachedUrl(googleUrl: string, width: number = 480): stri
   }
   
   return getCachedPhotoUrl({ ref, width });
+}
+
+/**
+ * Get photo reference from pub internal data
+ * Extracts photo_reference from photo_url or uses photo_reference field directly
+ * @param pubInternal Pub _internal object
+ * @returns Photo reference string or null
+ */
+export function getPhotoRefFromPub(pubInternal?: {
+  photo_url?: string;
+  photo_reference?: string;
+}): string | null {
+  if (!pubInternal) return null;
+  
+  // First, try direct photo_reference field
+  if (pubInternal.photo_reference) {
+    return pubInternal.photo_reference;
+  }
+  
+  // Second, extract from photo_url
+  if (pubInternal.photo_url) {
+    return extractPhotoReference(pubInternal.photo_url);
+  }
+  
+  return null;
 }
 
 /**

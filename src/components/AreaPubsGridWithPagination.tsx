@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import PubPhoto from './PubPhoto';
+import { getPhotoRefFromPub } from '@/utils/photoUtils';
 
 interface Pub {
   id: string;
@@ -73,8 +74,10 @@ export default function AreaPubsGridWithPagination({
             {/* Pub Image */}
             <div className="h-48 relative overflow-hidden">
               <PubPhoto
+                photoRef={getPhotoRefFromPub(pub._internal)}
                 photoName={pub._internal?.photo_name}
                 placeId={pub._internal?.place_id}
+                src={pub._internal?.photo_url}
                 alt={pub.name}
                 width={480}
                 height={320}

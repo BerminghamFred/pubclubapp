@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Heart, MapPin, Star, MessageSquare, CheckCircle, Plus, Minus } from 'lucide-react';
 import LoginModal from '@/components/LoginModal';
 import PubPhoto from '@/components/PubPhoto';
+import { extractPhotoReference } from '@/utils/photoUtils';
 import { useAnalytics } from '@/lib/analytics-client';
 
 interface Pub {
@@ -363,8 +364,10 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
             {/* Photo */}
             <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
               <PubPhoto
+                photoRef={pub._internal?.photo_reference || (pub._internal?.photo_url ? extractPhotoReference(pub._internal.photo_url) : null)}
                 photoName={pub._internal?.photo_name}
                 placeId={pub._internal?.place_id}
+                src={pub._internal?.photo_url}
                 alt={`${pub.name} pub`}
                 width={480}
                 height={360}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { generatePubSlug } from '@/utils/slugUtils';
+import { getPhotoRefFromPub } from '@/utils/photoUtils';
 import { Heart, CheckCircle } from 'lucide-react';
 import LoginModal from './LoginModal';
 import { ClickablePubPhoto } from './PubPhoto';
@@ -154,6 +155,7 @@ export default function PubCard({ pub, onPubClick }: PubCardProps) {
       <div className="w-full h-48 overflow-hidden">
         <ClickablePubPhoto
           href={pubUrl}
+          photoRef={getPhotoRefFromPub(pub._internal)}
           photoName={pub._internal?.photo_name}
           placeId={pub._internal?.place_id}
           src={pub._internal?.photo_url}
