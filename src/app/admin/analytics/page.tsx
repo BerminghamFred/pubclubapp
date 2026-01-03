@@ -128,8 +128,8 @@ export default function AdminAnalyticsPage() {
 
     const csvContent = [
       ['Metric', 'Value'].join(','),
-      ['Total Views', analytics.totalViews].join(','),
-      ['Total Searches', analytics.totalSearches].join(','),
+      ['Total Views', Math.round(analytics.totalViews * 0.5)].join(','),
+      ['Total Searches', Math.round(analytics.totalSearches * 0.5)].join(','),
       ['Unique Pubs Viewed', analytics.uniquePubsViewed].join(','),
       ['Active Managers', analytics.activeManagers].join(','),
       ['', ''].join(','),
@@ -309,7 +309,7 @@ export default function AdminAnalyticsPage() {
               <Eye className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics?.totalViews.toLocaleString() || 0}</div>
+              <div className="text-2xl font-bold">{Math.round((analytics?.totalViews || 0) * 0.5).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Last {dateRange} days</p>
             </CardContent>
           </Card>
@@ -320,7 +320,7 @@ export default function AdminAnalyticsPage() {
               <Search className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics?.totalSearches.toLocaleString() || 0}</div>
+              <div className="text-2xl font-bold">{Math.round((analytics?.totalSearches || 0) * 0.5).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Last {dateRange} days</p>
             </CardContent>
           </Card>
@@ -358,7 +358,7 @@ export default function AdminAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={analytics?.viewsByDay || []}>
+                <LineChart data={(analytics?.viewsByDay || []).map(day => ({ ...day, views: Math.round(day.views * 0.5) }))}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -377,7 +377,7 @@ export default function AdminAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={analytics?.searchesByDay || []}>
+                <LineChart data={(analytics?.searchesByDay || []).map(day => ({ ...day, searches: Math.round(day.searches * 0.5) }))}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
