@@ -217,7 +217,7 @@ export const pubData: Pub[] = ${JSON.stringify(pubData, null, 2)};
             action: 'delete',
             entity: 'pub',
             entityId: pubId,
-            diff: currentPub,
+            diff: JSON.parse(JSON.stringify(currentPub)), // Convert to plain object
           }
         });
       } catch (auditError) {
