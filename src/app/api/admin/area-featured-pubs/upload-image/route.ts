@@ -3,21 +3,10 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { prisma } from '@/lib/prisma';
+import { pubData } from '@/data/pubData';
 
-const AREAS_IMAGES_DIR = path.join(process.cwd(), 'public', 'images', 'areas');
-
-// Ensure directory exists
-async function ensureDirectoryExists() {
-  try {
-    await fs.access(AREAS_IMAGES_DIR);
-  } catch {
-    await fs.mkdir(AREAS_IMAGES_DIR, { recursive: true });
-  }
-}
-
-// POST /api/admin/area-featured-pubs/upload-image - Upload area image
+// POST /api/admin/area-featured-pubs/upload-image - Set hosted image URL for area
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -26,75 +15,116 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const areaName = formData.get('areaName') as string;
+    const body = await request.json();
+    const { areaName, imageUrl } = body;
 
-    if (!file || !areaName) {
+    if (!areaName) {
       return NextResponse.json(
-        { error: 'File and area name are required' },
+        { error: 'Area name is required' },
         { status: 400 }
       );
     }
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
+    if (!imageUrl || typeof imageUrl !== 'string') {
       return NextResponse.json(
-        { error: 'Only JPG and PNG images are allowed' },
+        { error: 'Valid image URL is required' },
         { status: 400 }
       );
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
+    // Validate URL format
+    try {
+      new URL(imageUrl);
+    } catch {
       return NextResponse.json(
-        { error: 'File size must be less than 5MB' },
+        { error: 'Invalid URL format' },
         { status: 400 }
       );
     }
 
-    // Determine file extension
-    const extension = file.type === 'image/png' ? '.png' : '.jpg';
-    
-    // Create safe filename from area name
-    const safeAreaName = areaName
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
-    
-    const filename = `${safeAreaName}${extension}`;
-    const filepath = path.join(AREAS_IMAGES_DIR, filename);
+    // Check if area featured pub exists
+    let existing = await prisma.areaFeaturedPub.findUnique({
+      where: { areaName }
+    });
 
-    // Ensure directory exists
-    await ensureDirectoryExists();
+    if (existing) {
+      // Update existing record with imageUrl
+      await prisma.areaFeaturedPub.update({
+        where: { areaName },
+        data: { imageUrl }
+      });
+    } else {
+      // Create new record - find first pub in this area as placeholder
+      const areaPubs = pubData.filter(pub => pub.area === areaName);
+      
+      if (areaPubs.length === 0) {
+        return NextResponse.json(
+          { error: `No pubs found in area "${areaName}". Please ensure the area exists and has pubs.` },
+          { status: 404 }
+        );
+      }
 
-    // Convert file to buffer and save
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    await fs.writeFile(filepath, buffer);
+      // Use the first pub (sorted by rating) as placeholder
+      const placeholderPub = areaPubs.sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+      
+      // Ensure pub exists in database
+      let dbPub = await prisma.pub.findUnique({
+        where: { id: placeholderPub.id },
+      });
 
-    // Return success with image URL
-    const imageUrl = `/images/areas/${filename}`;
+      if (!dbPub) {
+        dbPub = await prisma.pub.create({
+          data: {
+            id: placeholderPub.id,
+            name: placeholderPub.name,
+            slug: placeholderPub.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+            address: placeholderPub.address,
+            description: placeholderPub.description,
+            phone: placeholderPub.phone,
+            website: placeholderPub.website,
+            rating: placeholderPub.rating,
+            reviewCount: placeholderPub.reviewCount,
+            openingHours: placeholderPub.openingHours,
+            photoUrl: placeholderPub._internal?.photo_url,
+            lat: placeholderPub._internal?.lat,
+            lng: placeholderPub._internal?.lng,
+          },
+        });
+      }
+
+      // Create new record with imageUrl
+      existing = await prisma.areaFeaturedPub.create({
+        data: {
+          areaName,
+          pubId: placeholderPub.id,
+          imageUrl
+        }
+      });
+    }
 
     return NextResponse.json({ 
       success: true,
-      message: 'Image uploaded successfully',
+      message: 'Image URL saved successfully',
       imageUrl: imageUrl,
       areaName: areaName
     });
 
   } catch (error) {
-    console.error('Error uploading area image:', error);
+    console.error('Error saving area image URL:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error details:', { errorMessage });
+    
     return NextResponse.json(
-      { error: 'Failed to upload image' },
+      { 
+        error: 'Failed to save image URL',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/admin/area-featured-pubs/upload-image - Delete area image
+// DELETE /api/admin/area-featured-pubs/upload-image - Delete area image URL
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -113,39 +143,32 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Try to delete both .jpg and .png versions
-    const safeAreaName = areaName
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
+    // Update the record to remove imageUrl
+    const existing = await prisma.areaFeaturedPub.findUnique({
+      where: { areaName }
+    });
 
-    let deleted = false;
-    for (const ext of ['.jpg', '.png']) {
-      const filepath = path.join(AREAS_IMAGES_DIR, `${safeAreaName}${ext}`);
-      try {
-        await fs.unlink(filepath);
-        deleted = true;
-      } catch {
-        // File doesn't exist, continue
-      }
-    }
-
-    if (!deleted) {
+    if (!existing || !existing.imageUrl) {
       return NextResponse.json(
-        { error: 'Image not found' },
+        { error: 'Image URL not found for this area' },
         { status: 404 }
       );
     }
 
+    await prisma.areaFeaturedPub.update({
+      where: { areaName },
+      data: { imageUrl: null }
+    });
+
     return NextResponse.json({ 
       success: true,
-      message: 'Image deleted successfully'
+      message: 'Image URL deleted successfully'
     });
 
   } catch (error) {
-    console.error('Error deleting area image:', error);
+    console.error('Error deleting area image URL:', error);
     return NextResponse.json(
-      { error: 'Failed to delete image' },
+      { error: 'Failed to delete image URL' },
       { status: 500 }
     );
   }

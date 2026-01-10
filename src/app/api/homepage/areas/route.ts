@@ -78,24 +78,31 @@ async function generateAreas(): Promise<Area[]> {
   });
   
   // Get featured pubs from DATABASE instead of file
-  const featuredPubMap = new Map<string, string>();
+  const areaImageMap = new Map<string, string>(); // Maps area name to hosted image URL
+  const featuredPubMap = new Map<string, string>(); // Maps area name to featured pub photo URL
   
   try {
     const featuredPubsFromDb = await prisma.areaFeaturedPub.findMany();
     
     featuredPubsFromDb.forEach((featuredPub) => {
-      // Find the pub in pubData to get the photo
-      const pubFromData = pubData.find(pub => pub.id === featuredPub.pubId);
-      if (pubFromData) {
-        // Construct proper photo URL using the photo API
-        const photoUrl = pubFromData._internal?.photo_name 
-          ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
-          : pubFromData._internal?.place_id
-          ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
-          : null;
-        
-        if (photoUrl) {
-          featuredPubMap.set(featuredPub.areaName, photoUrl);
+      // Priority 1: Use hosted imageUrl from database if available
+      if (featuredPub.imageUrl) {
+        areaImageMap.set(featuredPub.areaName, featuredPub.imageUrl);
+        console.log(`[Areas API] Found hosted image URL for ${featuredPub.areaName}: ${featuredPub.imageUrl}`);
+      } else {
+        // Fallback: Use featured pub photo if no hosted image
+        const pubFromData = pubData.find(pub => pub.id === featuredPub.pubId);
+        if (pubFromData) {
+          // Construct proper photo URL using the photo API
+          const photoUrl = pubFromData._internal?.photo_name 
+            ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
+            : pubFromData._internal?.place_id
+            ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
+            : null;
+          
+          if (photoUrl) {
+            featuredPubMap.set(featuredPub.areaName, photoUrl);
+          }
         }
       }
     });
@@ -131,17 +138,17 @@ async function generateAreas(): Promise<Area[]> {
     .filter(([_, count]) => count >= 5) // Only areas with 5+ pubs
     .map(([name, pubCount]) => {
       const slug = name.toLowerCase().replace(/\s+/g, '-');
+      
+      // Priority: 1) Hosted image URL from database, 2) Featured pub photo, 3) Filesystem upload (legacy), 4) undefined
+      const hostedImageUrl = areaImageMap.get(name);
       const featuredPubPhoto = featuredPubMap.get(name);
+      const filesystemImage = getAreaImagePath(name); // Legacy support
       
-      // Priority: 1) Uploaded image, 2) Featured pub photo, 3) undefined
-      const uploadedImage = getAreaImagePath(name);
+      const finalImage = hostedImageUrl || featuredPubPhoto || filesystemImage || undefined;
       
-      // Debug logging
-      if (uploadedImage) {
-        console.log(`[Areas API] Found uploaded image for ${name}: ${uploadedImage}`);
+      if (finalImage) {
+        console.log(`[Areas API] Using image for ${name}: ${finalImage}`);
       }
-      
-      const finalImage = uploadedImage || featuredPubPhoto || undefined;
       
       return {
         slug,

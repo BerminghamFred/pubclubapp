@@ -357,6 +357,7 @@ model AreaFeaturedPub {
   id        String   @id @default(cuid())
   areaName  String   @unique
   pubId     String
+  imageUrl  String?  // Hosted image URL for the area
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

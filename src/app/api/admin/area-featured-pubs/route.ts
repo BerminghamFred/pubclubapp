@@ -35,6 +35,7 @@ export async function GET() {
         id: `${featuredPub.areaName}-${featuredPub.pubId}`,
         areaName: featuredPub.areaName,
         pubId: featuredPub.pubId,
+        imageUrl: featuredPub.imageUrl || null, // Include the hosted image URL from database
         pub: {
           id: pubFromData.id,
           name: pubFromData.name,
