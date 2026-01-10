@@ -41,7 +41,7 @@ export default function HeroSection() {
             Find Your Perfect Pub
           </h1>
           <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-3xl mx-auto">
-            Discover London's best pubs with our smart search. From traditional ale houses to modern craft beer bars.
+            Use our filters to find the perfect pub for you. From pubs with fireplaces to beer gardens, karaoke or live music, we've got you covered.
           </p>
         </div>
 

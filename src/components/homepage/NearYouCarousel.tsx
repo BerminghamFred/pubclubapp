@@ -10,6 +10,7 @@ interface Area {
   pubCount: number;
   image?: string;
   isNearby?: boolean;
+  distance?: number; // Distance in km from user location
 }
 
 export default function NearYouCarousel() {

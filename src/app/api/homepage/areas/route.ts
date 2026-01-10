@@ -2,8 +2,6 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { pubData } from '@/data/pubData';
-import fs from 'fs';
-import path from 'path';
 import { prisma } from '@/lib/prisma';
 
 interface Area {
@@ -12,60 +10,42 @@ interface Area {
   pubCount: number;
   image?: string;
   isNearby?: boolean;
+  distance?: number; // Distance in km from user location
+  centroid?: { lat: number; lng: number }; // Area center point
 }
 
-// Helper function to check for uploaded area images
-function getAreaImagePath(areaName: string): string | null {
-  const safeAreaName = areaName
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '');
-  
-  // Check if uploaded image exists (try both extensions)
-  const jpgPath = path.join(process.cwd(), 'public', 'images', 'areas', `${safeAreaName}.jpg`);
-  const pngPath = path.join(process.cwd(), 'public', 'images', 'areas', `${safeAreaName}.png`);
-  
-  // Debug: log what we're checking
-  console.log(`[Areas API] Checking for images for area: ${areaName} (safe: ${safeAreaName})`);
-  console.log(`[Areas API] JPG path: ${jpgPath}, exists: ${fs.existsSync(jpgPath)}`);
-  console.log(`[Areas API] PNG path: ${pngPath}, exists: ${fs.existsSync(pngPath)}`);
-  
-  if (fs.existsSync(jpgPath)) {
-    const imagePath = `/images/areas/${safeAreaName}.jpg`;
-    console.log(`[Areas API] Returning JPG image path: ${imagePath}`);
-    return imagePath;
-  }
-  if (fs.existsSync(pngPath)) {
-    const imagePath = `/images/areas/${safeAreaName}.png`;
-    console.log(`[Areas API] Returning PNG image path: ${imagePath}`);
-    return imagePath;
-  }
-  
-  console.log(`[Areas API] No uploaded image found for ${areaName}`);
-  return null;
+// Calculate distance between two coordinates using Haversine formula (returns km)
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
-// Mock geolocation service - in production, you'd use a real geocoding service
-async function getLocationFromCoords(lat: number, lng: number): Promise<string | null> {
-  // This is a simplified mock - in production, use Google Geocoding API or similar
-  const mockAreas = [
-    { name: 'Islington', bounds: { north: 51.55, south: 51.52, east: -0.08, west: -0.12 } },
-    { name: 'Camden', bounds: { north: 51.56, south: 51.53, east: -0.12, west: -0.16 } },
-    { name: 'Shoreditch', bounds: { north: 51.53, south: 51.50, east: -0.05, west: -0.08 } },
-    { name: 'Brixton', bounds: { north: 51.47, south: 51.44, east: -0.10, west: -0.13 } },
-    { name: 'Clapham', bounds: { north: 51.46, south: 51.43, east: -0.15, west: -0.18 } },
-    { name: 'Hackney', bounds: { north: 51.56, south: 51.53, east: -0.05, west: -0.08 } }
-  ];
+// Calculate area centroid (center point) from pub locations
+function calculateAreaCentroid(areaName: string): { lat: number; lng: number } | null {
+  const areaPubs = pubData.filter(
+    pub => pub.area === areaName && pub._internal?.lat && pub._internal?.lng
+  );
   
-  for (const area of mockAreas) {
-    if (lat >= area.bounds.south && lat <= area.bounds.north &&
-        lng >= area.bounds.west && lng <= area.bounds.east) {
-      return area.name;
-    }
+  if (areaPubs.length === 0) {
+    return null;
   }
   
-  return null;
+  const latSum = areaPubs.reduce((sum, pub) => sum + (pub._internal!.lat!), 0);
+  const lngSum = areaPubs.reduce((sum, pub) => sum + (pub._internal!.lng!), 0);
+  
+  return {
+    lat: latSum / areaPubs.length,
+    lng: lngSum / areaPubs.length
+  };
 }
+
 
 async function generateAreas(): Promise<Area[]> {
   const areaCounts = new Map<string, number>();
@@ -77,140 +57,102 @@ async function generateAreas(): Promise<Area[]> {
     }
   });
   
-  // Get featured pubs from DATABASE instead of file
+  // Get hosted image URLs from database - ONLY use hosted URLs, no featured pub photos
   const areaImageMap = new Map<string, string>(); // Maps area name to hosted image URL
-  const featuredPubMap = new Map<string, string>(); // Maps area name to featured pub photo URL
   
   try {
     const featuredPubsFromDb = await prisma.areaFeaturedPub.findMany();
     
     featuredPubsFromDb.forEach((featuredPub) => {
-      // Priority 1: Use hosted imageUrl from database if available
-      // Type assertion needed until IDE picks up regenerated Prisma types
+      // Only use hosted imageUrl from database - no fallback to featured pub photos
       const imageUrl = (featuredPub as any).imageUrl as string | null | undefined;
       if (imageUrl) {
         // Normalize area name for consistent matching (trim whitespace, handle case)
         const normalizedAreaName = featuredPub.areaName.trim();
         areaImageMap.set(normalizedAreaName, imageUrl);
         console.log(`[Areas API] Found hosted image URL for "${normalizedAreaName}": ${imageUrl}`);
-      } else {
-        // Fallback: Use featured pub photo if no hosted image
-        const pubFromData = pubData.find(pub => pub.id === featuredPub.pubId);
-        if (pubFromData) {
-          // Construct proper photo URL using the photo API
-          const photoUrl = pubFromData._internal?.photo_name 
-            ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
-            : pubFromData._internal?.place_id
-            ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
-            : null;
-          
-          if (photoUrl) {
-            const normalizedAreaName = featuredPub.areaName.trim();
-            featuredPubMap.set(normalizedAreaName, photoUrl);
-          }
-        }
       }
     });
     
     console.log(`[Areas API] Total hosted image URLs: ${areaImageMap.size}`);
-    console.log(`[Areas API] Total featured pub photos: ${featuredPubMap.size}`);
   } catch (error) {
     console.error('Error reading featured pubs from database:', error);
-    // Fallback: try reading from file if database fails
-    const FEATURED_PUBS_FILE = path.join(process.cwd(), 'data', 'featured-pubs.json');
-    try {
-      if (fs.existsSync(FEATURED_PUBS_FILE)) {
-        const data = fs.readFileSync(FEATURED_PUBS_FILE, 'utf8');
-        const featuredPubsData = JSON.parse(data);
-        Object.entries(featuredPubsData).forEach(([areaName, pubId]) => {
-          const pubFromData = pubData.find(pub => pub.id === pubId as string);
-          if (pubFromData) {
-            const photoUrl = pubFromData._internal?.photo_name 
-              ? `/api/photo-by-place?photo_name=${encodeURIComponent(pubFromData._internal.photo_name)}&w=160`
-              : pubFromData._internal?.place_id
-              ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
-              : null;
-            if (photoUrl) {
-              featuredPubMap.set(areaName, photoUrl);
-            }
-          }
-        });
-      }
-    } catch (fileError) {
-      console.error('Error reading featured pubs file:', fileError);
-    }
   }
   
-  // Convert to areas array
+  // Convert to areas array with centroids calculated
   const areas: Area[] = Array.from(areaCounts.entries())
     .filter(([_, count]) => count >= 5) // Only areas with 5+ pubs
     .map(([name, pubCount]) => {
       const slug = name.toLowerCase().replace(/\s+/g, '-');
-      const normalizedName = name.trim(); // Normalize area name for consistent matching
+      const normalizedName = name.trim();
       
-      // Priority: 1) Hosted image URL from database, 2) Featured pub photo, 3) Filesystem upload (legacy), 4) undefined
-      // Try both original name and normalized name for matching
+      // ONLY use hosted image URL - no featured pub photo fallback
       const hostedImageUrl = areaImageMap.get(normalizedName) || areaImageMap.get(name);
-      const featuredPubPhoto = featuredPubMap.get(normalizedName) || featuredPubMap.get(name);
-      const filesystemImage = getAreaImagePath(name); // Legacy support
       
-      const finalImage = hostedImageUrl || featuredPubPhoto || filesystemImage || undefined;
+      // Calculate area centroid for distance calculations
+      const centroid = calculateAreaCentroid(name);
       
-      if (finalImage) {
-        console.log(`[Areas API] Using image for "${name}" (normalized: "${normalizedName}"): ${finalImage}`);
+      if (hostedImageUrl) {
+        console.log(`[Areas API] Using hosted image for "${name}": ${hostedImageUrl}`);
       } else {
-        // Debug: Log when no image is found
-        console.log(`[Areas API] No image found for "${name}" (normalized: "${normalizedName}")`);
-        console.log(`  - areaImageMap has: ${Array.from(areaImageMap.keys()).join(', ')}`);
-        console.log(`  - featuredPubMap has: ${Array.from(featuredPubMap.keys()).join(', ')}`);
+        console.log(`[Areas API] No hosted image URL for "${name}"`);
       }
       
       return {
         slug,
         name,
         pubCount,
-        image: finalImage,
-        isNearby: false
+        image: hostedImageUrl || undefined, // Only use hosted URL, no fallback
+        isNearby: false,
+        centroid: centroid || undefined
       };
     })
-    .sort((a, b) => b.pubCount - a.pubCount);
+    .sort((a, b) => b.pubCount - a.pubCount); // Default sort by pub count
   
   return areas;
 }
 
-function getNearbyAreas(userArea: string, allAreas: Area[]): Area[] {
-  // Mock nearby areas - in production, use actual geographic proximity
-  const nearbyMap: Record<string, string[]> = {
-    'Islington': ['Camden', 'Hackney', 'Shoreditch'],
-    'Camden': ['Islington', 'Hackney', 'Westminster'],
-    'Shoreditch': ['Hackney', 'Islington', 'Brixton'],
-    'Brixton': ['Clapham', 'Shoreditch', 'Camberwell'],
-    'Clapham': ['Brixton', 'Wandsworth', 'Battersea'],
-    'Hackney': ['Islington', 'Camden', 'Shoreditch']
-  };
-  
-  const nearbyNames = nearbyMap[userArea] || [];
-  const nearbyAreas = allAreas
-    .filter(area => nearbyNames.includes(area.name))
+// Get areas sorted by proximity to user location (using real geographic distance)
+function getAreasByProximity(userLat: number, userLng: number, allAreas: Area[]): Area[] {
+  // Calculate distance for each area and sort by proximity
+  const areasWithDistance = allAreas
     .map(area => {
-      // Preserve all fields including image when setting isNearby
-      return { ...area, isNearby: true };
+      if (!area.centroid) {
+        // If area has no centroid, assign a very large distance so it appears last
+        return { ...area, distance: Infinity, isNearby: false };
+      }
+      
+      const distance = calculateDistance(
+        userLat,
+        userLng,
+        area.centroid.lat,
+        area.centroid.lng
+      );
+      
+      return {
+        ...area,
+        distance,
+        isNearby: true // Mark as nearby if we have a distance
+      };
+    })
+    .sort((a, b) => {
+      // Sort by distance (closest first)
+      if (a.distance === Infinity && b.distance === Infinity) {
+        return b.pubCount - a.pubCount; // If both have no distance, sort by pub count
+      }
+      if (a.distance === Infinity) return 1; // Areas without centroids go last
+      if (b.distance === Infinity) return -1;
+      return a.distance - b.distance;
     });
   
-  // Add the user's area as the first item
-  const userAreaObj = allAreas.find(area => area.name === userArea);
-  if (userAreaObj) {
-    // Preserve image field when creating user area object
-    nearbyAreas.unshift({ ...userAreaObj, isNearby: true });
-  }
-  
-  // Debug: Log images in nearby areas
-  console.log(`[Areas API] Nearby areas for ${userArea}:`);
-  nearbyAreas.forEach(area => {
-    console.log(`  - ${area.name}: image = ${area.image || 'none'}`);
+  // Debug: Log areas with distances
+  console.log(`[Areas API] Areas sorted by proximity (closest first):`);
+  areasWithDistance.slice(0, 10).forEach(area => {
+    const distanceStr = area.distance === Infinity ? 'N/A' : `${area.distance.toFixed(2)} km`;
+    console.log(`  - ${area.name}: ${distanceStr}, image = ${area.image || 'none'}`);
   });
   
-  return nearbyAreas.slice(0, 8); // Limit to 8 nearby areas
+  return areasWithDistance.slice(0, 8); // Return 8 closest areas
 }
 
 export async function GET(request: NextRequest) {
@@ -222,7 +164,7 @@ export async function GET(request: NextRequest) {
     let areas: Area[] = [];
     
     if (location) {
-      // Parse location (could be "lat,lng" or city name)
+      // Parse location - should be "lat,lng" coordinates
       const locationParts = location.split(',');
       
       if (locationParts.length === 2) {
@@ -231,27 +173,29 @@ export async function GET(request: NextRequest) {
         const lng = parseFloat(locationParts[1]);
         
         if (!isNaN(lat) && !isNaN(lng)) {
-          const userArea = await getLocationFromCoords(lat, lng);
-          if (userArea) {
-            areas = getNearbyAreas(userArea, allAreas);
-          }
+          // Use real geographic proximity sorting
+          areas = getAreasByProximity(lat, lng, allAreas);
+          console.log(`[Areas API] User location: ${lat}, ${lng}`);
+          console.log(`[Areas API] Returning ${areas.length} areas sorted by proximity`);
+        } else {
+          console.warn(`[Areas API] Invalid coordinates: ${location}`);
         }
       } else {
-        // It's a city name
-        const userArea = location;
-        areas = getNearbyAreas(userArea, allAreas);
+        console.warn(`[Areas API] Location format should be "lat,lng", got: ${location}`);
       }
     }
     
-    // Fallback to top cities if no location or no nearby areas found
+    // Fallback to top areas by pub count if no valid location provided
     if (areas.length === 0) {
+      console.log('[Areas API] No valid location provided, returning top areas by pub count');
       areas = allAreas.slice(0, 8);
     }
     
-    // Debug: Log the final areas with images
+    // Debug: Log the final areas with images and distances
     console.log('[Areas API] Final areas being returned:');
     areas.forEach(area => {
-      console.log(`  - ${area.name}: image = ${area.image || 'none'}`);
+      const distanceStr = area.distance !== undefined ? ` (${area.distance.toFixed(2)} km)` : '';
+      console.log(`  - ${area.name}${distanceStr}: image = ${area.image || 'none'}`);
     });
     
     const response = NextResponse.json({
