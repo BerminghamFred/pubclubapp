@@ -31,11 +31,14 @@ export async function GET() {
         ? `/api/photo-by-place?place_id=${encodeURIComponent(pubFromData._internal.place_id)}&w=160`
         : null;
 
+      // Use type assertion to access imageUrl since Prisma types may not be updated yet
+      const imageUrl = (featuredPub as any).imageUrl as string | null | undefined;
+
       return {
         id: `${featuredPub.areaName}-${featuredPub.pubId}`,
         areaName: featuredPub.areaName,
         pubId: featuredPub.pubId,
-        imageUrl: featuredPub.imageUrl || null, // Include the hosted image URL from database
+        imageUrl: imageUrl || null, // Include the hosted image URL from database
         pub: {
           id: pubFromData.id,
           name: pubFromData.name,
