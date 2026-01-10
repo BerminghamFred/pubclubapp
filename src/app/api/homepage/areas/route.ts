@@ -86,9 +86,13 @@ async function generateAreas(): Promise<Area[]> {
     
     featuredPubsFromDb.forEach((featuredPub) => {
       // Priority 1: Use hosted imageUrl from database if available
-      if (featuredPub.imageUrl) {
-        areaImageMap.set(featuredPub.areaName, featuredPub.imageUrl);
-        console.log(`[Areas API] Found hosted image URL for ${featuredPub.areaName}: ${featuredPub.imageUrl}`);
+      // Type assertion needed until IDE picks up regenerated Prisma types
+      const imageUrl = (featuredPub as any).imageUrl as string | null | undefined;
+      if (imageUrl) {
+        // Normalize area name for consistent matching (trim whitespace, handle case)
+        const normalizedAreaName = featuredPub.areaName.trim();
+        areaImageMap.set(normalizedAreaName, imageUrl);
+        console.log(`[Areas API] Found hosted image URL for "${normalizedAreaName}": ${imageUrl}`);
       } else {
         // Fallback: Use featured pub photo if no hosted image
         const pubFromData = pubData.find(pub => pub.id === featuredPub.pubId);
@@ -101,11 +105,15 @@ async function generateAreas(): Promise<Area[]> {
             : null;
           
           if (photoUrl) {
-            featuredPubMap.set(featuredPub.areaName, photoUrl);
+            const normalizedAreaName = featuredPub.areaName.trim();
+            featuredPubMap.set(normalizedAreaName, photoUrl);
           }
         }
       }
     });
+    
+    console.log(`[Areas API] Total hosted image URLs: ${areaImageMap.size}`);
+    console.log(`[Areas API] Total featured pub photos: ${featuredPubMap.size}`);
   } catch (error) {
     console.error('Error reading featured pubs from database:', error);
     // Fallback: try reading from file if database fails
@@ -138,16 +146,23 @@ async function generateAreas(): Promise<Area[]> {
     .filter(([_, count]) => count >= 5) // Only areas with 5+ pubs
     .map(([name, pubCount]) => {
       const slug = name.toLowerCase().replace(/\s+/g, '-');
+      const normalizedName = name.trim(); // Normalize area name for consistent matching
       
       // Priority: 1) Hosted image URL from database, 2) Featured pub photo, 3) Filesystem upload (legacy), 4) undefined
-      const hostedImageUrl = areaImageMap.get(name);
-      const featuredPubPhoto = featuredPubMap.get(name);
+      // Try both original name and normalized name for matching
+      const hostedImageUrl = areaImageMap.get(normalizedName) || areaImageMap.get(name);
+      const featuredPubPhoto = featuredPubMap.get(normalizedName) || featuredPubMap.get(name);
       const filesystemImage = getAreaImagePath(name); // Legacy support
       
       const finalImage = hostedImageUrl || featuredPubPhoto || filesystemImage || undefined;
       
       if (finalImage) {
-        console.log(`[Areas API] Using image for ${name}: ${finalImage}`);
+        console.log(`[Areas API] Using image for "${name}" (normalized: "${normalizedName}"): ${finalImage}`);
+      } else {
+        // Debug: Log when no image is found
+        console.log(`[Areas API] No image found for "${name}" (normalized: "${normalizedName}")`);
+        console.log(`  - areaImageMap has: ${Array.from(areaImageMap.keys()).join(', ')}`);
+        console.log(`  - featuredPubMap has: ${Array.from(featuredPubMap.keys()).join(', ')}`);
       }
       
       return {
@@ -177,13 +192,23 @@ function getNearbyAreas(userArea: string, allAreas: Area[]): Area[] {
   const nearbyNames = nearbyMap[userArea] || [];
   const nearbyAreas = allAreas
     .filter(area => nearbyNames.includes(area.name))
-    .map(area => ({ ...area, isNearby: true }));
+    .map(area => {
+      // Preserve all fields including image when setting isNearby
+      return { ...area, isNearby: true };
+    });
   
   // Add the user's area as the first item
   const userAreaObj = allAreas.find(area => area.name === userArea);
   if (userAreaObj) {
+    // Preserve image field when creating user area object
     nearbyAreas.unshift({ ...userAreaObj, isNearby: true });
   }
+  
+  // Debug: Log images in nearby areas
+  console.log(`[Areas API] Nearby areas for ${userArea}:`);
+  nearbyAreas.forEach(area => {
+    console.log(`  - ${area.name}: image = ${area.image || 'none'}`);
+  });
   
   return nearbyAreas.slice(0, 8); // Limit to 8 nearby areas
 }
@@ -223,6 +248,12 @@ export async function GET(request: NextRequest) {
       areas = allAreas.slice(0, 8);
     }
     
+    // Debug: Log the final areas with images
+    console.log('[Areas API] Final areas being returned:');
+    areas.forEach(area => {
+      console.log(`  - ${area.name}: image = ${area.image || 'none'}`);
+    });
+    
     const response = NextResponse.json({
       areas,
       total: areas.length,
@@ -230,8 +261,9 @@ export async function GET(request: NextRequest) {
       generated_at: new Date().toISOString()
     });
     
-    // Add caching headers
-    response.headers.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=7200'); // 30 min cache
+    // Add caching headers - shorter cache for development, longer for production
+    const cacheMaxAge = process.env.NODE_ENV === 'production' ? 1800 : 60; // 30 min in prod, 1 min in dev
+    response.headers.set('Cache-Control', `public, max-age=${cacheMaxAge}, stale-while-revalidate=3600`);
     
     return response;
   } catch (error) {

@@ -51,16 +51,30 @@ export default function NearYouCarousel() {
 
   const fetchAreas = async (location?: string) => {
     try {
+      // Add cache-busting timestamp in development
+      const cacheBuster = process.env.NODE_ENV === 'development' ? `&_t=${Date.now()}` : '';
       const url = location 
-        ? `/api/homepage/areas?location=${encodeURIComponent(location)}`
-        : '/api/homepage/areas';
+        ? `/api/homepage/areas?location=${encodeURIComponent(location)}${cacheBuster}`
+        : `/api/homepage/areas${cacheBuster ? '?' + cacheBuster.substring(1) : ''}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        cache: 'no-store' // Prevent browser caching in development
+      });
+      
       if (response.ok) {
         const data = await response.json();
         console.log('[NearYouCarousel] Received areas data:', data.areas?.map((a: Area) => ({ name: a.name, image: a.image })));
+        
+        // Log which areas have images
+        const areasWithImages = data.areas?.filter((a: Area) => a.image) || [];
+        console.log(`[NearYouCarousel] Areas with images: ${areasWithImages.length}`);
+        areasWithImages.forEach((area: Area) => {
+          console.log(`  - ${area.name}: ${area.image}`);
+        });
+        
         setAreas(data.areas || []);
       } else {
+        console.error('[NearYouCarousel] Failed to fetch areas:', response.status, response.statusText);
         // Fallback to static top cities
         setAreas(getTopCities());
       }
