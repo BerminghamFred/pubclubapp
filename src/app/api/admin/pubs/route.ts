@@ -2,66 +2,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { pubData } from '@/data/pubData';
-
-// Helper function to get city name from ID
-function getCityNameFromId(cityId: number): string | null {
-  const uniqueAreas = [...new Set(pubData.map(pub => pub.area).filter(Boolean))];
-  const index = cityId - 1; // IDs start from 1, arrays start from 0
-  return uniqueAreas[index] || null;
-}
-
-// Helper function to extract borough from address or area
-function getBoroughFromPub(pub: any): string {
-  // If area is provided, use it
-  if (pub.area && pub.area.trim()) {
-    return pub.area.trim();
-  }
-  
-  // Try to extract borough from address
-  if (pub.address) {
-    // Common London boroughs and areas to look for
-    const boroughs = [
-      'Westminster', 'Camden', 'Islington', 'Hackney', 'Tower Hamlets',
-      'Southwark', 'Lambeth', 'Wandsworth', 'Hammersmith & Fulham',
-      'Kensington & Chelsea', 'Greenwich', 'Lewisham', 'Bromley',
-      'Croydon', 'Merton', 'Kingston upon Thames', 'Richmond upon Thames',
-      'Hounslow', 'Ealing', 'Brent', 'Harrow', 'Hillingdon', 'Enfield',
-      'Barnet', 'Haringey', 'Waltham Forest', 'Redbridge', 'Newham',
-      'Barking & Dagenham', 'Havering', 'Bexley', 'Sutton'
-    ];
-    
-    // Check if any borough is mentioned in the address
-    for (const borough of boroughs) {
-      if (pub.address.toLowerCase().includes(borough.toLowerCase())) {
-        return borough;
-      }
-    }
-    
-    // Try to extract from postcode area (first part of UK postcode)
-    const postcodeMatch = pub.address.match(/([A-Z]{1,2})\d/);
-    if (postcodeMatch) {
-      const postcodeArea = postcodeMatch[1];
-      // Map common postcode areas to boroughs
-      const postcodeToBorough: Record<string, string> = {
-        'SW': 'Southwark/Lambeth',
-        'SE': 'Southwark/Lewisham',
-        'NW': 'Camden/Brent',
-        'N': 'Islington/Hackney',
-        'E': 'Tower Hamlets/Newham',
-        'W': 'Westminster/Hammersmith',
-        'WC': 'Westminster',
-        'EC': 'City of London'
-      };
-      
-      if (postcodeToBorough[postcodeArea]) {
-        return postcodeToBorough[postcodeArea];
-      }
-    }
-  }
-  
-  return 'Unknown';
-}
+import { getPubViews } from '@/lib/analytics';
+import { createPub } from '@/lib/services/pubService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -73,94 +15,138 @@ export async function GET(request: NextRequest) {
     const boroughId = searchParams.get('boroughId');
     const managerStatus = searchParams.get('managerStatus');
 
-    // Start with all pubs from your actual data
-    let filteredPubs = [...pubData];
+    // Build where clause for Prisma query
+    const where: any = {};
 
-    // Apply search filter
+    // Search filter
     if (search) {
-      const searchLower = search.toLowerCase();
-      filteredPubs = filteredPubs.filter(pub =>
-        pub.name.toLowerCase().includes(searchLower) ||
-        pub.address.toLowerCase().includes(searchLower) ||
-        pub.area.toLowerCase().includes(searchLower)
-      );
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { address: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    // Apply city filter (using area field)
+    // City filter
     if (cityId && cityId !== '0') {
-      // Get the city name from the cityId
-      const cityName = getCityNameFromId(parseInt(cityId));
-      if (cityName) {
-        filteredPubs = filteredPubs.filter(pub => pub.area === cityName);
-      }
+      where.cityId = parseInt(cityId);
     }
 
-    // Apply borough filter (using area field - same as city for now)
+    // Borough filter
     if (boroughId && boroughId !== '0') {
-      // Get the borough name from the boroughId
-      const boroughName = getCityNameFromId(parseInt(boroughId));
-      if (boroughName) {
-        filteredPubs = filteredPubs.filter(pub => pub.area === boroughName);
+      where.boroughId = parseInt(boroughId);
+    }
+
+    // Manager status filter
+    if (managerStatus) {
+      if (managerStatus === 'has_manager') {
+        where.OR = [
+          ...(where.OR || []),
+          { managerEmail: { not: null } },
+          { managers: { some: {} } }
+        ];
+      } else if (managerStatus === 'no_manager') {
+        where.AND = [
+          ...(where.AND || []),
+          { managerEmail: null },
+          { managers: { none: {} } }
+        ];
       }
     }
 
-    // Transform the data to match the expected format
-    const transformedPubs = filteredPubs.map((pub) => {
-      // Check if this pub has a manager (has manager_email)
-      let managerStatus = 'never_logged_in';
+    // Get total count
+    const totalCount = await prisma.pub.count({ where });
+
+    // Get paginated pubs
+    const skip = (page - 1) * limit;
+    const dbPubs = await prisma.pub.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        city: true,
+        borough: true,
+        amenities: {
+          include: {
+            amenity: true
+          }
+        },
+        managers: {
+          include: {
+            manager: true
+          }
+        },
+        logins: {
+          orderBy: {
+            loggedInAt: 'desc'
+          },
+          take: 1
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Get views for each pub - call getPubViews for each pub
+    const viewsMap = new Map<string, number>();
+    for (const pub of dbPubs) {
+      const viewsData = await getPubViews(new Date(0), new Date(), pub.id);
+      const count = viewsData.find(v => v.pubId === pub.id)?._count.pubId || 0;
+      viewsMap.set(pub.id, count);
+    }
+
+    // Transform to expected format
+    const transformedPubs = dbPubs.map((pub) => {
+      // Determine manager status
+      let managerStatusValue = 'no_manager';
       let lastLoginAt = null;
 
-      if (pub.manager_email) {
-        // Check if this manager has logged in recently by looking at database
-        // For now, we'll set a mock status - you can enhance this later
-        managerStatus = 'active'; // Assume active if has manager email
-        lastLoginAt = pub.last_updated ? new Date(pub.last_updated) : null;
+      if (pub.managerEmail || pub.managers.length > 0) {
+        managerStatusValue = 'has_manager';
+        if (pub.logins.length > 0) {
+          lastLoginAt = pub.logins[0].loggedInAt;
+          managerStatusValue = 'active';
+        }
       }
 
-      // Start with 0 views - will be tracked via real analytics
-      const views = 0;
-
       return {
-        id: pub.id,
+        id: pub.placeId || pub.id, // Use placeId as primary identifier
         name: pub.name,
-        slug: pub.id, // Use ID as slug for now
+        slug: pub.slug,
         address: pub.address,
-        postcode: '', // Not in your data structure
+        postcode: pub.postcode,
         phone: pub.phone,
         website: pub.website,
         description: pub.description,
         rating: pub.rating,
         reviewCount: pub.reviewCount,
         openingHours: pub.openingHours,
-        photoUrl: pub._internal?.photo_url,
-        city: { id: 1, name: pub.area || 'London' }, // Using area as city for now
-        borough: { id: 1, name: getBoroughFromPub(pub) },
-        amenities: pub.features?.map(feature => ({
+        photoUrl: pub.photoUrl,
+        city: pub.city ? { id: pub.city.id, name: pub.city.name } : null,
+        borough: pub.borough ? { id: pub.borough.id, name: pub.borough.name } : null,
+        amenities: pub.amenities.map(pa => ({
           amenity: {
-            label: feature,
+            label: pa.amenity.label,
+            key: pa.amenity.key,
           },
-        })) || [],
-        managerStatus,
+        })),
+        managerStatus: managerStatusValue,
         lastLoginAt,
-        views,
-        createdAt: pub.last_updated ? new Date(pub.last_updated) : new Date(),
-        updatedAt: pub.last_updated ? new Date(pub.last_updated) : new Date(),
+        views: viewsMap.get(pub.id) || 0,
+        createdAt: pub.createdAt,
+        updatedAt: pub.updatedAt,
       };
     });
 
-    // Apply manager status filter after transformation
+    // Apply manager status filter after transformation (if needed for client-side filtering)
     let finalPubs = transformedPubs;
-    if (managerStatus) {
+    if (managerStatus && managerStatus !== 'has_manager' && managerStatus !== 'no_manager') {
       finalPubs = transformedPubs.filter(pub => pub.managerStatus === managerStatus);
     }
 
-    // Apply pagination
-    const totalCount = finalPubs.length;
-    const skip = (page - 1) * limit;
-    const paginatedPubs = finalPubs.slice(skip, skip + limit);
-
     return NextResponse.json({
-      pubs: paginatedPubs,
+      pubs: finalPubs,
       totalCount,
       currentPage: page,
       totalPages: Math.ceil(totalCount / limit),
@@ -170,6 +156,72 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching pubs:', error);
     return NextResponse.json(
       { error: 'Failed to fetch pubs' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Validate required fields
+    if (!body.name) {
+      return NextResponse.json(
+        { error: 'Name is required' },
+        { status: 400 }
+      );
+    }
+
+    // Generate placeId if not provided
+    const placeId = body.placeId || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create pub using pubService
+    const newPub = await createPub({
+      name: body.name,
+      address: body.address,
+      description: body.description,
+      phone: body.phone,
+      website: body.website,
+      openingHours: body.openingHours,
+      type: body.type,
+      placeId: placeId,
+      lat: body.lat,
+      lng: body.lng,
+      photoUrl: body.photoUrl,
+      photoName: body.photoName,
+      cityId: body.cityId ? parseInt(body.cityId) : undefined,
+      boroughId: body.boroughId ? parseInt(body.boroughId) : undefined,
+      features: body.features || [],
+      amenities: body.amenities || [],
+      managerEmail: body.managerEmail,
+      managerPassword: body.managerPassword, // Should be hashed on frontend or here
+    });
+
+    // Log audit trail
+    try {
+      await prisma.adminAudit.create({
+        data: {
+          actorId: 'admin', // TODO: Get from auth
+          action: 'create',
+          entity: 'pub',
+          entityId: newPub.id,
+          diff: JSON.parse(JSON.stringify(newPub)),
+        }
+      });
+    } catch (auditError) {
+      console.error('Failed to log audit trail:', auditError);
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      pub: newPub 
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('Error creating pub:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to create pub' },
       { status: 500 }
     );
   }

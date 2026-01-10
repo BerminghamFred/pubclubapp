@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAreaBySlug } from '@/data/areaData';
-import { pubData } from '@/data/pubData';
+import { getPubsByArea } from '@/lib/services/pubService';
 import { generatePubSlug } from '@/utils/slugUtils';
 
 export async function GET(
@@ -23,8 +23,8 @@ export async function GET(
     const offset = parseInt(searchParams.get('offset') || '0');
     const filters = searchParams.get('filters')?.split(',') || [];
     
-    // Get all pubs in the area
-    let areaPubs = pubData.filter(pub => pub.area === area.name);
+    // Get all pubs in the area from database
+    let areaPubs = await getPubsByArea(area.name);
     
     // Apply filters if any
     if (filters.length > 0) {

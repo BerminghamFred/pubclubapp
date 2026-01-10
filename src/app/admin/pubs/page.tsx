@@ -49,14 +49,73 @@ export default function AdminPubsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPub, setEditingPub] = useState<Pub | null>(null);
+  const [editingPubFull, setEditingPubFull] = useState<any>(null); // Full pub data for editing
   const [deletingPubId, setDeletingPubId] = useState<string | null>(null);
+  const [amenities, setAmenities] = useState<Array<{ id: number; key: string; label: string }>>([]);
+  const [saving, setSaving] = useState(false);
+  const [pubManagers, setPubManagers] = useState<Array<{ id: string; email: string; name?: string; role: string }>>([]);
+  const [showAddManager, setShowAddManager] = useState(false);
+  const [newManagerData, setNewManagerData] = useState({
+    email: '',
+    name: '',
+    password: '',
+    role: 'owner',
+  });
+  
+  // Form state for Add Pub
+  const [addFormData, setAddFormData] = useState({
+    name: '',
+    address: '',
+    description: '',
+    phone: '',
+    website: '',
+    openingHours: '',
+    type: 'Traditional',
+    cityId: '',
+    boroughId: '',
+    lat: '',
+    lng: '',
+    placeId: '',
+    selectedAmenities: [] as string[],
+    managerEmail: '',
+    managerPassword: '',
+  });
+
+  // Form state for Edit Pub
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    address: '',
+    description: '',
+    phone: '',
+    website: '',
+    openingHours: '',
+    type: 'Traditional',
+    cityId: '',
+    boroughId: '',
+    lat: '',
+    lng: '',
+    selectedAmenities: [] as string[],
+  });
 
   const limit = 50;
 
   useEffect(() => {
     fetchCities();
     fetchPubs();
+    fetchAmenities();
   }, [currentPage, searchQuery, selectedCity, selectedBorough, managerStatusFilter, sortField, sortDirection]);
+
+  const fetchAmenities = async () => {
+    try {
+      const response = await fetch('/api/admin/amenities');
+      if (response.ok) {
+        const data = await response.json();
+        setAmenities(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch amenities:', error);
+    }
+  };
 
   const fetchCities = async () => {
     try {
@@ -176,6 +235,36 @@ export default function AdminPubsPage() {
       if (response.ok) {
         const data = await response.json();
         setEditingPub(data);
+        setEditingPubFull(data);
+        
+        // Populate edit form with current data
+        setEditFormData({
+          name: data.name || '',
+          address: data.address || '',
+          description: data.description || '',
+          phone: data.phone || '',
+          website: data.website || '',
+          openingHours: data.openingHours || '',
+          type: data.type || 'Traditional',
+          cityId: data.city?.id?.toString() || '',
+          boroughId: data.borough?.id?.toString() || '',
+          lat: data.lat?.toString() || '',
+          lng: data.lng?.toString() || '',
+          selectedAmenities: data.amenities?.map((a: any) => a.amenity?.key || a.amenity?.label) || [],
+        });
+        
+        // Load managers for this pub
+        if (data.managers) {
+          setPubManagers(data.managers.map((m: any) => ({
+            id: m.manager?.id || m.managerId,
+            email: m.manager?.email || '',
+            name: m.manager?.name || '',
+            role: m.role || 'owner',
+          })));
+        } else {
+          setPubManagers([]);
+        }
+        
         setShowEditModal(true);
       } else {
         alert('Failed to load pub details');
@@ -183,6 +272,116 @@ export default function AdminPubsPage() {
     } catch (error) {
       console.error('Error loading pub:', error);
       alert('Error loading pub details');
+    }
+  };
+
+  const handleAddPubSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addFormData.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch('/api/admin/pubs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addFormData.name,
+          address: addFormData.address || undefined,
+          description: addFormData.description || undefined,
+          phone: addFormData.phone || undefined,
+          website: addFormData.website || undefined,
+          openingHours: addFormData.openingHours || undefined,
+          type: addFormData.type,
+          cityId: addFormData.cityId ? parseInt(addFormData.cityId) : undefined,
+          boroughId: addFormData.boroughId ? parseInt(addFormData.boroughId) : undefined,
+          lat: addFormData.lat ? parseFloat(addFormData.lat) : undefined,
+          lng: addFormData.lng ? parseFloat(addFormData.lng) : undefined,
+          placeId: addFormData.placeId || undefined,
+          amenities: addFormData.selectedAmenities,
+          managerEmail: addFormData.managerEmail || undefined,
+          managerPassword: addFormData.managerPassword || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        alert('Pub created successfully!');
+        setShowAddModal(false);
+        setAddFormData({
+          name: '',
+          address: '',
+          description: '',
+          phone: '',
+          website: '',
+          openingHours: '',
+          type: 'Traditional',
+          cityId: '',
+          boroughId: '',
+          lat: '',
+          lng: '',
+          placeId: '',
+          selectedAmenities: [],
+          managerEmail: '',
+          managerPassword: '',
+        });
+        fetchPubs();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to create pub');
+      }
+    } catch (error) {
+      console.error('Error creating pub:', error);
+      alert('Error creating pub');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditPubSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPub || !editFormData.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/admin/pubs/${editingPub.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editFormData.name,
+          address: editFormData.address || null,
+          description: editFormData.description || null,
+          phone: editFormData.phone || null,
+          website: editFormData.website || null,
+          openingHours: editFormData.openingHours || null,
+          type: editFormData.type || null,
+          cityId: editFormData.cityId ? parseInt(editFormData.cityId) : null,
+          boroughId: editFormData.boroughId ? parseInt(editFormData.boroughId) : null,
+          lat: editFormData.lat ? parseFloat(editFormData.lat) : null,
+          lng: editFormData.lng ? parseFloat(editFormData.lng) : null,
+          amenities: editFormData.selectedAmenities,
+        }),
+      });
+
+      if (response.ok) {
+        alert('Pub updated successfully!');
+        setShowEditModal(false);
+        setEditingPub(null);
+        setEditingPubFull(null);
+        fetchPubs();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to update pub');
+      }
+    } catch (error) {
+      console.error('Error updating pub:', error);
+      alert('Error updating pub');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -210,6 +409,60 @@ export default function AdminPubsPage() {
       alert('Error deleting pub');
     } finally {
       setDeletingPubId(null);
+    }
+  };
+
+  const handleAddManager = async () => {
+    if (!editingPub || !newManagerData.email || !newManagerData.password) {
+      alert('Email and password are required');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/pubs/${editingPub.id}/managers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newManagerData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPubManagers([...pubManagers, data.manager]);
+        setNewManagerData({ email: '', name: '', password: '', role: 'owner' });
+        setShowAddManager(false);
+        alert('Manager added successfully!');
+        fetchPubs(); // Refresh to update manager status
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to add manager');
+      }
+    } catch (error) {
+      console.error('Error adding manager:', error);
+      alert('Error adding manager');
+    }
+  };
+
+  const handleRemoveManager = async (managerId: string) => {
+    if (!editingPub || !confirm('Are you sure you want to remove this manager?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/pubs/${editingPub.id}/managers?managerId=${managerId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPubManagers(pubManagers.filter(m => m.id !== managerId));
+        alert('Manager removed successfully!');
+        fetchPubs(); // Refresh to update manager status
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to remove manager');
+      }
+    } catch (error) {
+      console.error('Error removing manager:', error);
+      alert('Error removing manager');
     }
   };
 
@@ -497,23 +750,254 @@ export default function AdminPubsPage() {
 
       {/* Add Pub Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] bg-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Pub</DialogTitle>
             <DialogDescription>
               Add a new pub to the system. All fields marked with * are required.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-gray-600 text-sm">
-              This feature is coming soon. For now, please use the CSV upload feature on the main admin dashboard to add pubs.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddModal(false)}>
-              Close
-            </Button>
-          </DialogFooter>
+          <form onSubmit={handleAddPubSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-name">Name *</Label>
+                <Input
+                  id="add-name"
+                  value={addFormData.name}
+                  onChange={(e) => setAddFormData({ ...addFormData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-type">Type</Label>
+                <select
+                  id="add-type"
+                  value={addFormData.type}
+                  onChange={(e) => setAddFormData({ ...addFormData, type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="Traditional">Traditional</option>
+                  <option value="Modern">Modern</option>
+                  <option value="Gastro Pub">Gastro Pub</option>
+                  <option value="Food Pub">Food Pub</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="add-address">Address</Label>
+              <Input
+                id="add-address"
+                value={addFormData.address}
+                onChange={(e) => setAddFormData({ ...addFormData, address: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-city">City</Label>
+                <select
+                  id="add-city"
+                  value={addFormData.cityId}
+                  onChange={(e) => {
+                    setAddFormData({ ...addFormData, cityId: e.target.value, boroughId: '' });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Select City</option>
+                  {cities.map(city => (
+                    <option key={city.id} value={city.id}>{city.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-borough">Borough</Label>
+                <select
+                  id="add-borough"
+                  value={addFormData.boroughId}
+                  onChange={(e) => setAddFormData({ ...addFormData, boroughId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  disabled={!addFormData.cityId}
+                >
+                  <option value="">Select Borough</option>
+                  {addFormData.cityId && boroughs
+                    .filter(b => b.cityId === parseInt(addFormData.cityId))
+                    .map(borough => (
+                      <option key={borough.id} value={borough.id}>{borough.name}</option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-lat">Latitude</Label>
+                <Input
+                  id="add-lat"
+                  type="number"
+                  step="any"
+                  value={addFormData.lat}
+                  onChange={(e) => setAddFormData({ ...addFormData, lat: e.target.value })}
+                  placeholder="51.5074"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-lng">Longitude</Label>
+                <Input
+                  id="add-lng"
+                  type="number"
+                  step="any"
+                  value={addFormData.lng}
+                  onChange={(e) => setAddFormData({ ...addFormData, lng: e.target.value })}
+                  placeholder="-0.1278"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="add-placeId">Google Place ID (optional)</Label>
+              <Input
+                id="add-placeId"
+                value={addFormData.placeId}
+                onChange={(e) => setAddFormData({ ...addFormData, placeId: e.target.value })}
+                placeholder="ChIJ..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="add-description">Description</Label>
+              <textarea
+                id="add-description"
+                value={addFormData.description}
+                onChange={(e) => setAddFormData({ ...addFormData, description: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-phone">Phone</Label>
+                <Input
+                  id="add-phone"
+                  value={addFormData.phone}
+                  onChange={(e) => setAddFormData({ ...addFormData, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-website">Website</Label>
+                <Input
+                  id="add-website"
+                  type="url"
+                  value={addFormData.website}
+                  onChange={(e) => setAddFormData({ ...addFormData, website: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="add-openingHours">Opening Hours</Label>
+              <Input
+                id="add-openingHours"
+                value={addFormData.openingHours}
+                onChange={(e) => setAddFormData({ ...addFormData, openingHours: e.target.value })}
+                placeholder="Monday: 9:00 AM – 5:00 PM; Tuesday: ..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Amenities</Label>
+              <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {amenities.map(amenity => (
+                    <label key={amenity.id} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={addFormData.selectedAmenities.includes(amenity.key)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAddFormData({
+                              ...addFormData,
+                              selectedAmenities: [...addFormData.selectedAmenities, amenity.key]
+                            });
+                          } else {
+                            setAddFormData({
+                              ...addFormData,
+                              selectedAmenities: addFormData.selectedAmenities.filter(a => a !== amenity.key)
+                            });
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{amenity.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-semibold">Manager (Optional)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-managerEmail">Manager Email</Label>
+                  <Input
+                    id="add-managerEmail"
+                    type="email"
+                    value={addFormData.managerEmail}
+                    onChange={(e) => setAddFormData({ ...addFormData, managerEmail: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-managerPassword">Manager Password</Label>
+                  <Input
+                    id="add-managerPassword"
+                    type="password"
+                    value={addFormData.managerPassword}
+                    onChange={(e) => setAddFormData({ ...addFormData, managerPassword: e.target.value })}
+                    placeholder="Leave empty to auto-generate"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={() => {
+                  setShowAddModal(false);
+                  setAddFormData({
+                    name: '',
+                    address: '',
+                    description: '',
+                    phone: '',
+                    website: '',
+                    openingHours: '',
+                    type: 'Traditional',
+                    cityId: '',
+                    boroughId: '',
+                    lat: '',
+                    lng: '',
+                    placeId: '',
+                    selectedAmenities: [],
+                    managerEmail: '',
+                    managerPassword: '',
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={saving}
+              >
+                {saving ? 'Creating...' : 'Create Pub'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -527,87 +1011,324 @@ export default function AdminPubsPage() {
             </DialogDescription>
           </DialogHeader>
           {editingPub && (
-            <div className="py-4 space-y-4">
+            <form onSubmit={handleEditPubSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Name *</Label>
                   <Input
                     id="edit-name"
-                    defaultValue={editingPub.name}
-                    className="w-full"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-address">Address</Label>
-                  <Input
-                    id="edit-address"
-                    defaultValue={editingPub.address || ''}
-                    className="w-full"
-                  />
+                  <Label htmlFor="edit-type">Type</Label>
+                  <select
+                    id="edit-type"
+                    value={editFormData.type}
+                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="Traditional">Traditional</option>
+                    <option value="Modern">Modern</option>
+                    <option value="Gastro Pub">Gastro Pub</option>
+                    <option value="Food Pub">Food Pub</option>
+                  </select>
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-address">Address</Label>
+                <Input
+                  id="edit-address"
+                  value={editFormData.address}
+                  onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-city">City</Label>
-                  <Input
+                  <select
                     id="edit-city"
-                    defaultValue={editingPub.city?.name || ''}
-                    className="w-full"
-                    disabled
-                  />
+                    value={editFormData.cityId}
+                    onChange={(e) => {
+                      setEditFormData({ ...editFormData, cityId: e.target.value, boroughId: '' });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select City</option>
+                    {cities.map(city => (
+                      <option key={city.id} value={city.id}>{city.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-borough">Borough</Label>
-                  <Input
+                  <select
                     id="edit-borough"
-                    defaultValue={editingPub.borough?.name || ''}
-                    className="w-full"
-                    disabled
+                    value={editFormData.boroughId}
+                    onChange={(e) => setEditFormData({ ...editFormData, boroughId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    disabled={!editFormData.cityId}
+                  >
+                    <option value="">Select Borough</option>
+                    {editFormData.cityId && boroughs
+                      .filter(b => b.cityId === parseInt(editFormData.cityId))
+                      .map(borough => (
+                        <option key={borough.id} value={borough.id}>{borough.name}</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lat">Latitude</Label>
+                  <Input
+                    id="edit-lat"
+                    type="number"
+                    step="any"
+                    value={editFormData.lat}
+                    onChange={(e) => setEditFormData({ ...editFormData, lat: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lng">Longitude</Label>
+                  <Input
+                    id="edit-lng"
+                    type="number"
+                    step="any"
+                    value={editFormData.lng}
+                    onChange={(e) => setEditFormData({ ...editFormData, lng: e.target.value })}
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label>Manager Status</Label>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(editingPub.managerStatus)}
-                  {editingPub.lastLoginAt && (
-                    <span className="text-xs text-gray-500">
-                      Last login: {new Date(editingPub.lastLoginAt).toLocaleDateString()}
-                    </span>
-                  )}
+                <Label htmlFor="edit-description">Description</Label>
+                <textarea
+                  id="edit-description"
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editFormData.phone}
+                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-website">Website</Label>
+                  <Input
+                    id="edit-website"
+                    type="url"
+                    value={editFormData.website}
+                    onChange={(e) => setEditFormData({ ...editFormData, website: e.target.value })}
+                  />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label>Views (Last 30 days)</Label>
-                <div className="text-lg font-semibold">{editingPub.views.toLocaleString()}</div>
+                <Label htmlFor="edit-openingHours">Opening Hours</Label>
+                <Input
+                  id="edit-openingHours"
+                  value={editFormData.openingHours}
+                  onChange={(e) => setEditFormData({ ...editFormData, openingHours: e.target.value })}
+                />
               </div>
+
               <div className="space-y-2">
                 <Label>Amenities</Label>
-                <div className="flex flex-wrap gap-2">
-                  {editingPub.amenities.map((a, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-gray-100 rounded text-sm">
-                      {a.amenity.label}
-                    </span>
-                  ))}
+                <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {amenities.map(amenity => (
+                      <label key={amenity.id} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editFormData.selectedAmenities.includes(amenity.key)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditFormData({
+                                ...editFormData,
+                                selectedAmenities: [...editFormData.selectedAmenities, amenity.key]
+                              });
+                            } else {
+                              setEditFormData({
+                                ...editFormData,
+                                selectedAmenities: editFormData.selectedAmenities.filter(a => a !== amenity.key)
+                              });
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{amenity.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <p className="text-gray-600 text-sm pt-4 border-t">
-                Full editing functionality is coming soon. For now, you can view the pub details above.
-              </p>
-            </div>
+
+              {editingPubFull && (
+                <div className="border-t pt-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label>Manager Status</Label>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(editingPub.managerStatus)}
+                      {editingPub.lastLoginAt && (
+                        <span className="text-xs text-gray-500">
+                          Last login: {new Date(editingPub.lastLoginAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label>Managers</Label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setShowAddManager(true)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add Manager
+                      </Button>
+                    </div>
+                    {pubManagers.length > 0 ? (
+                      <div className="space-y-2">
+                        {pubManagers.map(manager => (
+                          <div key={manager.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                            <div>
+                              <div className="font-medium text-sm">{manager.email}</div>
+                              {manager.name && <div className="text-xs text-gray-500">{manager.name}</div>}
+                              <div className="text-xs text-gray-500">Role: {manager.role}</div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRemoveManager(manager.id)}
+                              className="text-red-600 border-red-300 hover:bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No managers assigned</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Views (Last 30 days)</Label>
+                    <div className="text-lg font-semibold">{editingPub.views.toLocaleString()}</div>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingPub(null);
+                    setEditingPubFull(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </DialogFooter>
+            </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Manager Modal */}
+      <Dialog open={showAddManager} onOpenChange={setShowAddManager}>
+        <DialogContent className="sm:max-w-[500px] bg-white">
+          <DialogHeader>
+            <DialogTitle>Add Manager to {editingPub?.name}</DialogTitle>
+            <DialogDescription>
+              Add a manager who can edit this pub's details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="manager-email">Email *</Label>
+              <Input
+                id="manager-email"
+                type="email"
+                value={newManagerData.email}
+                onChange={(e) => setNewManagerData({ ...newManagerData, email: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manager-name">Name</Label>
+              <Input
+                id="manager-name"
+                value={newManagerData.name}
+                onChange={(e) => setNewManagerData({ ...newManagerData, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manager-password">Password *</Label>
+              <Input
+                id="manager-password"
+                type="password"
+                value={newManagerData.password}
+                onChange={(e) => setNewManagerData({ ...newManagerData, password: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manager-role">Role</Label>
+              <select
+                id="manager-role"
+                value={newManagerData.role}
+                onChange={(e) => setNewManagerData({ ...newManagerData, role: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="owner">Owner</option>
+                <option value="manager">Manager</option>
+                <option value="staff">Staff</option>
+              </select>
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowEditModal(false);
-              setEditingPub(null);
-            }}>
-              Close
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAddManager(false);
+                setNewManagerData({ email: '', name: '', password: '', role: 'owner' });
+              }}
+            >
+              Cancel
             </Button>
             <Button 
+              onClick={handleAddManager}
               className="bg-purple-600 hover:bg-purple-700 text-white"
-              disabled
             >
-              Save Changes (Coming Soon)
+              Add Manager
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -34,6 +34,7 @@ model Pub {
   id              String         @id @default(cuid())
   name            String
   slug            String         @unique
+  placeId         String?        @unique // Google Place ID (ChIJ...) or temp ID
   address         String?
   postcode        String?
   lat             Float?
@@ -48,8 +49,11 @@ model Pub {
   reviewCount     Int?
   openingHours    String?
   photoUrl        String?
-  managerEmail    String?
-  managerPassword String?
+  photoName       String? // Google Places API photo name
+  managerEmail    String? // Legacy: direct manager email on pub
+  managerPassword String? // Legacy: hashed password
+  type            String? // Traditional, Modern, Gastro Pub, Food Pub
+  features        String[]       @default([]) // Legacy features array
   lastUpdated     DateTime?
   updatedBy       String?
   createdAt       DateTime       @default(now())
@@ -360,16 +364,16 @@ model AreaFeaturedPub {
 }
 
 model PubRequest {
-  id            String   @id @default(cuid())
-  pubName       String
-  postcode      String
-  managerName   String
-  contactEmail  String
-  contactPhone  String
-  status        String   @default("pending") // pending, reviewed, approved, rejected
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  pubName      String
+  postcode     String
+  managerName  String
+  contactEmail String
+  contactPhone String
+  status       String   @default("pending") // pending, reviewed, approved, rejected
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("pub_requests")
 }

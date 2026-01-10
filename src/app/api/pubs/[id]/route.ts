@@ -1,8 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
-import { pubData } from '@/data/pubData';
-import { prisma } from '@/lib/prisma';
+import { getPubById } from '@/lib/services/pubService';
 
 export async function GET(
   request: NextRequest,
@@ -10,7 +9,7 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params;
-    const pub = pubData.find(p => p.id === resolvedParams.id);
+    const pub = await getPubById(resolvedParams.id);
     
     if (!pub) {
       return NextResponse.json({ error: 'Pub not found' }, { status: 404 });

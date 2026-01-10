@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { pubData } from '@/data/pubData';
 import { Pub } from '@/data/types';
+import { usePubs } from '@/hooks/usePubs';
 import PubResultCard from '@/components/PubResultCard';
 import FilterDrawer from '@/components/FilterDrawer';
 import MobileFilterDrawer from '@/components/MobileFilterDrawer';
@@ -37,6 +37,9 @@ export default function PubDataLoader() {
   const DEFAULT_OPENING = 'Any Time';
   const { trackSearch, trackFilterUsage } = useAnalytics();
   const { data: session } = useSession();
+
+  // Fetch all pubs from API (replaces pubData import)
+  const { pubs: allPubs, loading: pubsLoading, error: pubsError } = usePubs({ enabled: true });
 
   // URL state management for list view (original)
   const urlState = useUrlState();
@@ -128,9 +131,10 @@ export default function PubDataLoader() {
 
   // Get unique areas for the dropdown
   const areas = useMemo(() => {
-    const uniqueAreas = Array.from(new Set(pubData.map(pub => pub.area).filter(Boolean)));
+    if (!allPubs.length) return [];
+    const uniqueAreas = Array.from(new Set(allPubs.map(pub => pub.area).filter(Boolean)));
     return uniqueAreas.sort();
-  }, []);
+  }, [allPubs]);
 
   // Handle map data updates
   const handleMarkersUpdate = useCallback((markers: any[]) => {
@@ -183,9 +187,10 @@ export default function PubDataLoader() {
 
   // Filter options (for list view)
   const listAreas = useMemo(() => {
-    const uniqueAreas = [...new Set(pubData.map(pub => pub.area).filter(Boolean))];
+    if (!allPubs.length) return ['All Areas'];
+    const uniqueAreas = [...new Set(allPubs.map(pub => pub.area).filter(Boolean))];
     return ['All Areas', ...uniqueAreas.sort()];
-  }, []);
+  }, [allPubs]);
 
   // Amenities organized by category
   const amenitiesByCategory = useMemo(() => {
@@ -304,7 +309,13 @@ export default function PubDataLoader() {
 
   const filteredPubs = useMemo(() => {
     console.log('filteredPubs useMemo recalculating, userLocation:', userLocation, 'sortRefreshTrigger:', sortRefreshTrigger);
-    let filtered = pubData;
+    
+    // Use pubs from API instead of pubData
+    if (pubsLoading || !allPubs.length) {
+      return [];
+    }
+    
+    let filtered = allPubs;
 
     // First, apply text search if present (this is always required)
     if (searchTerm && searchSelections.length === 0) {
@@ -409,7 +420,7 @@ export default function PubDataLoader() {
     }
 
     return filtered;
-  }, [searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger, activeFiltersCount, checkPubFilters]);
+  }, [allPubs, searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger, activeFiltersCount, checkPubFilters]);
 
   // Load more for list view - show all pubs up to itemsToShow
   const displayedPubs = useMemo(() => {
@@ -1031,9 +1042,9 @@ export default function PubDataLoader() {
                       </button>
                     )}
                   </div>
-                  {filteredPubs.length !== pubData.length && (
+                  {filteredPubs.length !== allPubs.length && (
                     <span className="text-gray-500 ml-1">
-                      (filtered from {pubData.length} total)
+                      (filtered from {allPubs.length} total)
                     </span>
                   )}
                 </>

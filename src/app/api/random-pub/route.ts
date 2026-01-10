@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pubData } from '@/data/pubData';
+import { getAllPubs } from '@/lib/services/pubService';
 import { isPubOpenNow } from '@/utils/openingHours';
 
 type SearchSelection = 
@@ -79,21 +79,16 @@ export async function GET(request: NextRequest) {
         : []
     };
     
-    // Filter pubs based on criteria
-    let filteredPubs = pubData.filter(pub => {
-      // Area filter
-      if (filters.area && !pub.area?.toLowerCase().includes(filters.area.toLowerCase())) {
-        return false;
-      }
-      
-      // Amenity filters (AND logic)
-      if (filters.amenities && filters.amenities.length > 0) {
-        const hasAllAmenities = filters.amenities.every(amenity => 
-          pub.amenities?.includes(amenity)
-        );
-        if (!hasAllAmenities) return false;
-      }
-      
+    // Get pubs from database with filters
+    const dbFilters: any = {
+      area: filters.area,
+      amenities: filters.amenities,
+    };
+    
+    let allPubs = await getAllPubs(dbFilters);
+    
+    // Apply client-side filters that require additional processing
+    let filteredPubs = allPubs.filter(pub => {
       // Rating filter
       if (filters.minRating && pub.rating < filters.minRating) {
         return false;

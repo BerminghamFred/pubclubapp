@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pubData } from '@/data/pubData';
+import { getAllPubs } from '@/lib/services/pubService';
 import { isPubOpenNow } from '@/utils/openingHours';
 
 export async function GET(request: NextRequest) {
@@ -21,24 +21,19 @@ export async function GET(request: NextRequest) {
       ? JSON.parse(searchParams.get('search_selections')!) 
       : [];
     
-    // Count pubs based on criteria (without loading full data)
+    // Get pubs from database with filters
+    const dbFilters: any = {
+      area: area,
+      amenities: amenities,
+    };
+    
+    let allPubs = await getAllPubs(dbFilters);
+    
+    // Apply client-side filters
     let candidateCount = 0;
     let availableCount = 0;
     
-    for (const pub of pubData) {
-      // Area filter
-      if (area && !pub.area?.toLowerCase().includes(area.toLowerCase())) {
-        continue;
-      }
-      
-      // Amenity filters (AND logic)
-      if (amenities.length > 0) {
-        const hasAllAmenities = amenities.every(amenity => 
-          pub.amenities?.includes(amenity)
-        );
-        if (!hasAllAmenities) continue;
-      }
-      
+    for (const pub of allPubs) {
       // Rating filter
       if (minRating && pub.rating < minRating) {
         continue;

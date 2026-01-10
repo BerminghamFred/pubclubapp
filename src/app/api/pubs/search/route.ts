@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pubData } from '@/data/pubData';
+import { searchPubs } from '@/lib/services/pubService';
 import { isPubOpenNow } from '@/utils/openingHours';
 
 // Use default Node.js runtime on Vercel (avoid explicit edge runtime)
 
-// Helper to check if a point is within bounds
-function isInBounds(lat: number, lng: number, bbox: { west: number; south: number; east: number; north: number }): boolean {
-  return lat >= bbox.south && lat <= bbox.north && lng >= bbox.west && lng <= bbox.east;
-}
-
-// Hash filter object for caching key
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -29,47 +23,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Filter pubs based on criteria
-    let filtered = pubData.filter(pub => pub._internal?.lat && pub._internal?.lng);
+    // Build search filters for database query
+    const searchFilters: any = {
+      area: filters.selectedArea,
+      amenities: filters.selectedAmenities,
+      searchTerm: filters.searchTerm,
+    };
 
-    // Apply bounding box filter if provided
+    // Parse bounding box if provided
     if (bboxParam) {
       const [west, south, east, north] = bboxParam.split(',').map(Number);
       if (!isNaN(west) && !isNaN(south) && !isNaN(east) && !isNaN(north)) {
-        const bbox = { west, south, east, north };
-        filtered = filtered.filter(pub => 
-          pub._internal?.lat && pub._internal?.lng &&
-          isInBounds(pub._internal.lat, pub._internal.lng, bbox)
-        );
+        searchFilters.bbox = { west, south, east, north };
       }
     }
 
-    // Apply search term
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(pub => 
-        pub.name.toLowerCase().includes(searchLower) ||
-        pub.description?.toLowerCase().includes(searchLower) ||
-        pub.area?.toLowerCase().includes(searchLower) ||
-        pub.address?.toLowerCase().includes(searchLower)
-      );
-    }
+    // Get pubs from database
+    let filtered = await searchPubs(filters.searchTerm, searchFilters);
 
-    // Apply area filter
-    if (filters.selectedArea && filters.selectedArea !== 'All Areas') {
-      filtered = filtered.filter(pub => pub.area === filters.selectedArea);
-    }
-
-    // Apply amenities filter
-    if (filters.selectedAmenities && filters.selectedAmenities.length > 0) {
-      filtered = filtered.filter(pub => {
-        return filters.selectedAmenities.every((amenity: string) => 
-          pub.amenities?.includes(amenity) || pub.features?.includes(amenity)
-        );
-      });
-    }
-
-    // Apply rating filter
+    // Apply client-side filters that require additional processing
+    // (rating, opening hours - these could be moved to DB query later)
     if (filters.minRating > 0) {
       filtered = filtered.filter(pub => (pub.rating || 0) >= filters.minRating);
     }
@@ -79,25 +52,30 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter(pub => isPubOpenNow(pub.openingHours));
     }
 
-    // Transform to lightweight pin format - show ALL pubs
+    // Transform to full pub format (includes all fields needed for client-side filtering)
     const items = filtered.map(pub => ({
       id: pub.id,
       name: pub.name,
+      description: pub.description || '',
       lat: pub._internal!.lat!,
       lng: pub._internal!.lng!,
       rating: pub.rating,
       reviewCount: pub.reviewCount,
       area: pub.area,
       type: pub.type,
+      features: pub.features || [],
       address: pub.address,
       phone: pub.phone,
       website: pub.website,
+      openingHours: pub.openingHours || '',
       amenities: pub.amenities || [],
       // Photo metadata for client-side rendering
       photo: buildPhotoProxyUrl(pub, 320),
       photoName: pub._internal?.photo_name || null,
       photoRef: pub._internal?.photo_reference || null,
       placeId: pub._internal?.place_id || null,
+      // Include full _internal object for compatibility
+      _internal: pub._internal,
     }));
 
     // Response with caching headers
@@ -121,7 +99,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-function buildPhotoProxyUrl(pub: (typeof pubData)[number], width: number): string | null {
+function buildPhotoProxyUrl(pub: any, width: number): string | null {
   const params = new URLSearchParams({
     w: String(width),
   });
