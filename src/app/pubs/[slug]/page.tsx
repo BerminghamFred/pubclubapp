@@ -72,7 +72,7 @@ export default async function PubPage({ params }: { params: Promise<{ slug: stri
   
   // Fallback to pubData if not in database
   if (!pub) {
-    pub = pubData.find(p => p.id === validPubId);
+    pub = pubData.find(p => p.id === validPubId) || null;
   }
   
   if (!pub) {
