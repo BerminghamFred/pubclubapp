@@ -36,18 +36,43 @@ export interface CtaClickEvent {
 export async function trackPageView(event: PageViewEvent) {
   try {
     console.log('[Analytics DB] Creating page view event:', event)
+    
+    // If pubId is provided, try to resolve it to database ID (in case it's a placeId)
+    let databasePubId: string | null = null;
+    if (event.pubId) {
+      // Try to find pub by placeId first
+      const pubByPlaceId = await prisma.pub.findUnique({
+        where: { placeId: event.pubId },
+        select: { id: true }
+      });
+      
+      if (pubByPlaceId) {
+        databasePubId = pubByPlaceId.id;
+      } else {
+        // Try to find by database ID (in case it's already a database ID)
+        const pubById = await prisma.pub.findUnique({
+          where: { id: event.pubId },
+          select: { id: true }
+        });
+        
+        if (pubById) {
+          databasePubId = pubById.id;
+        }
+      }
+    }
+    
     const result = await prisma.eventPageView.create({
       data: {
         userId: event.userId,
         sessionId: event.sessionId,
-        pubId: event.pubId,
+        pubId: databasePubId || event.pubId, // Use database ID if found, otherwise use original
         areaSlug: event.areaSlug,
         ref: event.ref,
         utm: event.utm,
         device: event.device,
       }
     })
-    console.log('[Analytics DB] Page view created:', result.id)
+    console.log('[Analytics DB] Page view created:', result.id, 'with pubId:', databasePubId || event.pubId)
     return result
   } catch (error) {
     console.error('[Analytics DB] Failed to track page view:', error)
@@ -61,11 +86,44 @@ export async function trackPageViewBatch(events: PageViewEvent[]) {
     if (events.length === 0) return []
     
     console.log('[Analytics DB] Creating page view events batch:', events.length)
+    
+    // Resolve all pubIds to database IDs
+    const pubIdMap = new Map<string, string | null>();
+    const uniquePubIds = [...new Set(events.map(e => e.pubId).filter(Boolean))];
+    
+    // Batch lookup all unique pubIds
+    for (const pubId of uniquePubIds) {
+      if (!pubId) continue;
+      
+      // Try to find pub by placeId first
+      const pubByPlaceId = await prisma.pub.findUnique({
+        where: { placeId: pubId },
+        select: { id: true }
+      });
+      
+      if (pubByPlaceId) {
+        pubIdMap.set(pubId, pubByPlaceId.id);
+      } else {
+        // Try to find by database ID (in case it's already a database ID)
+        const pubById = await prisma.pub.findUnique({
+          where: { id: pubId },
+          select: { id: true }
+        });
+        
+        if (pubById) {
+          pubIdMap.set(pubId, pubById.id);
+        } else {
+          // Not found in database, use original ID
+          pubIdMap.set(pubId, null);
+        }
+      }
+    }
+    
     const result = await prisma.eventPageView.createMany({
       data: events.map(event => ({
         userId: event.userId,
         sessionId: event.sessionId,
-        pubId: event.pubId,
+        pubId: event.pubId ? (pubIdMap.get(event.pubId) || event.pubId) : null,
         areaSlug: event.areaSlug,
         ref: event.ref,
         utm: event.utm,

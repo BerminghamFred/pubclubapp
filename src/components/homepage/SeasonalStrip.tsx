@@ -113,7 +113,7 @@ export default function SeasonalStrip() {
   const getSeasonName = () => {
     const month = new Date().getMonth() + 1;
     if (month >= 6 && month <= 8) return 'Summer';
-    if (month >= 9 || month <= 2) return 'Autumn/Winter';
+    if (month >= 9 || month <= 2) return 'Winter';
     return 'Spring';
   };
 

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { pubData } from '@/data/pubData';
 import { generatePubSlug, extractPubIdFromSlug } from '@/utils/slugUtils';
+import { getPubById } from '@/lib/services/pubService';
 import Link from 'next/link';
 import PubPageClient from './PubPageClient';
 
@@ -59,7 +60,13 @@ export default async function PubPage({ params }: { params: Promise<{ slug: stri
   const resolvedParams = await params;
   const pubId = extractPubIdFromSlug(resolvedParams.slug);
   
-  const pub = pubData.find(p => p.id === pubId);
+  // Try to get pub from database first (to get database ID for tracking)
+  let pub = await getPubById(pubId);
+  
+  // Fallback to pubData if not in database
+  if (!pub) {
+    pub = pubData.find(p => p.id === pubId);
+  }
   
   if (!pub) {
     notFound();
