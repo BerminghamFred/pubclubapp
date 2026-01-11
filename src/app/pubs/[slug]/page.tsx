@@ -60,6 +60,10 @@ export default async function PubPage({ params }: { params: Promise<{ slug: stri
   const resolvedParams = await params;
   const pubId = extractPubIdFromSlug(resolvedParams.slug);
   
+  if (!pubId) {
+    notFound();
+  }
+  
   // Try to get pub from database first (to get database ID for tracking)
   let pub = await getPubById(pubId);
   
