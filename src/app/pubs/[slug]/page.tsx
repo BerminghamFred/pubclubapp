@@ -64,12 +64,15 @@ export default async function PubPage({ params }: { params: Promise<{ slug: stri
     notFound();
   }
   
+  // TypeScript now knows pubId is string (not null) after the check above
+  const validPubId: string = pubId;
+  
   // Try to get pub from database first (to get database ID for tracking)
-  let pub = await getPubById(pubId);
+  let pub = await getPubById(validPubId);
   
   // Fallback to pubData if not in database
   if (!pub) {
-    pub = pubData.find(p => p.id === pubId);
+    pub = pubData.find(p => p.id === validPubId);
   }
   
   if (!pub) {
