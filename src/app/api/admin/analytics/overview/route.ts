@@ -141,8 +141,9 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      topTilesByClicks = await prisma.eventHomepageTile.groupBy({
-        by: ['slotId', 'title'],
+      // Group by slotId only (title is optional, can't group by it)
+      const topTilesGrouped = await prisma.eventHomepageTile.groupBy({
+        by: ['slotId'],
         where: {
           type: 'click',
           ts: { gte: fromDate, lte: toDate }
@@ -156,6 +157,31 @@ export async function GET(request: NextRequest) {
           }
         },
         take: 10
+      });
+
+      // Get titles for each slotId
+      const slotIds = topTilesGrouped.map(t => t.slotId);
+      const tilesWithTitles = await prisma.eventHomepageTile.findMany({
+        where: {
+          slotId: { in: slotIds },
+          type: 'click',
+          title: { not: null }
+        },
+        select: {
+          slotId: true,
+          title: true
+        },
+        distinct: ['slotId']
+      });
+
+      // Combine counts with titles
+      topTilesByClicks = topTilesGrouped.map(group => {
+        const tileWithTitle = tilesWithTitles.find(t => t.slotId === group.slotId);
+        return {
+          slotId: group.slotId,
+          title: tileWithTitle?.title || null,
+          _count: group._count
+        };
       });
     } catch (error) {
       // Model doesn't exist yet - will work after Prisma generate
