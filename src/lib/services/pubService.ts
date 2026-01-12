@@ -12,11 +12,19 @@ import { prisma } from '@/lib/prisma';
 import { Pub } from '@/data/types';
 
 /**
+ * Convert amenity name (e.g., "Food Served") to key (e.g., "food-served")
+ */
+function amenityNameToKey(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '-');
+}
+
+/**
  * Transform a database Pub model to the Pub interface format
  */
 export function transformDbPubToPubFormat(dbPub: any): Pub {
   // Get amenities from PubAmenity relations
-  const amenities = dbPub.amenities?.map((pa: any) => pa.amenity?.key || pa.amenity?.label) || [];
+  // Use label (full name) for filtering compatibility, fallback to key if label not available
+  const amenities = dbPub.amenities?.map((pa: any) => pa.amenity?.label || pa.amenity?.key) || [];
   
   // Combine features array and amenities
   const allFeatures = [
@@ -89,11 +97,16 @@ export async function getAllPubs(filters?: {
   }
   
   // Amenities filter
+  // Convert amenity names to keys for database query (database stores keys, UI uses names)
   if (filters?.amenities && filters.amenities.length > 0) {
+    const amenityKeys = filters.amenities.map(amenityNameToKey);
     where.amenities = {
       some: {
         amenity: {
-          key: { in: filters.amenities }
+          OR: [
+            { key: { in: amenityKeys } },
+            { label: { in: filters.amenities } } // Also check by label in case it's already a key
+          ]
         }
       }
     };
@@ -255,11 +268,16 @@ export async function searchPubs(
   }
   
   // Amenities filter
+  // Convert amenity names to keys for database query (database stores keys, UI uses names)
   if (filters?.amenities && filters.amenities.length > 0) {
+    const amenityKeys = filters.amenities.map(amenityNameToKey);
     searchFilters.amenities = {
       some: {
         amenity: {
-          key: { in: filters.amenities }
+          OR: [
+            { key: { in: amenityKeys } },
+            { label: { in: filters.amenities } } // Also check by label in case it's already a key
+          ]
         }
       }
     };

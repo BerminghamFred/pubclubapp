@@ -1106,7 +1106,13 @@ export default function PubDataLoader() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {view === 'list' ? (
             <>
-              {filteredPubs.length > 0 ? (
+              {pubsLoading ? (
+                <div className="text-center py-20">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#08d78c] mx-auto mb-4"></div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading pubs...</h3>
+                  <p className="text-gray-600">Fetching pub data from the database</p>
+                </div>
+              ) : filteredPubs.length > 0 ? (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     <AnimatePresence mode="popLayout">
