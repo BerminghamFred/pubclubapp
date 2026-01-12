@@ -121,6 +121,52 @@ export async function GET(request: NextRequest) {
       ? ((totalSpinViewPubClicks / totalSpins) * 100).toFixed(1)
       : '0.0'
 
+    // Get homepage tile metrics (with error handling for before Prisma generate)
+    let homepageTileImpressions = 0;
+    let homepageTileClicks = 0;
+    let topTilesByClicks: any[] = [];
+    
+    try {
+      homepageTileImpressions = await prisma.eventHomepageTile.count({
+        where: {
+          type: 'impression',
+          ts: { gte: fromDate, lte: toDate }
+        }
+      });
+
+      homepageTileClicks = await prisma.eventHomepageTile.count({
+        where: {
+          type: 'click',
+          ts: { gte: fromDate, lte: toDate }
+        }
+      });
+
+      topTilesByClicks = await prisma.eventHomepageTile.groupBy({
+        by: ['slotId', 'title'],
+        where: {
+          type: 'click',
+          ts: { gte: fromDate, lte: toDate }
+        },
+        _count: {
+          id: true
+        },
+        orderBy: {
+          _count: {
+            id: 'desc'
+          }
+        },
+        take: 10
+      });
+    } catch (error) {
+      // Model doesn't exist yet - will work after Prisma generate
+      console.warn('[Analytics API] Homepage tile events not available yet:', error);
+    }
+
+    // Calculate homepage tile click-through rate
+    const homepageTileCTR = homepageTileImpressions > 0
+      ? ((homepageTileClicks / homepageTileImpressions) * 100).toFixed(2)
+      : '0.00'
+
     // Format views by day - aggregate by date (not timestamp)
     const viewsByDayMap = new Map<string, number>()
     allViews.forEach(item => {
@@ -169,6 +215,16 @@ export async function GET(request: NextRequest) {
         totalSpins,
         totalViewPubClicks: totalSpinViewPubClicks,
         conversionRate: parseFloat(spinConversionRate),
+      },
+      homepageTiles: {
+        impressions: homepageTileImpressions,
+        clicks: homepageTileClicks,
+        clickThroughRate: parseFloat(homepageTileCTR),
+        topTiles: topTilesByClicks.map((tile: any) => ({
+          slotId: tile.slotId,
+          title: tile.title || 'Unknown',
+          clicks: tile._count.id,
+        })),
       },
     })
   } catch (error) {

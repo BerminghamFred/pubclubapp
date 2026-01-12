@@ -32,6 +32,16 @@ export interface CtaClickEvent {
   type: 'book' | 'call' | 'website' | 'spin' | 'spin_view_pub'
 }
 
+export interface HomepageTileEvent {
+  sessionId: string
+  slotId: string
+  type: 'impression' | 'click'
+  title?: string
+  amenity?: string
+  city?: string
+  href?: string
+}
+
 // Event tracking functions
 export async function trackPageView(event: PageViewEvent) {
   try {
@@ -213,6 +223,54 @@ export async function trackCtaClick(event: CtaClickEvent) {
     })
   } catch (error) {
     console.error('Failed to track CTA click:', error)
+  }
+}
+
+export async function trackHomepageTile(event: HomepageTileEvent) {
+  try {
+    console.log('[Analytics DB] Creating homepage tile event:', event)
+    const result = await prisma.eventHomepageTile.create({
+      data: {
+        sessionId: event.sessionId,
+        slotId: event.slotId,
+        type: event.type,
+        title: event.title,
+        amenity: event.amenity,
+        city: event.city,
+        href: event.href,
+      }
+    })
+    console.log('[Analytics DB] Homepage tile event created:', result.id)
+    return result
+  } catch (error) {
+    console.error('[Analytics DB] Failed to track homepage tile:', error)
+    throw error
+  }
+}
+
+// Batch create homepage tile events with skipDuplicates for impressions
+export async function trackHomepageTileBatch(events: HomepageTileEvent[]) {
+  try {
+    if (events.length === 0) return []
+    
+    console.log('[Analytics DB] Creating homepage tile events batch:', events.length)
+    const result = await prisma.eventHomepageTile.createMany({
+      data: events.map(event => ({
+        sessionId: event.sessionId,
+        slotId: event.slotId,
+        type: event.type,
+        title: event.title,
+        amenity: event.amenity,
+        city: event.city,
+        href: event.href,
+      })),
+      skipDuplicates: true,
+    })
+    console.log('[Analytics DB] Homepage tile events batch created:', result.count)
+    return result
+  } catch (error) {
+    console.error('[Analytics DB] Failed to track homepage tile batch:', error)
+    throw error
   }
 }
 

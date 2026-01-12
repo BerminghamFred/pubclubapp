@@ -1,7 +1,7 @@
 // Client-side analytics SDK for tracking events
 
 export interface AnalyticsEvent {
-  type: 'page_view' | 'search' | 'filter_usage' | 'cta_click'
+  type: 'page_view' | 'search' | 'filter_usage' | 'cta_click' | 'homepage_tile'
   data: any
 }
 
@@ -215,6 +215,47 @@ class AnalyticsClient {
       }
     })
   }
+
+  // Homepage tile tracking (impressions and clicks)
+  trackHomepageTile(data: {
+    slotId: string
+    type: 'impression' | 'click'
+    title?: string
+    amenity?: string
+    city?: string
+    href?: string
+  }) {
+    // Client-side deduping: only send each impression once per session
+    if (data.type === 'impression' && typeof window !== 'undefined') {
+      const STORAGE_KEY = 'pc_homepage_tile_impressions_sent'
+      
+      try {
+        const stored = sessionStorage.getItem(STORAGE_KEY)
+        const sentSlotIds = stored ? new Set<string>(JSON.parse(stored)) : new Set<string>()
+        
+        // Check if this slotId impression was already sent in this session
+        if (sentSlotIds.has(data.slotId)) {
+          console.log('[Analytics] Homepage tile impression already tracked for this session:', data.slotId)
+          return // Skip - already sent
+        }
+        
+        // Add to Set and save back to sessionStorage
+        sentSlotIds.add(data.slotId)
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(sentSlotIds)))
+      } catch (error) {
+        // If sessionStorage fails (e.g., private browsing), still try to send
+        console.warn('[Analytics] Failed to check sessionStorage for homepage tile deduping:', error)
+      }
+    }
+    
+    this.track({
+      type: 'homepage_tile',
+      data: {
+        sessionId: this.sessionId,
+        ...data,
+      }
+    })
+  }
 }
 
 // Create singleton instance
@@ -227,6 +268,7 @@ export function useAnalytics() {
     trackSearch: analytics.trackSearch.bind(analytics),
     trackFilterUsage: analytics.trackFilterUsage.bind(analytics),
     trackCtaClick: analytics.trackCtaClick.bind(analytics),
+    trackHomepageTile: analytics.trackHomepageTile.bind(analytics),
     flush: () => analytics.flush(),
   }
 }

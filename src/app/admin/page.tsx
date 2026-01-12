@@ -27,6 +27,16 @@ interface AnalyticsOverview {
     totalViewPubClicks: number;
     conversionRate: number;
   };
+  homepageTiles?: {
+    impressions: number;
+    clicks: number;
+    clickThroughRate: number;
+    topTiles: Array<{
+      slotId: string;
+      title: string;
+      clicks: number;
+    }>;
+  };
 }
 
 export default function AdminDashboard() {
@@ -335,6 +345,54 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Homepage Tiles Metrics */}
+        {analytics?.homepageTiles && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Trending Tiles - Impressions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{(analytics.homepageTiles.impressions || 0).toLocaleString()}</div>
+                <p className="text-xs text-gray-500 mt-1">Total tile views</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Trending Tiles - Clicks</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{(analytics.homepageTiles.clicks || 0).toLocaleString()}</div>
+                <p className="text-xs text-gray-500 mt-1">Total tile clicks</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Click-Through Rate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{(analytics.homepageTiles.clickThroughRate || 0).toFixed(2)}%</div>
+                <p className="text-xs text-gray-500 mt-1">Clicks / Impressions</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Top Performing Tile</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics.homepageTiles.topTiles.length > 0 ? (
+                  <>
+                    <div className="text-lg font-bold truncate">{analytics.homepageTiles.topTiles[0].title}</div>
+                    <p className="text-xs text-gray-500 mt-1">{analytics.homepageTiles.topTiles[0].clicks} clicks</p>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500">No data</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Spin the Wheel Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

@@ -8,10 +8,13 @@ import {
   trackFilterUsage, 
   trackFilterUsageBatch,
   trackCtaClick,
+  trackHomepageTile,
+  trackHomepageTileBatch,
   type PageViewEvent,
   type SearchEvent,
   type FilterUsageEvent,
-  type CtaClickEvent
+  type CtaClickEvent,
+  type HomepageTileEvent
 } from '@/lib/analytics'
 
 export async function POST(request: NextRequest) {
@@ -34,9 +37,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, processed: 0 })
     }
 
-    // Separate events for batch processing (filter_usage and page_view)
+    // Separate events for batch processing (filter_usage, page_view, and homepage_tile)
     const filterUsageEvents: FilterUsageEvent[] = []
     const pageViewEvents: PageViewEvent[] = []
+    const homepageTileEvents: HomepageTileEvent[] = []
     const otherEvents: any[] = []
 
     events.forEach((event: any) => {
@@ -44,6 +48,8 @@ export async function POST(request: NextRequest) {
         filterUsageEvents.push(event.data as FilterUsageEvent)
       } else if (event.type === 'page_view') {
         pageViewEvents.push(event.data as PageViewEvent)
+      } else if (event.type === 'homepage_tile') {
+        homepageTileEvents.push(event.data as HomepageTileEvent)
       } else {
         otherEvents.push(event)
       }
@@ -67,6 +73,17 @@ export async function POST(request: NextRequest) {
         console.log('[API /events] Tracked page view batch:', pageViewEvents.length)
       } catch (error) {
         console.error('[API /events] Failed to process page view batch:', error)
+        // Continue processing other events even if batch fails
+      }
+    }
+
+    // Process homepage_tile events in batch with skipDuplicates
+    if (homepageTileEvents.length > 0) {
+      try {
+        await trackHomepageTileBatch(homepageTileEvents)
+        console.log('[API /events] Tracked homepage tile batch:', homepageTileEvents.length)
+      } catch (error) {
+        console.error('[API /events] Failed to process homepage tile batch:', error)
         // Continue processing other events even if batch fails
       }
     }

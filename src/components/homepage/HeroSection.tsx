@@ -36,17 +36,55 @@ export default function HeroSection() {
   return (
     <section className="bg-gradient-to-br from-[#08d78c] to-[#06b875] text-white py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Find Your Perfect Pub
           </h1>
-          <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl text-white/90 mb-10 max-w-3xl mx-auto">
             Use our filters to find the perfect pub for you. From pubs with fireplaces to beer gardens, karaoke or live music, we've got you covered.
           </p>
         </div>
 
+        {/* Primary CTAs - Moved above search bar */}
+        <div className="max-w-2xl mx-auto mb-10">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/pubs?open_now=true"
+              className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-white to-white/90 hover:from-white hover:to-white text-[#08d78c] px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).gtag) {
+                  (window as any).gtag('event', 'home_quick_chip_click', {
+                    event_category: 'homepage',
+                    event_label: 'open_now',
+                    chip_type: 'action'
+                  });
+                }
+              }}
+            >
+              <Clock className="w-6 h-6" />
+              Open now near you →
+            </Link>
+            <Link
+              href="/pubs?view=map"
+              className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-white to-white/90 hover:from-white hover:to-white text-[#08d78c] px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).gtag) {
+                  (window as any).gtag('event', 'home_quick_chip_click', {
+                    event_category: 'homepage',
+                    event_label: 'view_map',
+                    chip_type: 'action'
+                  });
+                }
+              }}
+            >
+              <MapPin className="w-6 h-6" />
+              View on Map
+            </Link>
+          </div>
+        </div>
+
         {/* Main Search Bar */}
-        <div className="max-w-2xl mx-auto mb-8">
+        <div className="max-w-2xl mx-auto mb-10">
           <SearchBar
             placeholder="Search by pub name, area, or features..."
             onSearch={handleSearch}
@@ -59,7 +97,7 @@ export default function HeroSection() {
           <div className="text-center mb-6">
             <h2 className="text-lg font-semibold text-white/90 mb-2">Explore →</h2>
           </div>
-          <div className="flex flex-wrap justify-center gap-3 mb-8">
+          <div className="flex flex-wrap justify-center gap-3">
             {quickChips.map((chip) => (
               <Link
                 key={chip.label}
@@ -80,35 +118,6 @@ export default function HeroSection() {
                 <span>{chip.label}</span>
               </Link>
             ))}
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="max-w-2xl mx-auto">
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/pubs?open_now=true"
-              className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200"
-              onClick={() => {
-                if (typeof window !== 'undefined' && (window as any).gtag) {
-                  (window as any).gtag('event', 'home_quick_chip_click', {
-                    event_category: 'homepage',
-                    event_label: 'open_now',
-                    chip_type: 'action'
-                  });
-                }
-              }}
-            >
-              <Clock className="w-5 h-5" />
-              Open now near you →
-            </Link>
-            <Link
-              href="/pubs?view=map"
-              className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200"
-            >
-              <MapPin className="w-5 h-5" />
-              View on Map
-            </Link>
           </div>
         </div>
       </div>

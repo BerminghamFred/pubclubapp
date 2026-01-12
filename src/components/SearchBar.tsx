@@ -127,13 +127,20 @@ export default function SearchBar({
     
     if (!isAlreadySelected) {
       const newSelections = [...selections, suggestion];
+      
       // If controlled, call onSearch; otherwise update internal state
       if (isControlled) {
         if (onSearchRef.current) {
           onSearchRef.current(newSelections);
         }
+        // Navigate immediately for controlled components
+        const url = generateSearchUrl(newSelections);
+        router.push(url);
       } else {
         setInternalSelections(newSelections);
+        // Navigate immediately for uncontrolled components
+        const url = generateSearchUrl(newSelections);
+        router.push(url);
       }
     }
     

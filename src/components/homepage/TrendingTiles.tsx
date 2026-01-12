@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Star, TrendingUp, MapPin } from 'lucide-react';
+import { useAnalytics } from '@/lib/analytics-client';
 
 interface TrendingTile {
   id: string;
@@ -22,6 +23,9 @@ export default function TrendingTiles() {
   const [tiles, setTiles] = useState<TrendingTile[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleTiles, setVisibleTiles] = useState(6);
+  const { trackHomepageTile, flush } = useAnalytics();
+  const tileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const trackedImpressions = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     loadTrendingTiles();
@@ -117,7 +121,17 @@ export default function TrendingTiles() {
   ];
 
   const handleTileClick = (tile: TrendingTile) => {
-    // Track analytics
+    // Track click using analytics client
+    trackHomepageTile({
+      slotId: tile.id,
+      type: 'click',
+      title: tile.title,
+      amenity: tile.amenity,
+      city: tile.city,
+      href: tile.href,
+    });
+    
+    // Also track with gtag for backward compatibility
     if (typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', 'home_tile_click', {
         event_category: 'homepage',
@@ -128,20 +142,68 @@ export default function TrendingTiles() {
         pub_count: tile.pubCount
       });
     }
+    
+    // Flush analytics after a short delay
+    setTimeout(() => {
+      flush();
+    }, 500);
   };
 
-  const handleTileView = (tile: TrendingTile) => {
-    // Track impression
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'home_tile_view', {
-        event_category: 'homepage',
-        event_label: tile.title,
-        slot_id: tile.id,
-        amenity: tile.amenity,
-        city: tile.city
-      });
-    }
-  };
+  // Set up IntersectionObserver for impression tracking
+  useEffect(() => {
+    if (tiles.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const tileId = entry.target.getAttribute('data-tile-id');
+            if (tileId && !trackedImpressions.current.has(tileId)) {
+              trackedImpressions.current.add(tileId);
+              
+              const tile = tiles.find(t => t.id === tileId);
+              if (tile) {
+                trackHomepageTile({
+                  slotId: tile.id,
+                  type: 'impression',
+                  title: tile.title,
+                  amenity: tile.amenity,
+                  city: tile.city,
+                  href: tile.href,
+                });
+                
+                // Also track with gtag for backward compatibility
+                if (typeof window !== 'undefined' && (window as any).gtag) {
+                  (window as any).gtag('event', 'home_tile_view', {
+                    event_category: 'homepage',
+                    event_label: tile.title,
+                    slot_id: tile.id,
+                    amenity: tile.amenity,
+                    city: tile.city
+                  });
+                }
+              }
+            }
+          }
+        });
+      },
+      {
+        threshold: 0.5, // Track when 50% of tile is visible
+        rootMargin: '0px',
+      }
+    );
+
+    // Observe all visible tiles
+    tileRefs.current.forEach((ref) => {
+      if (ref) {
+        observer.observe(ref);
+      }
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [tiles, trackHomepageTile]);
 
   if (loading) {
     return (
@@ -188,9 +250,18 @@ export default function TrendingTiles() {
               href={tile.href}
               className="block group"
               onClick={() => handleTileClick(tile)}
-              onMouseEnter={() => handleTileView(tile)}
             >
-              <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden h-full flex flex-col">
+              <div
+                ref={(el) => {
+                  if (el) {
+                    tileRefs.current.set(tile.id, el);
+                  } else {
+                    tileRefs.current.delete(tile.id);
+                  }
+                }}
+                data-tile-id={tile.id}
+                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden h-full flex flex-col"
+              >
                 {/* Tile Header */}
                 <div className="p-6 pb-4 flex-1 flex flex-col">
                   <div className="flex items-start justify-between mb-3">

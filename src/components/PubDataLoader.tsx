@@ -1114,8 +1114,7 @@ export default function PubDataLoader() {
                 </div>
               ) : filteredPubs.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <AnimatePresence mode="popLayout">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" key={`grid-${selectedArea}-${selectedAmenities.join(',')}-${minRating}-${openingFilter}-${searchTerm}`}>
                 {displayedPubs.map((pub) => (
                         <PubResultCard
                     key={pub.id}
@@ -1136,7 +1135,6 @@ export default function PubDataLoader() {
                           }}
                   />
                 ))}
-                    </AnimatePresence>
                   </div>
 
                   {/* Load More */}

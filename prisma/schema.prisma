@@ -215,6 +215,20 @@ model EventCtaClick {
   @@map("events_cta_click")
 }
 
+model EventHomepageTile {
+  id        String   @id @default(cuid())
+  ts        DateTime @default(now())
+  sessionId String
+  slotId    String
+  type      String   // 'impression' or 'click'
+  title     String?
+  amenity   String?
+  city      String?
+  href      String?
+
+  @@map("events_homepage_tile")
+}
+
 model PubViewsDaily {
   id    String   @id @default(cuid())
   pubId String
