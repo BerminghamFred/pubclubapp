@@ -38,7 +38,7 @@ export default function HeroSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Find Your Perfect Pub
+            What are you looking for?
           </h1>
           <p className="text-xl md:text-2xl text-white/90 mb-10 max-w-3xl mx-auto">
             Use our filters to find the perfect pub for you. From pubs with fireplaces to beer gardens, karaoke or live music, we've got you covered.
