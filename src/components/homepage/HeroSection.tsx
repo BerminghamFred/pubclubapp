@@ -62,7 +62,7 @@ export default function HeroSection() {
               }}
             >
               <Clock className="w-6 h-6" />
-              Open now near you →
+              Open now near you
             </Link>
             <Link
               href="/pubs?view=map"
