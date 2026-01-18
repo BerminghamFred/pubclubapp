@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pub Club - Download the App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .container {
+            text-align: center;
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .app-button {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            color: white;
+        }
+        
+        .app-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .app-button:active {
+            transform: translateY(0);
+        }
+        
+        .app-store {
+            background: #000;
+        }
+        
+        .google-play {
+            background: #01875f;
+        }
+        
+        .loading {
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pub Club</h1>
+        <p>Find the right pub for any occasion</p>
+        <div class="buttons" id="buttons">
+            <a href="https://apps.apple.com/app/apple-store/id6450182460?pt=126437693&ct=website&mt=8" class="app-button app-store">Download on the App Store</a>
+            <a href="https://play.google.com/store/apps/details?id=app.pubclub&hl=en_GB" class="app-button google-play">Get it on Google Play</a>
+        </div>
+        <div class="loading" id="loading" style="display: none;">Redirecting...</div>
+    </div>
+
+    <noscript>
+        <style>
+            .container {
+                display: block;
+            }
+        </style>
+    </noscript>
+
+    <script>
+        (function() {
+            var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            var isAndroid = /android/i.test(userAgent);
+            var isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+            
+            // Show loading indicator
+            var loadingEl = document.getElementById('loading');
+            var buttonsEl = document.getElementById('buttons');
+            
+            if (isAndroid) {
+                // Redirect Android devices to Google Play Store
+                loadingEl.style.display = 'block';
+                buttonsEl.style.display = 'none';
+                window.location.href = 'https://play.google.com/store/apps/details?id=app.pubclub&hl=en_GB';
+            } else if (isIOS) {
+                // Redirect iOS devices to Apple App Store
+                loadingEl.style.display = 'block';
+                buttonsEl.style.display = 'none';
+                window.location.href = 'https://apps.apple.com/app/apple-store/id6450182460?pt=126437693&ct=website&mt=8';
+            }
+            // For desktop/unknown devices, buttons are already visible
+        })();
+    </script>
+</body>
+</html>
+
