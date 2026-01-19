@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { useMemo } from 'react';
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -8,6 +9,19 @@ interface QRCodeModalProps {
 }
 
 export default function QRCodeModal({ isOpen, onClose }: QRCodeModalProps) {
+  // Generate the app download URL
+  const appUrl = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/app.html`;
+    }
+    return 'https://pubclub.co.uk/app.html';
+  }, []);
+
+  // Generate QR code URL
+  const qrCodeUrl = useMemo(() => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(appUrl)}`;
+  }, [appUrl]);
+
   if (!isOpen) return null;
 
   return (
@@ -15,7 +29,7 @@ export default function QRCodeModal({ isOpen, onClose }: QRCodeModalProps) {
       <div className="bg-white rounded-lg max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            Scan QR Code to Download
+            Scan QR Code to Download the Pub Club App
           </h3>
           <button
             onClick={onClose}
@@ -33,18 +47,14 @@ export default function QRCodeModal({ isOpen, onClose }: QRCodeModalProps) {
           {/* QR Code */}
           <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block mb-6">
             <img
-              src="/qr-code-download.png"
-              alt="QR Code to download Pub Club app from Google Play Store"
-              className="w-48 h-48 mx-auto"
-              onError={(e) => {
-                // Fallback if local image is not available - use QR service
-                e.currentTarget.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://q.me-qr.com/KCfK3iVI')}`;
-              }}
+              src={qrCodeUrl}
+              alt="QR Code to download Pub Club app"
+              className="w-64 h-64 mx-auto"
             />
           </div>
           
           <p className="text-sm text-gray-500">
-            Or visit: <span className="font-mono text-xs break-all">https://q.me-qr.com/KCfK3iVI</span>
+            Or visit: <span className="font-mono text-xs break-all">{appUrl}</span>
           </p>
         </div>
       </div>

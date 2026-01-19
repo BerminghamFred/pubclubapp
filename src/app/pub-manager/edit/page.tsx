@@ -53,21 +53,28 @@ export default function EditPubPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Fetch full pub data
-        const pubResponse = await fetch(`/api/pubs/${data.pubId}`);
+        // Use pubId from verify response or localStorage
+        const pubId = data.pubId || localStorage.getItem('pub-manager-pub-id');
+        if (!pubId) {
+          router.push('/pub-manager/login');
+          return;
+        }
+        
+        // Fetch full pub data from database
+        const pubResponse = await fetch(`/api/pubs/${pubId}`);
         const pubInfo = await pubResponse.json();
         
-        if (pubInfo.success) {
+        if (pubInfo) {
           setPubData({
-            id: pubInfo.pub.id,
-            name: pubInfo.pub.name,
-            description: pubInfo.pub.description,
-            phone: pubInfo.pub.phone || '',
-            website: pubInfo.pub.website || '',
-            openingHours: pubInfo.pub.openingHours,
-            amenities: pubInfo.pub.amenities || [],
-            last_updated: pubInfo.pub.last_updated,
-            updated_by: pubInfo.pub.updated_by
+            id: pubInfo.id,
+            name: pubInfo.name || '',
+            description: pubInfo.description || '',
+            phone: pubInfo.phone || '',
+            website: pubInfo.website || '',
+            openingHours: pubInfo.openingHours || '',
+            amenities: pubInfo.amenities?.map((a: any) => a.amenity?.key || a.amenity?.label || a) || [],
+            last_updated: pubInfo.lastUpdated,
+            updated_by: pubInfo.updatedBy
           });
         }
       } else {
@@ -110,7 +117,14 @@ export default function EditPubPage() {
       if (result.success) {
         setMessage('Pub details updated successfully!');
         setMessageType('success');
-        setPubData(result.pub);
+        setPubData({
+          ...pubData,
+          ...result.pub,
+          last_updated: result.pub.lastUpdated,
+          updated_by: result.pub.updatedBy
+        });
+        // Clear message after 5 seconds
+        setTimeout(() => setMessage(''), 5000);
       } else {
         setMessage(result.message || 'Failed to update pub details');
         setMessageType('error');

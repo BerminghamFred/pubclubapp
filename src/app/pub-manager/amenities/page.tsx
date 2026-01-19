@@ -21,6 +21,7 @@ export default function ManageAmenitiesPage() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [amenityCategories, setAmenityCategories] = useState<Record<string, string[]>>({});
   const router = useRouter();
 
@@ -56,16 +57,22 @@ export default function ManageAmenitiesPage() {
       const data = await response.json();
 
       if (data.success) {
-        const pubResponse = await fetch(`/api/pubs/${data.pubId}`);
+        const pubId = data.pubId || localStorage.getItem('pub-manager-pub-id');
+        if (!pubId) {
+          router.push('/pub-manager/login');
+          return;
+        }
+        
+        const pubResponse = await fetch(`/api/pubs/${pubId}`);
         const pubInfo = await pubResponse.json();
         
-        if (pubInfo.success) {
+        if (pubInfo) {
           setPubData({
-            id: pubInfo.pub.id,
-            name: pubInfo.pub.name,
-            amenities: pubInfo.pub.amenities || [],
-            last_updated: pubInfo.pub.last_updated,
-            updated_by: pubInfo.pub.updated_by
+            id: pubInfo.id,
+            name: pubInfo.name || '',
+            amenities: pubInfo.amenities?.map((a: any) => a.amenity?.key || a.amenity?.label || a) || [],
+            last_updated: pubInfo.lastUpdated,
+            updated_by: pubInfo.updatedBy
           });
         }
       } else {
@@ -103,12 +110,20 @@ export default function ManageAmenitiesPage() {
       if (result.success) {
         setMessage('Amenities updated successfully!');
         setMessageType('success');
-        setPubData(result.pub);
+        setPubData({
+          ...pubData,
+          amenities: result.pub.amenities || [],
+          last_updated: result.pub.lastUpdated,
+          updated_by: result.pub.updatedBy
+        });
+        // Clear message after 5 seconds
+        setTimeout(() => setMessage(''), 5000);
       } else {
         setMessage(result.message || 'Failed to update amenities');
         setMessageType('error');
       }
     } catch (error) {
+      console.error('Update error:', error);
       setMessage('An error occurred while saving. Please try again.');
       setMessageType('error');
     } finally {
@@ -241,6 +256,17 @@ export default function ManageAmenitiesPage() {
             </nav>
           </div>
 
+          {/* Search Bar */}
+          <div className="mb-6">
+            <input
+              type="text"
+              placeholder="Search amenities..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+            />
+          </div>
+
           {/* Category Description */}
           {selectedCategory && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -260,7 +286,9 @@ export default function ManageAmenitiesPage() {
 
           {/* Amenities Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {selectedCategory && amenityCategories[selectedCategory]?.map((amenity) => (
+            {selectedCategory && amenityCategories[selectedCategory]?.filter((amenity) => 
+              searchQuery === '' || amenity.toLowerCase().includes(searchQuery.toLowerCase())
+            ).map((amenity) => (
               <label key={amenity} className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
                 pubData.amenities.includes(amenity)
                   ? 'border-[#08d78c] bg-[#08d78c]/5 shadow-sm'

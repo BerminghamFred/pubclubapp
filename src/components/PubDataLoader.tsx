@@ -158,6 +158,66 @@ export default function PubDataLoader() {
   // SearchBar state
   const [searchSelections, setSearchSelections] = useState<SearchSuggestion[]>([]);
   
+  // Initialize searchSelections from URL parameters
+  useEffect(() => {
+    if (!allPubs.length) return;
+    
+    const newSelections: SearchSuggestion[] = [];
+    
+    // Check if searchTerm matches a pub name (exact match preferred, but also check partial)
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      // First try exact match
+      let matchingPub = allPubs.find(
+        pub => pub.name.toLowerCase() === searchLower
+      );
+      
+      // If no exact match, try partial match (pub name contains search term)
+      if (!matchingPub) {
+        matchingPub = allPubs.find(
+          pub => pub.name.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      if (matchingPub) {
+        newSelections.push({
+          id: `pub-${matchingPub.id}`,
+          text: matchingPub.name,
+          type: 'pub',
+          icon: '🍺',
+          color: 'bg-amber-100 text-amber-800 border-amber-200',
+          data: { pub: matchingPub.name }
+        });
+      }
+    }
+    
+    // Check if selectedArea is set and not default
+    if (selectedArea && selectedArea !== DEFAULT_AREA) {
+      newSelections.push({
+        id: `area-${selectedArea}`,
+        text: selectedArea,
+        type: 'area',
+        icon: '📍',
+        color: 'bg-blue-100 text-blue-800 border-blue-200',
+        data: { area: selectedArea }
+      });
+    }
+    
+    // Add amenity selections
+    selectedAmenities.forEach(amenity => {
+      newSelections.push({
+        id: `amenity-${amenity}`,
+        text: amenity,
+        type: 'amenity',
+        icon: '🏷️',
+        color: 'bg-green-100 text-green-800 border-green-200',
+        data: { amenity }
+      });
+    });
+    
+    setSearchSelections(newSelections);
+  }, [searchTerm, selectedArea, selectedAmenities, allPubs, DEFAULT_AREA]);
+  
   // Load more state (for list view)
   const [itemsToShow, setItemsToShow] = useState(12);
   const pubsPerPage = 12;
@@ -648,7 +708,24 @@ export default function PubDataLoader() {
   };
 
   const handleRemoveSearchSelection = (selectionId: string) => {
-    setSearchSelections(selections => selections.filter(s => s.id !== selectionId));
+    const selectionToRemove = searchSelections.find(s => s.id === selectionId);
+    if (!selectionToRemove) return;
+    
+    // Remove from searchSelections
+    const newSelections = searchSelections.filter(s => s.id !== selectionId);
+    setSearchSelections(newSelections);
+    
+    // Update URL based on selection type
+    if (selectionToRemove.type === 'pub') {
+      // If removing a pub selection, clear the search term
+      setSearchTerm('');
+    } else if (selectionToRemove.type === 'area') {
+      // If removing an area selection, reset to default
+      setSelectedArea(DEFAULT_AREA);
+    } else if (selectionToRemove.type === 'amenity') {
+      // If removing an amenity selection, remove from selectedAmenities
+      setSelectedAmenities(selectedAmenities.filter(a => a !== selectionToRemove.data.amenity));
+    }
   };
 
   const handleAmenityToggle = (amenity: string) => {

@@ -1,13 +1,13 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getPubManagerFromRequest } from '@/utils/auth';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { pubData } from '@/data/pubData';
+import { prisma } from '@/lib/prisma';
 
 export async function PUT(request: NextRequest) {
   try {
     // Verify pub manager authentication
-    const authData = getPubManagerFromRequest(request);
+    const authData = await getPubManagerFromRequest(request);
     if (!authData) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
@@ -15,7 +15,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { pub } = authData;
+    const { pub, token } = authData;
     const updates = await request.json();
 
     // Validate updateable fields
@@ -35,47 +35,97 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Find the pub in the data array and update it
-    const pubIndex = pubData.findIndex(p => p.id === pub.id);
-    if (pubIndex === -1) {
-      return NextResponse.json(
-        { success: false, message: 'Pub not found' },
-        { status: 404 }
-      );
+    // Update pub in database
+    const updatedPub = await prisma.pub.update({
+      where: { id: pub.id },
+      data: {
+        name: updateData.name,
+        description: updateData.description,
+        phone: updateData.phone,
+        website: updateData.website,
+        openingHours: updateData.openingHours,
+        lastUpdated: new Date(),
+        updatedBy: token.email,
+      },
+      include: {
+        amenities: {
+          include: {
+            amenity: true
+          }
+        }
+      }
+    });
+
+    // Update amenities if provided
+    if (updates.amenities && Array.isArray(updates.amenities)) {
+      // Get all amenities
+      const allAmenities = await prisma.amenity.findMany();
+      const amenityMap = new Map(allAmenities.map(a => [a.key.toLowerCase(), a.id]));
+
+      // Delete existing pub amenities
+      await prisma.pubAmenity.deleteMany({
+        where: { pubId: pub.id }
+      });
+
+      // Create new pub amenities
+      const amenityIds = updates.amenities
+        .map((amenityKey: string) => {
+          const key = amenityKey.toLowerCase().replace(/\s+/g, '-');
+          return amenityMap.get(key);
+        })
+        .filter((id): id is number => id !== undefined);
+
+      if (amenityIds.length > 0) {
+        await prisma.pubAmenity.createMany({
+          data: amenityIds.map(amenityId => ({
+            pubId: pub.id,
+            amenityId,
+            value: true
+          }))
+        });
+      }
     }
 
-    // Update the pub data
-    const updatedPub = {
-      ...pubData[pubIndex],
-      ...updateData,
-      last_updated: new Date().toISOString(),
-      updated_by: 'manager'
-    };
+    // Log audit trail
+    try {
+      await prisma.adminAudit.create({
+        data: {
+          actorId: token.email,
+          action: 'update',
+          entity: 'pub',
+          entityId: pub.id,
+          diff: updateData,
+        }
+      });
+    } catch (auditError) {
+      console.error('Failed to log audit trail:', auditError);
+    }
 
-    pubData[pubIndex] = updatedPub;
-
-    // Write the updated data back to pubData.ts
-    const newFileContent = `import { Pub } from './types';
-
-export const pubData: Pub[] = ${JSON.stringify(pubData, null, 2)};
-`;
-
-    const pubDataPath = path.join(process.cwd(), 'src', 'data', 'pubData.ts');
-    await fs.writeFile(pubDataPath, newFileContent, 'utf-8');
+    // Fetch updated pub with amenities
+    const finalPub = await prisma.pub.findUnique({
+      where: { id: pub.id },
+      include: {
+        amenities: {
+          include: {
+            amenity: true
+          }
+        }
+      }
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Pub data updated successfully',
       pub: {
-        id: updatedPub.id,
-        name: updatedPub.name,
-        description: updatedPub.description,
-        phone: updatedPub.phone,
-        website: updatedPub.website,
-        openingHours: updatedPub.openingHours,
-        amenities: updatedPub.amenities,
-        last_updated: updatedPub.last_updated,
-        updated_by: updatedPub.updated_by
+        id: finalPub!.id,
+        name: finalPub!.name,
+        description: finalPub!.description,
+        phone: finalPub!.phone,
+        website: finalPub!.website,
+        openingHours: finalPub!.openingHours,
+        amenities: finalPub!.amenities.map(pa => pa.amenity.key),
+        lastUpdated: finalPub!.lastUpdated,
+        updatedBy: finalPub!.updatedBy
       }
     });
 

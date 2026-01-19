@@ -85,40 +85,72 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    console.log(`[Login] Looking for manager with email: ${emailLower}`);
+    console.log(`[Login] Manager found:`, manager ? {
+      id: manager.id,
+      email: manager.email,
+      pubsCount: manager.pubs.length,
+      pubs: manager.pubs.map(pm => ({
+        pubId: pm.pub.id,
+        pubName: pm.pub.name,
+        managerEmail: pm.pub.managerEmail,
+        hasPassword: !!pm.pub.managerPassword
+      }))
+    } : 'NOT FOUND');
+
     if (manager && manager.pubs.length > 0) {
       // Manager found in database - check password from pub's managerPassword field
-      // Find a pub with a password set
+      // First, try to find a pub where managerEmail matches (most direct)
       let pubToUse = manager.pubs.find(pm => 
         pm.pub.managerPassword && pm.pub.managerEmail?.toLowerCase() === emailLower
       )?.pub;
 
-      // If no pub with matching managerEmail and password, try any pub with password
+      // If no pub with matching managerEmail, try any pub with password
+      // This handles the case where manager was added via admin but pub's managerEmail wasn't updated
       if (!pubToUse) {
         pubToUse = manager.pubs.find(pm => pm.pub.managerPassword)?.pub;
       }
 
-      // If still no pub with password, use the first pub
-      if (!pubToUse) {
-        pubToUse = manager.pubs[0].pub;
-      }
-
-      // Check if pub has a password set
-      if (!pubToUse.managerPassword) {
+      // If still no pub with password, return error
+      if (!pubToUse || !pubToUse.managerPassword) {
         return NextResponse.json(
-          { success: false, message: 'No password set for this pub. Please contact Pub Club support.' },
+          { success: false, message: 'No password set for this pub. Please contact Pub Club support to set your password.' },
           { status: 401 }
         );
       }
 
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, pubToUse.managerPassword);
+      // Verify password - try all pubs associated with this manager until we find a matching password
+      let isValidPassword = false;
+      let authenticatedPub = null;
+
+      console.log(`[Login] Checking password against ${manager.pubs.length} pub(s)`);
+      for (const pm of manager.pubs) {
+        if (pm.pub.managerPassword) {
+          console.log(`[Login] Checking password for pub ${pm.pub.id} (${pm.pub.name})`);
+          const passwordMatch = await bcrypt.compare(password, pm.pub.managerPassword);
+          console.log(`[Login] Password match for pub ${pm.pub.id}: ${passwordMatch}`);
+          if (passwordMatch) {
+            isValidPassword = true;
+            authenticatedPub = pm.pub;
+            break;
+          }
+        } else {
+          console.log(`[Login] Pub ${pm.pub.id} has no password set`);
+        }
+      }
 
       if (!isValidPassword) {
+        console.log(`[Login] Password verification failed for all pubs`);
         return NextResponse.json(
           { success: false, message: 'Invalid email or password' },
           { status: 401 }
         );
       }
+
+      console.log(`[Login] Authentication successful for pub ${authenticatedPub.id}`);
+
+      // Use the pub where password matched
+      pubToUse = authenticatedPub;
 
       // Generate JWT token
       const token = jwt.sign(

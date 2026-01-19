@@ -1,9 +1,11 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getPubManagerFromRequest } from '@/utils/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const authData = getPubManagerFromRequest(request);
+    const authData = await getPubManagerFromRequest(request);
 
     if (!authData) {
       return NextResponse.json(
@@ -12,13 +14,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { pub, token } = authData;
+    const { pub, token, pubs } = authData;
 
     return NextResponse.json({
       success: true,
       pubId: pub.id,
       pubName: pub.name,
-      email: pub.manager_email,
+      email: token.email,
+      pubs: pubs.map(p => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug
+      })),
       message: 'Token verified successfully'
     });
 

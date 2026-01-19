@@ -20,6 +20,11 @@ export const metadata: Metadata = {
   authors: [{ name: "Pub Club" }],
   creator: "Pub Club",
   publisher: "Pub Club",
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
+  },
   robots: {
     index: true,
     follow: true,

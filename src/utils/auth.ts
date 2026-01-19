@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest, NextResponse } from 'next/server';
-import { pubData } from '@/data/pubData';
+import { prisma } from '@/lib/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+export const runtime = "nodejs";
 
 export interface PubManagerToken {
   pubId: string;
@@ -16,20 +18,13 @@ export interface PubManagerToken {
 export function verifyPubManagerToken(token: string): PubManagerToken | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as PubManagerToken;
-    
-    // Verify the pub still exists and has manager access
-    const pub = pubData.find(p => p.id === decoded.pubId);
-    if (!pub || !pub.manager_email || pub.manager_email.toLowerCase() !== decoded.email.toLowerCase()) {
-      return null;
-    }
-
     return decoded;
   } catch (error) {
     return null;
   }
 }
 
-export function getPubManagerFromRequest(request: NextRequest): { pub: any; token: PubManagerToken } | null {
+export async function getPubManagerFromRequest(request: NextRequest): Promise<{ pub: any; token: PubManagerToken; pubs: any[] } | null> {
   // Try to get token from Authorization header first
   const authHeader = request.headers.get('authorization');
   let token: string | null = null;
@@ -55,12 +50,51 @@ export function getPubManagerFromRequest(request: NextRequest): { pub: any; toke
     return null;
   }
 
-  const pub = pubData.find(p => p.id === decodedToken.pubId);
+  // Find manager in database
+  const manager = await prisma.manager.findUnique({
+    where: { email: decodedToken.email.toLowerCase() },
+    include: {
+      pubs: {
+        include: {
+          pub: true
+        }
+      }
+    }
+  });
+
+  if (!manager) {
+    return null;
+  }
+
+  // Find the specific pub from token
+  const pub = await prisma.pub.findUnique({
+    where: { id: decodedToken.pubId },
+    include: {
+      amenities: {
+        include: {
+          amenity: true
+        }
+      },
+      photos: true,
+      city: true,
+      borough: true
+    }
+  });
+
   if (!pub) {
     return null;
   }
 
-  return { pub, token: decodedToken };
+  // Verify manager has access to this pub
+  const hasAccess = manager.pubs.some(pm => pm.pubId === pub.id);
+  if (!hasAccess) {
+    return null;
+  }
+
+  // Get all pubs this manager has access to
+  const accessiblePubs = manager.pubs.map(pm => pm.pub);
+
+  return { pub, token: decodedToken, pubs: accessiblePubs };
 }
 
 export function createPubManagerResponse(data: any, token?: string): Response {

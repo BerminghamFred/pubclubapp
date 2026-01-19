@@ -37,7 +37,7 @@ export default function Navigation() {
   return (
     <nav className={`bg-black text-white shadow-lg ${isMapView ? 'hidden md:block' : ''}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-24 py-2">
+        <div className="flex justify-between items-center h-24 py-0.5">
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <Image 
@@ -45,7 +45,7 @@ export default function Navigation() {
               alt="Pub Club" 
               width={100} 
               height={100}
-              className="h-20 w-auto"
+              className="h-[92px] w-auto"
             />
           </Link>
 

@@ -81,8 +81,11 @@ export async function POST(
       },
     });
 
-    // Update pub's legacy manager fields if this is the first manager
-    if (!pub.managerEmail) {
+    // Update pub's manager fields:
+    // - If no managerEmail is set, set it to this manager's email
+    // - Always update the password to ensure it's set correctly for this manager
+    // - If managerEmail matches this manager's email, update both
+    if (!pub.managerEmail || pub.managerEmail.toLowerCase() === email.toLowerCase()) {
       await prisma.pub.update({
         where: { id: pub.id },
         data: {
@@ -90,7 +93,38 @@ export async function POST(
           managerPassword: hashedPassword,
         },
       });
+      console.log(`[Admin] Updated pub ${pub.id} with managerEmail: ${email.toLowerCase()} and password`);
+    } else {
+      // Pub has a different managerEmail (multiple managers scenario)
+      // Still update the password so this manager can log in via PubManager relationship
+      await prisma.pub.update({
+        where: { id: pub.id },
+        data: {
+          managerPassword: hashedPassword,
+        },
+      });
+      console.log(`[Admin] Updated pub ${pub.id} password (managerEmail already set to ${pub.managerEmail})`);
     }
+
+    // Verify the data was saved correctly
+    const updatedPub = await prisma.pub.findUnique({
+      where: { id: pub.id },
+      include: {
+        managers: {
+          include: {
+            manager: true
+          }
+        }
+      }
+    });
+    console.log(`[Admin] Verification - Pub ${pub.id} now has:`, {
+      managerEmail: updatedPub?.managerEmail,
+      hasPassword: !!updatedPub?.managerPassword,
+      managers: updatedPub?.managers.map(pm => ({
+        email: pm.manager.email,
+        role: pm.role
+      }))
+    });
 
     // Log audit trail
     try {
