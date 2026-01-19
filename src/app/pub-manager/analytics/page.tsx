@@ -203,10 +203,11 @@ export default function AnalyticsPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ device, percent }) => `${device}: ${(percent * 100).toFixed(0)}%`}
+                  label={(entry: any) => `${entry.device}: ${(entry.percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
+                  nameKey="device"
                 >
                   {analytics.deviceBreakdown.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -227,10 +228,11 @@ export default function AnalyticsPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ source, percent }) => `${source}: ${(percent * 100).toFixed(0)}%`}
+                  label={(entry: any) => `${entry.source}: ${(entry.percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
+                  nameKey="source"
                 >
                   {analytics.referralSources.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

@@ -73,11 +73,11 @@ export async function PUT(request: NextRequest) {
           const key = amenityKey.toLowerCase().replace(/\s+/g, '-');
           return amenityMap.get(key);
         })
-        .filter((id): id is number => id !== undefined);
+        .filter((id: number | undefined): id is number => id !== undefined);
 
       if (amenityIds.length > 0) {
         await prisma.pubAmenity.createMany({
-          data: amenityIds.map(amenityId => ({
+          data: amenityIds.map((amenityId: number) => ({
             pubId: pub.id,
             amenityId,
             value: true
