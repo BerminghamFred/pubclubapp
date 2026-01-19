@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (!isValidPassword) {
+      if (!isValidPassword || !authenticatedPub) {
         console.log(`[Login] Password verification failed for all pubs`);
         return NextResponse.json(
           { success: false, message: 'Invalid email or password' },
