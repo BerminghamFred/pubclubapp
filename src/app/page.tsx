@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import HeroSection from '@/components/homepage/HeroSection';
 import NearYouCarousel from '@/components/homepage/NearYouCarousel';
+import UpcomingFixturesSection from '@/components/homepage/UpcomingFixturesSection';
 import TrendingTiles from '@/components/homepage/TrendingTiles';
 import SeasonalStrip from '@/components/homepage/SeasonalStrip';
 import SpinWheelTeaser from '@/components/homepage/SpinWheelTeaser';
@@ -14,6 +15,9 @@ export default function HomePage() {
 
       {/* Near You Areas Carousel */}
       <NearYouCarousel />
+
+      {/* Upcoming sports fixtures (TheSportsDB broadcast data) */}
+      <UpcomingFixturesSection />
 
       {/* Trending Area & Filter Tiles */}
       <TrendingTiles />
