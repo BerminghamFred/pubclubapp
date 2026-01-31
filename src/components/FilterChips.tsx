@@ -40,6 +40,16 @@ export default function FilterChips({
 
   if (!hasFilters) return null;
 
+  // Case-insensitive unique (keep first) so "Beer Garden" and "beer garden" show as one chip
+  const uniqueAmenities = Array.from(
+    new Map(
+      selectedAmenities
+        .map((a) => String(a).trim())
+        .filter(Boolean)
+        .map((a) => [a.toLowerCase(), a])
+    ).values()
+  );
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-sm font-medium text-gray-600">Active filters:</span>
@@ -87,8 +97,10 @@ export default function FilterChips({
           </motion.button>
         )}
 
-        {/* SearchBar Selection Filters */}
-        {searchSelections.map((selection) => (
+        {/* SearchBar Selection Filters (exclude amenities; those are shown from selectedAmenities below) */}
+        {searchSelections
+          .filter((s) => s.type !== 'amenity')
+          .map((selection) => (
           <motion.button
             key={selection.id}
             initial={{ scale: 0, opacity: 0 }}
@@ -102,8 +114,8 @@ export default function FilterChips({
           </motion.button>
         ))}
 
-        {/* Amenity Filters */}
-        {selectedAmenities.map((amenity) => (
+        {/* Amenity Filters (display unique only; remove removes all matching) */}
+        {uniqueAmenities.map((amenity) => (
           <motion.button
             key={amenity}
             initial={{ scale: 0, opacity: 0 }}

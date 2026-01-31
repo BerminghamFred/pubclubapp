@@ -40,6 +40,12 @@ body {
   font-family: var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
+/* Ensure placeholder text is readable (not too light) */
+input::placeholder,
+textarea::placeholder {
+  color: rgb(75 85 99); /* gray-600 */
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

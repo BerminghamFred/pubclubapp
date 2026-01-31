@@ -36,12 +36,27 @@ const decodeFiltersParam = (filtersParam: string | null) => {
   }
 };
 
+/** Dedupe by trimmed lowercase (keep first occurrence) so amenities never duplicate in UI. */
+function normalizeAmenities(arr: string[] | undefined): string[] {
+  if (!Array.isArray(arr)) return [];
+  const seen = new Set<string>();
+  return arr
+    .map((a) => String(a).trim())
+    .filter(Boolean)
+    .filter((a) => {
+      const key = a.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 const normalizeFilters = (filters: Filters): Filters => ({
   searchTerm: filters.searchTerm || '',
   selectedArea: filters.selectedArea || DEFAULT_AREA,
   minRating: filters.minRating || 0,
   openingFilter: filters.openingFilter || DEFAULT_OPENING,
-  selectedAmenities: filters.selectedAmenities || [],
+  selectedAmenities: normalizeAmenities(filters.selectedAmenities),
 });
 
 export function useMapUrlState(): MapUrlState {
@@ -64,12 +79,13 @@ export function useMapUrlState(): MapUrlState {
       });
     }
 
+    const amenitiesFromUrl = normalizeAmenities(searchParams.get('amenities')?.split(','));
     return normalizeFilters({
       searchTerm: searchParams.get('search') || '',
       selectedArea: searchParams.get('area') || DEFAULT_AREA,
       minRating: Number(searchParams.get('rating')) || 0,
       openingFilter: searchParams.get('opening') || DEFAULT_OPENING,
-      selectedAmenities: searchParams.get('amenities')?.split(',').filter(Boolean) || [],
+      selectedAmenities: amenitiesFromUrl,
     });
   }, [searchParams]);
 

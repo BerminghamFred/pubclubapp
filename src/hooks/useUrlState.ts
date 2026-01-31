@@ -28,11 +28,26 @@ const decodeFiltersParam = (filtersParam: string | null) => {
   }
 };
 
+/** Dedupe by trimmed lowercase (keep first occurrence) so "Beer Garden" and "beer garden" don't show twice. */
+function normalizeAmenities(arr: string[] | undefined): string[] {
+  if (!Array.isArray(arr)) return [];
+  const seen = new Set<string>();
+  return arr
+    .map((a) => String(a).trim())
+    .filter(Boolean)
+    .filter((a) => {
+      const key = a.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 const normalizeState = (state: UrlState): UrlState => ({
   view: state.view,
   searchTerm: state.searchTerm || '',
   selectedArea: state.selectedArea || DEFAULT_AREA,
-  selectedAmenities: state.selectedAmenities || [],
+  selectedAmenities: normalizeAmenities(state.selectedAmenities),
   minRating: state.minRating || 0,
   openingFilter: state.openingFilter || DEFAULT_OPENING,
 });
@@ -40,23 +55,28 @@ const normalizeState = (state: UrlState): UrlState => ({
 const buildStateFromSearchParams = (
   searchParams: ReturnType<typeof useSearchParams>
 ): UrlState => {
+  const amenitiesFromUrl = normalizeAmenities(
+    searchParams.get('amenities')?.split(',')
+  );
   const baseState: UrlState = {
     view: (searchParams.get('view') as 'list' | 'map') || 'list',
     searchTerm: searchParams.get('search') || '',
     selectedArea: searchParams.get('area') || DEFAULT_AREA,
-    selectedAmenities: searchParams.get('amenities')?.split(',').filter(Boolean) || [],
+    selectedAmenities: amenitiesFromUrl,
     minRating: Number(searchParams.get('rating')) || 0,
     openingFilter: searchParams.get('opening') || DEFAULT_OPENING,
   };
 
   const filtersParam = decodeFiltersParam(searchParams.get('filters'));
   if (filtersParam) {
+    const mergedAmenities = normalizeAmenities(
+      filtersParam.selectedAmenities ?? baseState.selectedAmenities
+    );
     return normalizeState({
       ...baseState,
       searchTerm: filtersParam.searchTerm ?? baseState.searchTerm,
       selectedArea: filtersParam.selectedArea ?? baseState.selectedArea,
-      selectedAmenities:
-        filtersParam.selectedAmenities ?? baseState.selectedAmenities,
+      selectedAmenities: mergedAmenities,
       minRating: filtersParam.minRating ?? baseState.minRating,
       openingFilter: filtersParam.openingFilter ?? baseState.openingFilter,
     });

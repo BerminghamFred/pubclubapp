@@ -34,10 +34,19 @@ function RandomPageContent() {
 
   const areaParam = searchParams.get('area') || undefined;
   const amenitiesParam = searchParams.get('amenities');
-  const amenities = useMemo(
-    () => (amenitiesParam ? amenitiesParam.split(',').filter(Boolean) : []),
-    [amenitiesParam]
-  );
+  const amenities = useMemo(() => {
+    const raw = amenitiesParam ? amenitiesParam.split(',').filter(Boolean) : [];
+    const seen = new Set<string>();
+    return raw
+      .map((a) => String(a).trim())
+      .filter(Boolean)
+      .filter((a) => {
+        const k = a.toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+  }, [amenitiesParam]);
   const openNow = searchParams.get('open_now') === '1';
   const minRatingParam = searchParams.get('min_rating');
   const minRating = minRatingParam ? parseFloat(minRatingParam) : undefined;

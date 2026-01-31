@@ -53,10 +53,15 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
   };
 
   const toggleAmenity = (amenity: string) => {
-    const newAmenities = filters.selectedAmenities.includes(amenity)
-      ? filters.selectedAmenities.filter(a => a !== amenity)
-      : [...filters.selectedAmenities, amenity];
-    
+    const key = String(amenity).trim().toLowerCase();
+    const isSelected = filters.selectedAmenities.some(
+      (a) => String(a).trim().toLowerCase() === key
+    );
+    const newAmenities = isSelected
+      ? filters.selectedAmenities.filter(
+          (a) => String(a).trim().toLowerCase() !== key
+        )
+      : [...filters.selectedAmenities, String(amenity).trim()];
     updateFilter('selectedAmenities', newAmenities);
   };
 
@@ -154,8 +159,10 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
               {expandedCategories.has(category) && (
                 <div className="grid grid-cols-1 gap-2">
                   {amenities.map(amenity => {
-                    const isSelected = filters.selectedAmenities.includes(amenity);
-                    
+                    const key = String(amenity).trim().toLowerCase();
+                    const isSelected = filters.selectedAmenities.some(
+                      (a) => String(a).trim().toLowerCase() === key
+                    );
                     return (
                       <button
                         key={amenity}

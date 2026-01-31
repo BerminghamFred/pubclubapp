@@ -70,6 +70,18 @@ export const AMENITY_FILTERS: AmenityFilter[] = [
     searchTerms: ['sky sports', 'sports', 'football', 'premier league', 'sports bar', 'big screen']
   },
   {
+    slug: 'tnt-sports',
+    title: 'TNT Sports',
+    description: 'Pubs showing TNT Sports',
+    searchTerms: ['tnt sports', 'bt sport', 'sports', 'football', 'premier league', 'sports bar', 'big screen']
+  },
+  {
+    slug: 'terrestrial-tv',
+    title: 'Terrestrial TV',
+    description: 'Pubs showing Terrestrial TV (BBC, ITV, Channel 4)',
+    searchTerms: ['six nations', 'bbc', 'itv', 'terrestrial', 'channel 4', 'free to air']
+  },
+  {
     slug: 'bottomless-brunch',
     title: 'Bottomless brunch',
     description: 'Bottomless brunch experiences',
@@ -114,6 +126,8 @@ export function getAmenityFilterName(amenitySlug: string): string {
     'dog-friendly': 'Dog Friendly',
     'beer-garden': 'Beer Garden',
     'sky-sports': 'Sky Sports',
+    'tnt-sports': 'TNT Sports',
+    'terrestrial-tv': 'Terrestrial TV',
     'bottomless-brunch': 'Bottomless Brunch',
     'cocktails': 'Cocktails',
     'pub-quiz': 'Pub Quiz',
@@ -263,6 +277,8 @@ function getAmenityBenefits(amenitySlug: string): string[] {
     'dog-friendly': ['welcoming atmosphere', 'water bowls', 'dog treats'],
     'beer-garden': ['outdoor seating', 'fresh air', 'sunny spots'],
     'sky-sports': ['big screens', 'match atmosphere', 'sports viewing'],
+    'tnt-sports': ['big screens', 'match atmosphere', 'sports viewing'],
+    'terrestrial-tv': ['free-to-air sport', 'Six Nations', 'BBC and ITV'],
     'bottomless-brunch': ['unlimited drinks', 'brunch classics', 'weekend vibes'],
     'cocktails': ['craft cocktails', 'mixology', 'premium spirits'],
     'pub-quiz': ['quiz nights', 'team games', 'prizes'],
@@ -280,6 +296,8 @@ function getRelatedAmenities(amenitySlug: string): string[] {
     'dog-friendly': ['beer gardens', 'real ale pubs'],
     'beer-garden': ['dog-friendly pubs', 'cocktail bars'],
     'sky-sports': ['pub quiz', 'live music'],
+    'tnt-sports': ['sky sports', 'pub quiz'],
+    'terrestrial-tv': ['sky sports', 'tnt sports'],
     'bottomless-brunch': ['cocktails', 'sunday roast'],
     'cocktails': ['live music', 'bottomless brunch'],
     'pub-quiz': ['sky sports', 'real ale'],

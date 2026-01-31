@@ -116,7 +116,10 @@ export default function FilterDrawer({
                       >
                         <div className="grid grid-cols-1 gap-2">
                     {amenities.map((amenity) => {
-                      const isSelected = selectedAmenities.includes(amenity);
+                      const key = String(amenity).trim().toLowerCase();
+                      const isSelected = selectedAmenities.some(
+                        (a) => String(a).trim().toLowerCase() === key
+                      );
                       return (
                         <button
                           key={amenity}

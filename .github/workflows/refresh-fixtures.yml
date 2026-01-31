@@ -1,0 +1,16 @@
+name: Refresh Upcoming Fixtures
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (start of day); cron fetches 7 days from TheSportsDB and saves to DB
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  refresh-fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh fixtures cache
+        run: |
+          curl -sS -X GET "${{ secrets.SITE_URL }}/api/cron/refresh-fixtures" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

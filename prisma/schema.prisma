@@ -401,3 +401,23 @@ model BlogSubscription {
 
   @@map("blog_subscriptions")
 }
+
+// Cached upcoming sports fixtures (refreshed daily by cron from TheSportsDB)
+model UpcomingFixture {
+  id              String    @id @default(cuid())
+  externalId      String    // composite: eventId-channel-country (for dedupe)
+  eventId         String?   // TheSportsDB idEvent (for livescores + API dedupe)
+  name            String?
+  sport           String?   // strSport from V2 (e.g. Soccer, Rugby League)
+  league          String?   // strLeague from V2 lookup (e.g. Premier League)
+  imageUrl        String?   // strEventThumb from V2 filter
+  startingAt      DateTime
+  channelSlug     String?
+  channelName     String
+  channelLink     String
+  country         String?   // strCountry from TV filter (broadcast country; for frontend filtering)
+  createdAt       DateTime  @default(now())
+
+  @@index([startingAt])
+  @@map("upcoming_fixtures")
+}

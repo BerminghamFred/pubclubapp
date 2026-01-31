@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  webpack: (config) => {
+    // Avoid ChunkLoadError (timeout) on slow dev server or first load
+    config.output = config.output ?? {};
+    (config.output as { chunkLoadTimeout?: number }).chunkLoadTimeout = 30_000;
+    return config;
+  },
   eslint: {
     // Skip ESLint during production builds to avoid CI failures
     // when local tooling options differ. We still lint in dev.

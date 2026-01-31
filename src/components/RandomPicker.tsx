@@ -465,9 +465,18 @@ const RandomPicker = ({ isOpen, onClose, filters, onViewPub, variant = 'overlay'
         amenitiesByCategory={DEFAULT_AMENITIES_BY_CATEGORY}
         selectedAmenities={selectedAmenities}
         onAmenityToggle={(amenity) =>
-          setSelectedAmenities((prev) =>
-            prev.includes(amenity) ? prev.filter((item) => item !== amenity) : [...prev, amenity]
-          )
+          setSelectedAmenities((prev) => {
+            const key = String(amenity).trim().toLowerCase();
+            const isSelected = prev.some(
+              (a) => String(a).trim().toLowerCase() === key
+            );
+            if (isSelected) {
+              return prev.filter(
+                (a) => String(a).trim().toLowerCase() !== key
+              );
+            }
+            return [...prev, String(amenity).trim()];
+          })
         }
         onClearAll={() => {
           resetFilters();

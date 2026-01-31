@@ -203,8 +203,8 @@ export default function SearchBar({
           placeholder={placeholder}
           className={`w-full pl-12 pr-4 py-4 text-sm md:text-base rounded-lg focus:outline-none focus:ring-4 ${
             variant === 'hero' 
-              ? 'focus:ring-white/20 text-gray-900 placeholder-gray-500 border-0' 
-              : 'focus:ring-[#08d78c]/20 text-gray-900 placeholder-gray-500 border border-gray-300 bg-white'
+              ? 'focus:ring-white/20 text-gray-900 placeholder-gray-600 border-0' 
+              : 'focus:ring-[#08d78c]/20 text-gray-900 placeholder-gray-600 border border-gray-300 bg-white'
           }`}
         />
       </div>

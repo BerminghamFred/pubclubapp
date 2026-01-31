@@ -96,8 +96,11 @@ export default function PubDataLoader() {
 
   const handleMapRemoveAmenity = useCallback(
     (amenity: string) => {
+      const key = String(amenity).trim().toLowerCase();
       handleMapUpdateFilters({
-        selectedAmenities: mapFilters.selectedAmenities.filter((a) => a !== amenity),
+        selectedAmenities: mapFilters.selectedAmenities.filter(
+          (a) => String(a).trim().toLowerCase() !== key
+        ),
       });
     },
     [handleMapUpdateFilters, mapFilters.selectedAmenities]
@@ -203,20 +206,11 @@ export default function PubDataLoader() {
       });
     }
     
-    // Add amenity selections
-    selectedAmenities.forEach(amenity => {
-      newSelections.push({
-        id: `amenity-${amenity}`,
-        text: amenity,
-        type: 'amenity',
-        icon: '🏷️',
-        color: 'bg-green-100 text-green-800 border-green-200',
-        data: { amenity }
-      });
-    });
+    // Do NOT add amenity entries to searchSelections here — amenities are shown
+    // only as chips from selectedAmenities in FilterChips, to avoid duplicate chips.
     
     setSearchSelections(newSelections);
-  }, [searchTerm, selectedArea, selectedAmenities, allPubs, DEFAULT_AREA]);
+  }, [searchTerm, selectedArea, allPubs, DEFAULT_AREA]);
   
   // Load more state (for list view)
   const [itemsToShow, setItemsToShow] = useState(12);
@@ -704,7 +698,20 @@ export default function PubDataLoader() {
 
   // Handler functions
   const handleSearchSelections = (selections: SearchSuggestion[]) => {
-    setSearchSelections(selections);
+    // Keep amenities only in selectedAmenities so FilterChips shows one chip per amenity.
+    const amenitySelections = selections.filter((s) => s.type === 'amenity');
+    const nonAmenitySelections = selections.filter((s) => s.type !== 'amenity');
+    if (amenitySelections.length > 0) {
+      const toAdd = amenitySelections
+        .map((s) => String((s.data as { amenity?: string }).amenity ?? '').trim())
+        .filter(Boolean);
+      const key = (a: string) => a.toLowerCase();
+      const combined = [...selectedAmenities, ...toAdd].filter(
+        (a, i, arr) => arr.findIndex((b) => key(b) === key(a)) === i
+      );
+      setSelectedAmenities(combined);
+    }
+    setSearchSelections(nonAmenitySelections);
   };
 
   const handleRemoveSearchSelection = (selectionId: string) => {
@@ -724,15 +731,23 @@ export default function PubDataLoader() {
       setSelectedArea(DEFAULT_AREA);
     } else if (selectionToRemove.type === 'amenity') {
       // If removing an amenity selection, remove from selectedAmenities
-      setSelectedAmenities(selectedAmenities.filter(a => a !== selectionToRemove.data.amenity));
+      const key = String(selectionToRemove.data.amenity).trim();
+      setSelectedAmenities(selectedAmenities.filter((a) => String(a).trim() !== key));
     }
   };
 
   const handleAmenityToggle = (amenity: string) => {
-    if (selectedAmenities.includes(amenity)) {
-      setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
+    const key = String(amenity).trim();
+    const norm = key.toLowerCase();
+    const isSelected = selectedAmenities.some(
+      (a) => String(a).trim().toLowerCase() === norm
+    );
+    if (isSelected) {
+      setSelectedAmenities(
+        selectedAmenities.filter((a) => String(a).trim().toLowerCase() !== norm)
+      );
     } else {
-      setSelectedAmenities([...selectedAmenities, amenity]);
+      setSelectedAmenities([...selectedAmenities, key]);
     }
   };
 
@@ -899,7 +914,14 @@ export default function PubDataLoader() {
                         </motion.button>
                       )}
 
-                      {mapFilters.selectedAmenities.map((amenity) => (
+                      {Array.from(
+                        new Map(
+                          mapFilters.selectedAmenities
+                            .map((a) => String(a).trim())
+                            .filter(Boolean)
+                            .map((a) => [a.toLowerCase(), a])
+                        ).values()
+                      ).map((amenity) => (
                         <motion.button
                           key={amenity}
                           initial={{ scale: 0.9, opacity: 0 }}
@@ -993,10 +1015,15 @@ export default function PubDataLoader() {
           amenitiesByCategory={amenitiesByCategory}
           selectedAmenities={mapFilters.selectedAmenities}
           onAmenityToggle={(amenity) => {
-            const isSelected = mapFilters.selectedAmenities.includes(amenity);
+            const key = String(amenity).trim().toLowerCase();
+            const isSelected = mapFilters.selectedAmenities.some(
+              (a) => String(a).trim().toLowerCase() === key
+            );
             const newAmenities = isSelected
-              ? mapFilters.selectedAmenities.filter(a => a !== amenity)
-              : [...mapFilters.selectedAmenities, amenity];
+              ? mapFilters.selectedAmenities.filter(
+                  (a) => String(a).trim().toLowerCase() !== key
+                )
+              : [...mapFilters.selectedAmenities, String(amenity).trim()];
             updateMapFilters({ ...mapFilters, selectedAmenities: newAmenities });
           }}
           onClearAll={() => updateMapFilters({
@@ -1047,7 +1074,7 @@ export default function PubDataLoader() {
               <select
                 value={selectedArea}
                 onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
+                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-gray-700"
               >
                 {listAreas.map((area) => (
                     <option key={area} value={area}>
@@ -1062,7 +1089,7 @@ export default function PubDataLoader() {
               <select
                 value={minRating}
                 onChange={(e) => setMinRating(Number(e.target.value))}
-                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white"
+                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-gray-700"
               >
                 <option value={0}>⭐ Any Rating</option>
                 <option value={4.5}>⭐ 4.5+</option>
@@ -1085,7 +1112,12 @@ export default function PubDataLoader() {
             openingFilter={openingFilter}
             searchSelections={searchSelections}
             onRemoveArea={() => setSelectedArea('')}
-            onRemoveAmenity={(amenity) => setSelectedAmenities(selectedAmenities.filter(a => a !== amenity))}
+            onRemoveAmenity={(amenity) => {
+              const key = String(amenity).trim().toLowerCase();
+              setSelectedAmenities(
+                selectedAmenities.filter((a) => String(a).trim().toLowerCase() !== key)
+              );
+            }}
             onRemoveRating={() => setMinRating(0)}
             onRemoveOpening={() => setOpeningFilter('')}
             onRemoveSearchSelection={handleRemoveSearchSelection}

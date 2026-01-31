@@ -1,136 +1,105 @@
 export const runtime = 'nodejs';
-export const revalidate = 300; // 5 min cache
+export const revalidate = 60; // 1 min cache; data is refreshed daily by cron
 
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-// TheSportsDB: https://www.thesportsdb.com/documentation
-// TV schedule returns events with broadcast channel (strChannel) - no league mapping.
-// Free key: 123. Premium key in env THE_SPORTS_DB_API_KEY for higher limits.
-
-const BASE = 'https://www.thesportsdb.com/api/v1/json';
-
-interface TVEvent {
-  id?: string;
-  idEvent?: string;
-  strEvent?: string;
-  dateEvent?: string;
-  strTime?: string;
-  strTimeStamp?: string;
-  strChannel?: string;
-  strSport?: string;
-  strCountry?: string;
+/** Group key for same event (e.g. Sky + Terrestrial showing same game = one card). */
+function eventKey(row: { eventId: string | null; name: string | null; startingAt: Date }): string {
+  if (row.eventId?.trim()) return row.eventId.trim();
+  return `${row.name ?? ''}|${row.startingAt.getTime()}`;
 }
 
-interface FixtureWithChannel {
-  id: number;
-  name: string | null;
-  starting_at: string | null;
-  starting_at_timestamp: number | null;
-  channelSlug: string | null;
-  channelName: string;
-  channelLink: string;
+/** Build link to pubs with any of the given channel names (OR). */
+function buildMultiChannelLink(channelNames: string[]): string {
+  const unique = [...new Set(channelNames.filter(Boolean))];
+  if (unique.length === 0) return '/pubs';
+  if (unique.length === 1) return `/pubs?amenities=${encodeURIComponent(unique[0])}`;
+  return `/pubs?amenities=${encodeURIComponent(unique.join(','))}`;
 }
 
-/** Map broadcast channel name from API to our vibe slug and display name. */
-function channelFromBroadcast(strChannel: string | null | undefined): {
-  channelSlug: string | null;
-  channelName: string;
-} {
-  if (!strChannel || !strChannel.trim()) {
-    return { channelSlug: 'sky-sports', channelName: 'Sky Sports' };
-  }
-  const c = strChannel.toLowerCase();
-  if (c.includes('sky')) return { channelSlug: 'sky-sports', channelName: 'Sky Sports' };
-  if (c.includes('tnt') || c.includes('bt sport')) return { channelSlug: 'tnt-sports', channelName: 'TNT Sports' };
-  if (c.includes('amazon')) return { channelSlug: null, channelName: 'Amazon Prime' };
-  if (c.includes('bbc') || c.includes('itv') || c.includes('channel 4') || c.includes('terrestrial')) {
-    return { channelSlug: null, channelName: 'Terrestrial TV' };
-  }
-  return { channelSlug: null, channelName: strChannel.trim() };
-}
-
-function buildChannelLink(channelSlug: string | null, channelName: string): string {
-  if (channelSlug) return `/vibe/${channelSlug}`;
-  return `/pubs?amenities=${encodeURIComponent(channelName)}`;
-}
-
-function parseTimestamp(dateEvent: string | undefined, strTime: string | undefined, strTimeStamp: string | undefined): number | null {
-  if (strTimeStamp) {
-    const t = Date.parse(strTimeStamp.replace(' ', 'T'));
-    if (!Number.isNaN(t)) return Math.floor(t / 1000);
-  }
-  if (dateEvent && strTime) {
-    const t = Date.parse(`${dateEvent}T${strTime}`);
-    if (!Number.isNaN(t)) return Math.floor(t / 1000);
-  }
-  if (dateEvent) {
-    const t = Date.parse(dateEvent);
-    if (!Number.isNaN(t)) return Math.floor(t / 1000);
-  }
-  return null;
-}
-
+/** Serves cached upcoming fixtures from DB, deduplicated by event (one card per match; merged channels). */
 export async function GET() {
-  const apiKey = process.env.THE_SPORTS_DB_API_KEY || '123';
-  const today = new Date();
-  const events: TVEvent[] = [];
-  const daysToFetch = 7;
-
   try {
-    for (let i = 0; i < daysToFetch; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().slice(0, 10);
-      const url = `${BASE}/${apiKey}/eventstv.php?d=${dateStr}&a=United_Kingdom`;
-      const res = await fetch(url, { next: { revalidate: 300 } });
-      if (!res.ok) continue;
-      const json = await res.json();
-      const list = json.tvevents ?? json.events ?? [];
-      if (Array.isArray(list)) events.push(...list);
+    const now = new Date();
+    const rows = await prisma.upcomingFixture.findMany({
+      where: { startingAt: { gte: now } },
+      orderBy: { startingAt: 'asc' },
+      take: 200,
+    });
+
+    const byEvent = new Map<
+      string,
+      {
+        eventId: string | null;
+        externalId: string;
+        name: string | null;
+        sport: string | null;
+        league: string | null;
+        imageUrl: string | null;
+        startingAt: Date;
+        country: string | null;
+        channelNames: string[];
+        channelLinks: string[];
+      }
+    >();
+
+    for (const f of rows) {
+      const key = eventKey({
+        eventId: f.eventId ?? null,
+        name: f.name,
+        startingAt: f.startingAt,
+      });
+      const existing = byEvent.get(key);
+      if (existing) {
+        if (!existing.channelNames.includes(f.channelName)) existing.channelNames.push(f.channelName);
+        if (!existing.channelLinks.includes(f.channelLink)) existing.channelLinks.push(f.channelLink);
+        continue;
+      }
+      byEvent.set(key, {
+        eventId: f.eventId ?? null,
+        externalId: f.externalId,
+        name: f.name,
+        sport: f.sport ?? null,
+        league: f.league ?? null,
+        imageUrl: f.imageUrl ?? null,
+        startingAt: f.startingAt,
+        country: f.country ?? null,
+        channelNames: [f.channelName],
+        channelLinks: [f.channelLink],
+      });
     }
 
-    const now = Math.floor(Date.now() / 1000);
-    const seen = new Set<string>();
-    const withChannel: FixtureWithChannel[] = (events as TVEvent[])
-      .filter((e) => {
-        const ts = parseTimestamp(e.dateEvent, e.strTime, e.strTimeStamp);
-        const id = e.idEvent ?? e.id ?? `${e.strEvent}-${e.dateEvent}-${e.strTime}`;
-        if (seen.has(String(id)) || (ts != null && ts < now)) return false;
-        seen.add(String(id));
-        return true;
-      })
-      .sort((a, b) => {
-        const ta = parseTimestamp(a.dateEvent, a.strTime, a.strTimeStamp) ?? 0;
-        const tb = parseTimestamp(b.dateEvent, b.strTime, b.strTimeStamp) ?? 0;
-        return ta - tb;
-      })
-      .slice(0, 50)
-      .map((e) => {
-        const id = parseInt(e.idEvent ?? e.id ?? '0', 10) || 0;
-        const name = e.strEvent ?? null;
-        const dateEvent = e.dateEvent ?? null;
-        const strTime = e.strTime ?? '';
-        const iso = dateEvent && strTime ? `${dateEvent}T${strTime}` : dateEvent;
-        const ts = parseTimestamp(e.dateEvent, e.strTime, e.strTimeStamp);
-        const { channelSlug, channelName } = channelFromBroadcast(e.strChannel);
-        const channelLink = buildChannelLink(channelSlug, channelName);
-        return {
-          id,
-          name,
-          starting_at: iso,
-          starting_at_timestamp: ts,
-          channelSlug,
-          channelName,
-          channelLink,
-        };
-      });
+    const data = Array.from(byEvent.values()).map((f) => {
+      const channelName = f.channelNames.length === 1 ? f.channelNames[0]! : f.channelNames.join(' & ');
+      const channelLink = f.channelNames.length === 1 ? f.channelLinks[0]! : buildMultiChannelLink(f.channelNames);
+      const id = f.eventId ?? f.externalId;
+      return {
+        id,
+        name: f.name,
+        sport: f.sport,
+        league: f.league,
+        imageUrl: f.imageUrl,
+        starting_at: f.startingAt.toISOString(),
+        starting_at_timestamp: Math.floor(f.startingAt.getTime() / 1000),
+        channelSlug: null as string | null,
+        channelName,
+        channelLink,
+        country: f.country,
+        eventId: f.eventId,
+      };
+    });
+
+    const sorted = data
+      .sort((a, b) => a.starting_at_timestamp - b.starting_at_timestamp)
+      .slice(0, 50);
 
     return NextResponse.json(
-      { data: withChannel },
-      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60' } }
+      { data: sorted },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } }
     );
   } catch (err) {
-    console.error('[fixtures/upcoming] TheSportsDB error:', err);
+    console.error('[fixtures/upcoming] DB error:', err);
     return NextResponse.json({ data: [] }, { status: 200 });
   }
 }
