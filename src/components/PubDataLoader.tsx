@@ -1074,7 +1074,7 @@ export default function PubDataLoader() {
               <select
                 value={selectedArea}
                 onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-gray-700"
+                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-gray-900 placeholder-gray-500"
               >
                 {listAreas.map((area) => (
                     <option key={area} value={area}>
@@ -1089,7 +1089,7 @@ export default function PubDataLoader() {
               <select
                 value={minRating}
                 onChange={(e) => setMinRating(Number(e.target.value))}
-                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-gray-700"
+                className="w-full px-3 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-gray-900 placeholder-gray-500"
               >
                 <option value={0}>⭐ Any Rating</option>
                 <option value={4.5}>⭐ 4.5+</option>

@@ -130,6 +130,29 @@ model PubManager {
   @@map("pub_managers")
 }
 
+model PubManagerNewsletter {
+  id        String   @id @default(cuid())
+  pubId     String
+  pubName   String
+  email     String
+  createdAt DateTime @default(now())
+
+  @@unique([pubId])
+  @@map("pub_manager_newsletter")
+}
+
+model PubManagerConnectionRequest {
+  id        String   @id @default(cuid())
+  email     String   // Requestor email (from token)
+  pubId     String
+  status    String   @default("pending") // pending | approved | rejected
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, pubId])
+  @@map("pub_manager_connection_requests")
+}
+
 model ManagerLogin {
   id         String   @id @default(cuid())
   managerId  String?

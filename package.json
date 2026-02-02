@@ -15,6 +15,7 @@
     "sync-photo-names": "node scripts/sync-photo-names.js",
     "add-photo-names-to-csv": "node scripts/add-photo-names-to-csv.js",
     "migrate-pubdata": "node scripts/migrate-pubdata-to-db.js",
+    "migrate-pub-credentials": "node scripts/migrate-pub-credentials.js",
     "test-photo-proxy": "curl 'http://localhost:3000/api/photo?ref=ATKogpflM67m1jY0iBPhkF9QBbj3gFrD2Rx3AbKnI8V-ro-tYf_RXhS_bDf1h3nBKhr5hH0OZHBUeJJg52158B-pz5IzqliX4P76V40mvUeYGslmx0yi6-5iOkHfxKqTChhDDcj4IPwrOQstR8SlSEF79wyn2s5faZiAdysRNntb-eR_OrHlFAABCFTTjAuHfscHXtgaCwkPdlbSSpbZmH4P89HdX3SnPcEpOt-4_pumzixm5Uvuo77FjSrgNTwq1Ku9XWhCQmXRaIyy9hk5HkBc0sOHcF6XmPe8W-oEEIaXUn8PDA&w=480' -I",
     "test-new-photo-proxy": "curl 'http://localhost:3000/api/photo-by-place?place_id=ChIJg-M6qNHhdUgRvqvNsEqoB-4&w=480' -I"
   },

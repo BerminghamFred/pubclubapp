@@ -24,5 +24,6 @@ export interface Pub {
     photo_url?: string;
     photo_reference?: string; // Google Places photo reference for caching
     photo_name?: string; // Google Places new Photos API resource name
+    uploadedCoverPhotoUrl?: string; // Manager-uploaded cover (e.g. /uploads/pubId/filename.jpg)
   };
 } 

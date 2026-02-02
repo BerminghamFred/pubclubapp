@@ -87,13 +87,16 @@ export default function PubPhoto({
       return url;
     }
     
-    // Priority 5: Use src URL directly if it's a valid HTTP(S) URL or our API endpoint
+    // Priority 5: Use src URL directly (absolute URL, API endpoint, or static path like /uploads/...)
     if (src) {
       if (src.startsWith('http://') || src.startsWith('https://')) {
         return src;
       }
-      // Also accept our photo API endpoints
       if (src.startsWith('/api/photo') || src.startsWith('/api/photo-by-place')) {
+        return src;
+      }
+      // Manager-uploaded photos are stored at /uploads/pubId/filename
+      if (src.startsWith('/')) {
         return src;
       }
     }

@@ -16,11 +16,13 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const pubId = searchParams.get('pubId') || authData.pub.id;
+    const pubIdParam = (searchParams.get('pubId') || authData.pub.id) as string;
 
-    // Verify manager has access to this pub
-    const hasAccess = authData.pubs.some(p => p.id === pubId);
-    if (!hasAccess) {
+    // Verify manager has access and resolve to DB id (client may send placeId)
+    const targetPubId = authData.pub.id === pubIdParam || authData.pub.placeId === pubIdParam
+      ? authData.pub.id
+      : authData.pubs.find((p: { id: string; placeId?: string | null }) => p.id === pubIdParam || p.placeId === pubIdParam)?.id;
+    if (!targetPubId) {
       return NextResponse.json(
         { success: false, message: 'Access denied to this pub' },
         { status: 403 }
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     const photos = await prisma.pubPhoto.findMany({
-      where: { pubId },
+      where: { pubId: targetPubId },
       orderBy: [
         { isCover: 'desc' },
         { createdAt: 'desc' }
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const pubId = formData.get('pubId') as string || authData.pub.id;
+    const pubIdParam = (formData.get('pubId') as string) || authData.pub.id;
     const file = formData.get('file') as File;
     const isCover = formData.get('isCover') === 'true';
 
@@ -72,8 +74,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify manager has access to this pub
-    const hasAccess = authData.pubs.some(p => p.id === pubId);
+    // Verify manager has access to this pub (client may send DB id or placeId)
+    const hasAccess = authData.pubs.some(
+      (p: { id: string; placeId?: string | null }) => p.id === pubIdParam || (p.placeId != null && p.placeId === pubIdParam)
+    );
     if (!hasAccess) {
       return NextResponse.json(
         { success: false, message: 'Access denied to this pub' },
@@ -81,22 +85,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For now, we'll store the file URL directly
-    // In production, you'd upload to Supabase Storage or S3
-    // This is a placeholder - you'll need to implement actual file upload
-    const fileUrl = `/uploads/${pubId}/${Date.now()}-${file.name}`;
+    // Resolve to DB id for storage path and PubPhoto.pubId (Prisma uses DB id)
+    const targetPubId = authData.pub.id === pubIdParam || authData.pub.placeId === pubIdParam
+      ? authData.pub.id
+      : authData.pubs.find((p: { id: string; placeId?: string | null }) => p.id === pubIdParam || p.placeId === pubIdParam)?.id;
+    if (!targetPubId) {
+      return NextResponse.json(
+        { success: false, message: 'Access denied to this pub' },
+        { status: 403 }
+      );
+    }
+
+    // Save file to public/uploads so it can be served and displayed
+    const { writeFile, mkdir } = await import('fs/promises');
+    const path = await import('path');
+    const sanitizedName = `${Date.now()}-${(file.name || 'image').replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', targetPubId);
+    await mkdir(uploadDir, { recursive: true });
+    const bytes = await file.arrayBuffer();
+    const filePath = path.join(uploadDir, sanitizedName);
+    await writeFile(filePath, Buffer.from(bytes));
+    const fileUrl = `/uploads/${targetPubId}/${sanitizedName}`;
 
     // If setting as cover, unset other cover photos
     if (isCover) {
       await prisma.pubPhoto.updateMany({
-        where: { pubId, isCover: true },
+        where: { pubId: targetPubId, isCover: true },
         data: { isCover: false }
       });
     }
 
     const photo = await prisma.pubPhoto.create({
       data: {
-        pubId,
+        pubId: targetPubId,
         url: fileUrl,
         isCover: isCover || false,
         uploadedBy: authData.token.email,

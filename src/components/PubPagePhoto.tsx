@@ -82,15 +82,16 @@ export default function PubPagePhoto({
     }
     
     // Priority 3: Use new photo name format (Google Places API New)
-    if (photoName) {
-      const url = getCachedPhotoUrl({ photoName, width });
+    // Always pass placeId when available so the API can fall back to place_id if photo_name is stale/invalid
+    if (photoName || placeId) {
+      const url = getCachedPhotoUrl({ photoName, placeId, width });
       if (typeof window !== 'undefined') {
-        console.log('[PubPagePhoto] Using photoName, URL:', url);
+        console.log('[PubPagePhoto] Using photoName/placeId, URL:', url);
       }
       return url;
     }
     
-    // Priority 4: Use place ID to fetch photo (Places API New - may fail with 403)
+    // Priority 4: Use place ID only (already handled above with placeId)
     if (placeId) {
       const url = getCachedPhotoUrl({ placeId, width });
       if (typeof window !== 'undefined') {

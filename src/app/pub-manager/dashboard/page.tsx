@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Hourglass } from 'lucide-react';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 interface Pub {
   id: string;
@@ -175,7 +177,9 @@ export default function PubManagerDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">🍺 Pub Manager Dashboard</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                🍺 {currentPub?.name || managerData.pubName || (typeof window !== 'undefined' ? localStorage.getItem('pub-manager-pub-name') : null) || 'Pub'} Dashboard
+              </h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
@@ -223,370 +227,148 @@ export default function PubManagerDashboard() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - 7 cards (equal height, buttons at bottom) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Overview Cards */}
-        {selectedPubId !== 'all' && analytics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Total Views</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{analytics.totalViews.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
-                </div>
-                <div className="text-3xl">👁️</div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Unique Visitors</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{analytics.uniqueVisitors.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
-                </div>
-                <div className="text-3xl">👥</div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Avg Views/Day</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{analytics.avgViewsPerDay.toFixed(1)}</p>
-                  <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
-                </div>
-                <div className="text-3xl">📈</div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Rating</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {pubStats?.rating ? pubStats.rating.toFixed(1) : 'N/A'}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">{pubStats?.reviewCount || 0} reviews</p>
-                </div>
-                <div className="text-3xl">⭐</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Alerts */}
-        {selectedPubId !== 'all' && pubStats && (
-          <div className="mb-8 space-y-3">
-            {pubStats.photoCount === 0 && (
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <span className="text-yellow-400">⚠️</span>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-yellow-700">
-                      <strong>No photos uploaded.</strong> Add photos to make your pub more attractive to customers.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {pubStats.photoCount > 0 && pubStats.photoCount < 3 && (
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <span className="text-blue-400">ℹ️</span>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-blue-700">
-                      <strong>Low photo count.</strong> Consider adding more photos to showcase your pub better.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {pubStats.lastUpdated && (new Date().getTime() - new Date(pubStats.lastUpdated).getTime()) > 90 * 24 * 60 * 60 * 1000 && (
-              <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <span className="text-orange-400">📅</span>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-orange-700">
-                      <strong>Information may be outdated.</strong> Consider updating your pub details.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Pub Info Card */}
-        {currentPub && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              {selectedPubId === 'all' ? 'All Your Pubs' : currentPub.name}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="font-medium text-blue-900">Pub ID</h3>
-                <p className="text-blue-700 text-sm font-mono">{selectedPubId === 'all' ? 'Multiple' : currentPub.id}</p>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-medium text-green-900">Manager Email</h3>
-                <p className="text-green-700 text-sm">{managerData.email}</p>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <h3 className="font-medium text-purple-900">Status</h3>
-                <p className="text-purple-700 text-sm">Active</p>
-              </div>
-              {managerData.pubs.length > 1 && (
-                <div className="bg-amber-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-amber-900">Total Pubs</h3>
-                  <p className="text-amber-700 text-sm font-semibold">{managerData.pubs.length}</p>
-                </div>
-              )}
-              {selectedPubId !== 'all' && pubStats && (
-                <>
-                  <div className="bg-indigo-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-indigo-900">Photos</h3>
-                    <p className="text-indigo-700 text-sm font-semibold">{pubStats.photoCount}</p>
-                  </div>
-                  <div className="bg-pink-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-pink-900">Amenities</h3>
-                    <p className="text-pink-700 text-sm font-semibold">{pubStats.amenityCount}</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Management Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Edit Pub Details */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
-              <div className="text-2xl mr-3">✏️</div>
-              <h3 className="text-lg font-semibold text-gray-900">Edit Pub Details</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Update your pub's name, description, opening hours, and contact information.
-            </p>
-            <button 
-              onClick={() => {
-                if (selectedPubId && selectedPubId !== 'all') {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId);
-                }
-                router.push('/pub-manager/edit');
-              }}
-              className="w-full bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
-            >
-              Edit Details
-            </button>
-          </div>
+          {/* 1. Manage pub details - with optional Six Nations highlight above card */}
+          {(() => {
+            const showSixNationsHighlight = new Date() < new Date('2026-03-01');
+            const card = (
+              <div className="relative">
+                {showSixNationsHighlight && (
+                  <div className="absolute -top-12 left-0 right-0 flex justify-center z-10">
+                    <div className="relative bg-red-500 text-white text-sm font-medium px-5 py-3.5 rounded-lg shadow-md">
+                      <span>Add Six Nations filter here</span>
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-red-500" aria-hidden="true" />
+                    </div>
+                  </div>
+                )}
+                <div
+                  className={`bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[220px] ${showSixNationsHighlight ? 'border-2 border-red-500' : ''}`}
+                >
+                <div className="flex items-center mb-2">
+                  <div className="text-2xl mr-3">✏️</div>
+                  <h3 className="text-lg font-semibold text-gray-900">Manage pub details</h3>
+                </div>
+                <p className="text-gray-600 text-sm mb-4 flex-1">
+                  Edit name, contact information, hours, and amenities.
+                </p>
+                <button
+                  onClick={() => {
+                    if (selectedPubId && selectedPubId !== 'all') {
+                      localStorage.setItem('pub-manager-pub-id', selectedPubId);
+                    }
+                    router.push('/pub-manager/edit');
+                  }}
+                  disabled={selectedPubId === 'all'}
+                  className="w-full mt-auto bg-[#08d78c] hover:bg-[#06b875] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
+                >
+                  Edit details
+                </button>
+                </div>
+              </div>
+            );
+            return card;
+          })()}
 
-          {/* Manage Amenities */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
-              <div className="text-2xl mr-3">🍽️</div>
-              <h3 className="text-lg font-semibold text-gray-900">Manage Amenities</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Add or remove amenities like beer garden, live music, food options, etc.
-            </p>
-            <button 
-              onClick={() => {
-                if (selectedPubId && selectedPubId !== 'all') {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId);
-                }
-                router.push('/pub-manager/amenities');
-              }}
-              className="w-full bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
-            >
-              Manage Amenities
-            </button>
-          </div>
-
-          {/* Photo Gallery */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
-              <div className="text-2xl mr-3">📸</div>
-              <h3 className="text-lg font-semibold text-gray-900">Photo Gallery</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Upload, organize, and manage photos of your pub.
-            </p>
-            {selectedPubId !== 'all' && pubStats && (
-              <p className="text-xs text-gray-500 mb-4">
-                {pubStats.photoCount} photo{pubStats.photoCount !== 1 ? 's' : ''} uploaded
-              </p>
-            )}
-            <button 
-              onClick={() => {
-                if (selectedPubId && selectedPubId !== 'all') {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId);
-                }
-                router.push('/pub-manager/photos');
-              }}
-              disabled={selectedPubId === 'all'}
-              className="w-full bg-[#08d78c] hover:bg-[#06b875] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
-            >
-              Manage Photos
-            </button>
-          </div>
-
-          {/* Reviews */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
-              <div className="text-2xl mr-3">⭐</div>
-              <h3 className="text-lg font-semibold text-gray-900">Reviews</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              View and respond to customer reviews and ratings.
-            </p>
-            <button className="w-full bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200">
-              View Reviews
-            </button>
-          </div>
-
-          {/* Analytics */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
+          {/* 2. Analytics - Coming soon */}
+          <div className="bg-white rounded-lg shadow-md p-6 opacity-75 cursor-default flex flex-col min-h-[220px]">
+            <div className="flex items-center mb-2">
               <div className="text-2xl mr-3">📊</div>
               <h3 className="text-lg font-semibold text-gray-900">Analytics</h3>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
-              View page views, popular times, and visitor insights.
+            <p className="text-gray-600 text-sm mb-4 flex-1 flex items-center gap-2">
+              <Hourglass className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              Coming soon
             </p>
-            {selectedPubId !== 'all' && analytics && (
-              <p className="text-xs text-gray-500 mb-4">
-                {analytics.totalViews} views in last 30 days
-              </p>
-            )}
-            <button 
-              onClick={() => {
-                if (selectedPubId && selectedPubId !== 'all') {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId);
-                }
-                router.push('/pub-manager/analytics');
-              }}
-              disabled={selectedPubId === 'all'}
-              className="w-full bg-[#08d78c] hover:bg-[#06b875] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
-            >
-              View Analytics
-            </button>
+            <div className="h-10" aria-hidden="true" />
           </div>
 
-          {/* Benchmarking */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
-              <div className="text-2xl mr-3">📈</div>
-              <h3 className="text-lg font-semibold text-gray-900">Benchmarking</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Compare your pub against all pubs and nearby competitors.
-            </p>
-            <button 
-              onClick={() => {
-                if (selectedPubId && selectedPubId !== 'all') {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId);
-                }
-                router.push('/pub-manager/benchmark');
-              }}
-              disabled={selectedPubId === 'all'}
-              className="w-full bg-[#08d78c] hover:bg-[#06b875] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
-            >
-              View Benchmarking
-            </button>
-          </div>
-
-          {/* Request Form */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
+          {/* 3. Request help */}
+          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[220px]">
+            <div className="flex items-center mb-2">
               <div className="text-2xl mr-3">📝</div>
-              <h3 className="text-lg font-semibold text-gray-900">Request Help</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Request help</h3>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
+            <p className="text-gray-600 text-sm mb-4 flex-1">
               Submit requests for updates, fixes, or assistance.
             </p>
-            <button 
+            <button
               onClick={() => router.push('/pub-manager/request')}
-              className="w-full bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
+              className="w-full mt-auto bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
             >
               Submit Request
             </button>
           </div>
 
-          {/* Pub Page */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center mb-4">
-              <div className="text-2xl mr-3">🔗</div>
-              <h3 className="text-lg font-semibold text-gray-900">View Pub Page</h3>
+          {/* 4. Reviews - Coming soon */}
+          <div className="bg-white rounded-lg shadow-md p-6 opacity-75 cursor-default flex flex-col min-h-[220px]">
+            <div className="flex items-center mb-2">
+              <div className="text-2xl mr-3">⭐</div>
+              <h3 className="text-lg font-semibold text-gray-900">Reviews</h3>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
+            <p className="text-gray-600 text-sm mb-4 flex-1 flex items-center gap-2">
+              <Hourglass className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              Coming soon
+            </p>
+            <div className="h-10" aria-hidden="true" />
+          </div>
+
+          {/* 5. Connect your other pubs */}
+          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[220px]">
+            <div className="flex items-center mb-2">
+              <div className="text-2xl mr-3">🔗</div>
+              <h3 className="text-lg font-semibold text-gray-900">Connect your other pubs</h3>
+            </div>
+            <p className="text-gray-600 text-sm mb-4 flex-1">
+              For chains: search and add your other pubs. We verify before you can manage them.
+            </p>
+            <button
+              onClick={() => router.push('/pub-manager/connect')}
+              className="w-full mt-auto bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
+            >
+              Connect pubs
+            </button>
+          </div>
+
+          {/* 6. Get monthly user insights */}
+          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[220px]">
+            <div className="flex items-center mb-2">
+              <div className="text-2xl mr-3">📬</div>
+              <h3 className="text-lg font-semibold text-gray-900">Get monthly user insights</h3>
+            </div>
+            <p className="text-gray-600 text-sm mb-4 flex-1">
+              Sign up for our newsletter: popular searches, competitor insights, and tips to drive traffic.
+            </p>
+            <button
+              onClick={() => router.push('/pub-manager/insights')}
+              className="w-full mt-auto bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
+            >
+              Sign up
+            </button>
+          </div>
+
+          {/* 7. View pub page */}
+          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[220px]">
+            <div className="flex items-center mb-2">
+              <div className="text-2xl mr-3">🌐</div>
+              <h3 className="text-lg font-semibold text-gray-900">View pub page</h3>
+            </div>
+            <p className="text-gray-600 text-sm mb-4 flex-1">
               See how your pub appears to customers on Pub Club.
             </p>
-            {currentPub && currentPub.slug && (
-              <Link 
-                href={`/pubs/${currentPub.slug}`}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 inline-block text-center"
+            {currentPub && currentPub.id ? (
+              <Link
+                href={`/pubs/${generatePubSlug(currentPub.name || 'pub', currentPub.id)}`}
+                className="w-full mt-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 inline-block text-center"
               >
-                View Pub Page
+                View pub page
               </Link>
+            ) : (
+              <span className="text-sm text-gray-500 mt-auto block">Select a pub above</span>
             )}
           </div>
         </div>
-
-        {/* Quick Actions */}
-        {selectedPubId !== 'all' && (
-          <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <button
-                onClick={() => {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId!);
-                  router.push('/pub-manager/edit');
-                }}
-                className="bg-blue-50 hover:bg-blue-100 p-4 rounded-lg text-left transition-colors duration-200"
-              >
-                <div className="text-2xl mb-2">✏️</div>
-                <p className="font-medium text-gray-900">Update Hours</p>
-                <p className="text-sm text-gray-500">Edit opening hours</p>
-              </button>
-              <button
-                onClick={() => {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId!);
-                  router.push('/pub-manager/photos');
-                }}
-                className="bg-purple-50 hover:bg-purple-100 p-4 rounded-lg text-left transition-colors duration-200"
-              >
-                <div className="text-2xl mb-2">📸</div>
-                <p className="font-medium text-gray-900">Add Photos</p>
-                <p className="text-sm text-gray-500">Upload new photos</p>
-              </button>
-              <button
-                onClick={() => {
-                  localStorage.setItem('pub-manager-pub-id', selectedPubId!);
-                  router.push('/pub-manager/analytics');
-                }}
-                className="bg-green-50 hover:bg-green-100 p-4 rounded-lg text-left transition-colors duration-200"
-              >
-                <div className="text-2xl mb-2">📊</div>
-                <p className="font-medium text-gray-900">View Analytics</p>
-                <p className="text-sm text-gray-500">See performance</p>
-              </button>
-              <button
-                onClick={() => router.push('/pub-manager/request')}
-                className="bg-orange-50 hover:bg-orange-100 p-4 rounded-lg text-left transition-colors duration-200"
-              >
-                <div className="text-2xl mb-2">📝</div>
-                <p className="font-medium text-gray-900">Request Help</p>
-                <p className="text-sm text-gray-500">Get assistance</p>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

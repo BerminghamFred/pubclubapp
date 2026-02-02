@@ -75,7 +75,7 @@ export default function PubManagerLogin() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#08d78c] focus:border-[#08d78c] sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-[#08d78c] focus:border-[#08d78c] sm:text-sm"
                   placeholder="your.email@pub.com"
                 />
               </div>
@@ -94,7 +94,7 @@ export default function PubManagerLogin() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#08d78c] focus:border-[#08d78c] sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-[#08d78c] focus:border-[#08d78c] sm:text-sm"
                   placeholder="Enter your password"
                 />
               </div>

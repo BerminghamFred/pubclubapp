@@ -110,7 +110,7 @@ function generatePubSchema(pub: any) {
     "@id": `${baseUrl}/pubs/${generatePubSlug(pub.name, pub.id)}#pub`,
     "name": pub.name,
     "description": pub.description,
-    "image": pub._internal?.photo_url ? [pub._internal.photo_url] : [],
+    "image": (pub._internal?.uploadedCoverPhotoUrl || pub._internal?.photo_url) ? [pub._internal.uploadedCoverPhotoUrl || pub._internal.photo_url] : [],
     "url": `${baseUrl}/pubs/${generatePubSlug(pub.name, pub.id)}`,
     "telephone": pub.phone || undefined,
     "priceRange": "££", // Default for now

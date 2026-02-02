@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAllUniqueAmenities } from '@/utils/getAllAmenities';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface PubData {
   id: string;
@@ -16,7 +16,75 @@ interface PubData {
   updated_by?: string;
 }
 
-// Dynamic amenities will be loaded from the data
+// Same category structure as PubDataLoader / filter drawer
+const AMENITIES_BY_CATEGORY: Record<string, string[]> = {
+  '🎵 Music': ['DJs', 'Jukebox', 'Karaoke', 'Live Music'],
+  '🍸 Drinks': ['Cocktails', 'Craft Beer', 'Craft Ales', 'Draught', 'Non-Alcoholic', 'Real Ale', 'Spirits', 'Taproom', 'Wine'],
+  '🍔 Food': ['Bar Snacks', 'Bottomless Brunch', 'Bring Your Own Food', 'Burgers', 'Chips', 'English Breakfast', 'Fish and Chips', 'Gluten-Free Options', 'Kids Menu', 'Outdoor Food Service', 'Pie', 'Pizza', 'Sandwiches', 'Steak', 'Street Food Vendor', 'Sunday Roast', 'Thai', 'Vegetarian Options', 'Wings'],
+  '🌳 Outdoor Space': ['Beer Garden', 'Heating', 'In the Sun', 'Large Space (20+ People)', 'Outdoor Viewing', 'Outside Bar', 'River View', 'Rooftop', 'Small Space (<20 People)', 'Street Seating', 'Under Cover'],
+  '📺 Sport Viewing': ['Amazon Sports', 'Outdoor Viewing', 'Six Nations', 'Sky Sports', 'TNT Sports', 'Terrestrial TV'],
+  '♿ Accessibility': ['Car Park', 'Child Friendly', 'Dance Floor', 'Disabled Access', 'Dog Friendly', 'Open Past Midnight', 'Open Past Midnight (Weekends)', 'Table Booking'],
+  '💷 Affordability': ['Bargain', 'Premium', 'The Norm'],
+  '🎯 Activities': ['Beer Pong', 'Billiards', 'Board Games', 'Darts', 'Game Machines', 'Ping Pong', 'Pool Table', 'Pub Quiz', 'Shuffleboard', 'Slot Machines', 'Table Football'],
+  '💺 Comfort': ['Booths', 'Fireplace', 'Sofas', 'Stools at the Bar']
+};
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+// 24-hour format, every half hour: 00:00, 00:30, 01:00, ... 23:30
+const TIME_SLOTS: string[] = [];
+for (let h = 0; h < 24; h++) {
+  for (const m of ['00', '30']) {
+    TIME_SLOTS.push(`${String(h).padStart(2, '0')}:${m}`);
+  }
+}
+
+function parseOpeningHours(str: string): Record<string, { open: string; close: string }> {
+  const byDay: Record<string, { open: string; close: string }> = {};
+  DAYS.forEach(d => { byDay[d] = { open: 'closed', close: 'closed' }; });
+  if (!str || !str.trim()) return byDay;
+  const dayNames: Record<string, string> = {
+    Mon: 'Mon', Monday: 'Mon', Tue: 'Tue', Tuesday: 'Tue', Wed: 'Wed', Wednesday: 'Wed',
+    Thu: 'Thu', Thursday: 'Thu', Fri: 'Fri', Friday: 'Fri', Sat: 'Sat', Saturday: 'Sat',
+    Sun: 'Sun', Sunday: 'Sun'
+  };
+  const parts = str.split(';').map(p => p.trim()).filter(Boolean);
+  for (const part of parts) {
+    const idx = part.indexOf(':');
+    if (idx === -1) continue;
+    const dayLabel = part.slice(0, idx).trim();
+    const timeStr = part.slice(idx + 1).trim();
+    const short = dayNames[dayLabel] || DAYS.find(d => d.toLowerCase().startsWith(dayLabel.toLowerCase().slice(0, 2)));
+    if (!short) continue;
+    if (!timeStr || timeStr.toLowerCase() === 'closed') {
+      byDay[short] = { open: 'closed', close: 'closed' };
+      continue;
+    }
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);
+    if (match) {
+      const open = normalizeToSlot(parseInt(match[1], 10), parseInt(match[2], 10));
+      const close = normalizeToSlot(parseInt(match[3], 10), parseInt(match[4], 10));
+      byDay[short] = { open, close };
+    }
+  }
+  return byDay;
+}
+
+function normalizeToSlot(h: number, m: number): string {
+  let h24 = h % 24;
+  const mNorm = m >= 45 ? 60 : m >= 15 ? 30 : 0;
+  if (m >= 45) h24 = (h24 + 1) % 24;
+  const slot = `${String(h24).padStart(2, '0')}:${mNorm === 60 ? '00' : mNorm === 30 ? '30' : '00'}`;
+  return TIME_SLOTS.includes(slot) ? slot : '00:00';
+}
+
+function buildOpeningHours(byDay: Record<string, { open: string; close: string }>): string {
+  return DAYS.map(d => {
+    const { open, close } = byDay[d] || { open: 'closed', close: 'closed' };
+    if (open === 'closed' || close === 'closed') return `${d}: Closed`;
+    return `${d}: ${open} – ${close}`;
+  }).join('; ');
+}
 
 export default function EditPubPage() {
   const [pubData, setPubData] = useState<PubData | null>(null);
@@ -24,14 +92,21 @@ export default function EditPubPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
-  const [availableAmenities, setAvailableAmenities] = useState<string[]>([]);
+  const [openByDay, setOpenByDay] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    DAYS.forEach(d => { init[d] = 'closed'; });
+    return init;
+  });
+  const [closeByDay, setCloseByDay] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    DAYS.forEach(d => { init[d] = 'closed'; });
+    return init;
+  });
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const router = useRouter();
 
   useEffect(() => {
     loadPubData();
-    // Load dynamic amenities
-    const amenities = getAllUniqueAmenities();
-    setAvailableAmenities(amenities);
   }, []);
 
   const loadPubData = async () => {
@@ -60,21 +135,35 @@ export default function EditPubPage() {
           return;
         }
         
-        // Fetch full pub data from database
+        // Fetch full pub data from database (API returns { success, pub: { ... } })
         const pubResponse = await fetch(`/api/pubs/${pubId}`);
-        const pubInfo = await pubResponse.json();
-        
+        const pubResponseData = await pubResponse.json();
+        const pubInfo = pubResponseData?.pub ?? pubResponseData;
+
         if (pubInfo) {
+          const hours = pubInfo.openingHours || '';
+          const byDay = parseOpeningHours(hours);
+          const openMap: Record<string, string> = {};
+          const closeMap: Record<string, string> = {};
+          DAYS.forEach(d => {
+            openMap[d] = byDay[d]?.open ?? 'closed';
+            closeMap[d] = byDay[d]?.close ?? 'closed';
+          });
+          setOpenByDay(openMap);
+          setCloseByDay(closeMap);
+          const amenitiesList = Array.isArray(pubInfo.amenities)
+            ? pubInfo.amenities.map((a: any) => (typeof a === 'string' ? a : (a?.amenity?.label || a?.amenity?.key || a) ?? '').toString().trim()).filter(Boolean)
+            : [];
           setPubData({
             id: pubInfo.id,
-            name: pubInfo.name || '',
-            description: pubInfo.description || '',
-            phone: pubInfo.phone || '',
-            website: pubInfo.website || '',
-            openingHours: pubInfo.openingHours || '',
-            amenities: pubInfo.amenities?.map((a: any) => a.amenity?.key || a.amenity?.label || a) || [],
-            last_updated: pubInfo.lastUpdated,
-            updated_by: pubInfo.updatedBy
+            name: pubInfo.name ?? '',
+            description: pubInfo.description ?? '',
+            phone: pubInfo.phone ?? '',
+            website: pubInfo.website ?? '',
+            openingHours: hours,
+            amenities: amenitiesList,
+            last_updated: pubInfo.last_updated ?? pubInfo.lastUpdated,
+            updated_by: pubInfo.updated_by ?? pubInfo.updatedBy
           });
         }
       } else {
@@ -94,6 +183,12 @@ export default function EditPubPage() {
     setSaving(true);
     setMessage('');
 
+    const hoursByDay: Record<string, { open: string; close: string }> = {};
+    DAYS.forEach(d => {
+      hoursByDay[d] = { open: openByDay[d] || 'closed', close: closeByDay[d] || 'closed' };
+    });
+    const builtHours = buildOpeningHours(hoursByDay);
+
     try {
       const token = localStorage.getItem('pub-manager-token');
       const response = await fetch('/api/pub-manager/update', {
@@ -107,7 +202,7 @@ export default function EditPubPage() {
           description: pubData.description,
           phone: pubData.phone,
           website: pubData.website,
-          openingHours: pubData.openingHours,
+          openingHours: builtHours,
           amenities: pubData.amenities
         }),
       });
@@ -137,13 +232,22 @@ export default function EditPubPage() {
     }
   };
 
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  };
+
   const toggleAmenity = (amenity: string) => {
     if (!pubData) return;
-    
-    const newAmenities = pubData.amenities.includes(amenity)
-      ? pubData.amenities.filter(a => a !== amenity)
-      : [...pubData.amenities, amenity];
-    
+    const key = String(amenity).trim();
+    const isSelected = pubData.amenities.some(a => String(a).trim().toLowerCase() === key.toLowerCase());
+    const newAmenities = isSelected
+      ? pubData.amenities.filter(a => String(a).trim().toLowerCase() !== key.toLowerCase())
+      : [...pubData.amenities, key];
     setPubData({ ...pubData, amenities: newAmenities });
   };
 
@@ -171,7 +275,7 @@ export default function EditPubPage() {
             <div className="flex items-center">
               <button
                 onClick={() => router.push('/pub-manager/dashboard')}
-                className="mr-4 text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center gap-2 bg-[#08d78c] hover:bg-[#06b875] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors mr-4"
               >
                 ← Back to Dashboard
               </button>
@@ -217,7 +321,7 @@ export default function EditPubPage() {
                   id="name"
                   value={pubData.name}
                   onChange={(e) => setPubData({ ...pubData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
                 />
               </div>
 
@@ -230,7 +334,7 @@ export default function EditPubPage() {
                   id="phone"
                   value={pubData.phone}
                   onChange={(e) => setPubData({ ...pubData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
                   placeholder="020 1234 5678"
                 />
               </div>
@@ -245,7 +349,7 @@ export default function EditPubPage() {
                 id="website"
                 value={pubData.website}
                 onChange={(e) => setPubData({ ...pubData, website: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
                 placeholder="https://yourpub.com"
               />
             </div>
@@ -259,46 +363,105 @@ export default function EditPubPage() {
                 rows={4}
                 value={pubData.description}
                 onChange={(e) => setPubData({ ...pubData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
                 placeholder="Describe your pub, its atmosphere, specialties, etc."
               />
             </div>
           </div>
 
-          {/* Opening Hours */}
+          {/* Opening Hours - open/close dropdowns, 24h half-hour slots */}
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Opening Hours</h2>
-            <textarea
-              rows={3}
-              value={pubData.openingHours}
-              onChange={(e) => setPubData({ ...pubData, openingHours: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
-              placeholder="Monday: 12:00 – 23:00;Tuesday: 12:00 – 23:00;Wednesday: 12:00 – 23:00;Thursday: 12:00 – 23:00;Friday: 12:00 – 00:00;Saturday: 12:00 – 00:00;Sunday: 12:00 – 22:30"
-            />
-            <p className="text-sm text-gray-500 mt-2">
-              Format: Day: Opening Time – Closing Time; (separate days with semicolons)
-            </p>
-          </div>
-
-          {/* Amenities */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Amenities & Features</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto">
-              {availableAmenities.map((amenity) => (
-                <label key={amenity} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={pubData.amenities.includes(amenity)}
-                    onChange={() => toggleAmenity(amenity)}
-                    className="h-4 w-4 text-[#08d78c] focus:ring-[#08d78c] border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">{amenity}</span>
-                </label>
+            <p className="text-sm text-gray-500 mb-3">24-hour format. Use Open and Close for each day.</p>
+            <div className="space-y-3">
+              {DAYS.map((day) => (
+                <div key={day} className="flex flex-wrap items-center gap-2">
+                  <span className="w-10 text-sm font-medium text-gray-700">{day}</span>
+                  <select
+                    value={openByDay[day] || 'closed'}
+                    onChange={(e) => setOpenByDay(prev => ({ ...prev, [day]: e.target.value }))}
+                    className="min-w-[90px] px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent text-sm"
+                  >
+                    <option value="closed">Closed</option>
+                    {TIME_SLOTS.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  <span className="text-gray-500 text-sm">–</span>
+                  <select
+                    value={closeByDay[day] || 'closed'}
+                    onChange={(e) => setCloseByDay(prev => ({ ...prev, [day]: e.target.value }))}
+                    className="min-w-[90px] px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent text-sm"
+                    disabled={openByDay[day] === 'closed' || !openByDay[day]}
+                  >
+                    <option value="closed">{openByDay[day] === 'closed' ? '–' : 'Closed'}</option>
+                    {TIME_SLOTS.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
               ))}
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Showing {availableAmenities.length} available amenities from your database
-            </p>
+          </div>
+
+          {/* Amenities (filter-drawer style) */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters (amenities)</h2>
+            <div className="space-y-4">
+              {Object.entries(AMENITIES_BY_CATEGORY).map(([category, amenities]) => {
+                const isExpanded = expandedCategories.has(category);
+                return (
+                  <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="font-semibold text-gray-900 flex items-center gap-2">
+                        <span>{category.split(' ')[0]}</span>
+                        <span>{category.split(' ').slice(1).join(' ')}</span>
+                      </span>
+                      {isExpanded ? (
+                        <ChevronDown className="w-5 h-5 text-gray-500" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-500" />
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {amenities.map((amenity) => {
+                          const isSelected = pubData.amenities.some(
+                            a => String(a).trim().toLowerCase() === String(amenity).trim().toLowerCase()
+                          );
+                          return (
+                            <label
+                              key={amenity}
+                              className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                                isSelected ? 'bg-[#08d78c]/20 text-gray-900' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleAmenity(amenity)}
+                                className="h-4 w-4 text-[#08d78c] focus:ring-[#08d78c] border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{amenity}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Update photos - coming soon */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Update photos</h2>
+            <p className="text-gray-500">Coming soon</p>
           </div>
 
           {/* Last Updated Info */}

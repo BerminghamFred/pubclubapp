@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
+import { X } from 'lucide-react';
 
 interface Request {
   id: string;
@@ -13,13 +14,23 @@ interface Request {
   pubName: string;
 }
 
+const REQUEST_TYPES = [
+  { value: 'update_info', label: 'Update information' },
+  { value: 'add_photos', label: 'Upload photos' },
+  { value: 'fix_errors', label: 'Fix errors' },
+  { value: 'drive_more_customers', label: 'Drive more customers' },
+] as const;
+
+const SELF_SERVE_TYPES = ['update_info', 'add_photos'];
+
 export default function RequestPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
   const [formData, setFormData] = useState({
-    type: 'update_info',
+    type: '',
     subject: '',
     description: ''
   });
@@ -57,9 +68,22 @@ export default function RequestPage() {
     }
   };
 
+  const handleTypeChange = (value: string) => {
+    if (SELF_SERVE_TYPES.includes(value)) {
+      setShowEditDetailsModal(true);
+      return; // keep dropdown unchanged (empty or previous)
+    }
+    setFormData(prev => ({ ...prev, type: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!formData.type) {
+      setMessage('Please select a request type');
+      setMessageType('error');
+      return;
+    }
     if (!formData.subject || !formData.description) {
       setMessage('Please fill in all fields');
       setMessageType('error');
@@ -89,7 +113,7 @@ export default function RequestPage() {
       if (data.success) {
         setMessage(`Request submitted successfully! Request ID: ${data.request.id}`);
         setMessageType('success');
-        setFormData({ type: 'update_info', subject: '', description: '' });
+        setFormData({ type: '', subject: '', description: '' });
         setShowForm(false);
         await loadRequests();
       } else {
@@ -138,7 +162,7 @@ export default function RequestPage() {
             <div className="flex items-center">
               <button
                 onClick={() => router.push('/pub-manager/dashboard')}
-                className="mr-4 text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center gap-2 bg-[#08d78c] hover:bg-[#06b875] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors mr-4"
               >
                 ← Back to Dashboard
               </button>
@@ -178,15 +202,56 @@ export default function RequestPage() {
                 <select
                   id="type"
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+                  onChange={(e) => handleTypeChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
                 >
-                  <option value="update_info">Update Information</option>
-                  <option value="add_photos">Add Photos</option>
-                  <option value="fix_errors">Fix Errors</option>
-                  <option value="other">Other</option>
+                  <option value="">Select request type</option>
+                  {REQUEST_TYPES.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
+
+              {/* Modal: do that via Edit pub details */}
+              {showEditDetailsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" aria-modal="true" role="dialog">
+                  <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">You can do that yourself</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowEditDetailsModal(false)}
+                        className="p-1 text-gray-500 hover:text-gray-700 rounded"
+                        aria-label="Close"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <p className="text-gray-600 text-sm mb-6">
+                      You can update information or upload photos by returning to the main dashboard and clicking <strong>Edit pub details</strong>.
+                    </p>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowEditDetailsModal(false)}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm font-medium"
+                      >
+                        OK
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEditDetailsModal(false);
+                          router.push('/pub-manager/dashboard');
+                        }}
+                        className="px-4 py-2 bg-[#08d78c] hover:bg-[#06b875] text-white rounded-md text-sm font-medium"
+                      >
+                        Go to dashboard
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
@@ -197,7 +262,7 @@ export default function RequestPage() {
                   id="subject"
                   value={formData.subject}
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
                   placeholder="Brief description of your request"
                   required
                 />
@@ -212,7 +277,7 @@ export default function RequestPage() {
                   rows={6}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
                   placeholder="Please provide details about your request..."
                   required
                 />
@@ -253,7 +318,7 @@ export default function RequestPage() {
                     <span className="text-sm text-gray-500">
                       {format(new Date(req.createdAt), 'MMM d, yyyy')}
                     </span>
-                    <span className="text-sm text-gray-500 capitalize">{req.type.replace('_', ' ')}</span>
+                    <span className="text-sm text-gray-500 capitalize">{req.type.replace(/_/g, ' ')}</span>
                   </div>
                 </div>
               ))}

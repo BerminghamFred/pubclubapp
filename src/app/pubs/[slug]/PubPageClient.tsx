@@ -28,6 +28,7 @@ interface Pub {
     photo_url?: string;
     photo_reference?: string; // Old format
     photo_name?: string; // New format
+    uploadedCoverPhotoUrl?: string; // Manager-uploaded cover (preferred on public page)
     lat?: number;
     lng?: number;
   };
@@ -361,13 +362,13 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
           {/* Main Content */}
           <div className="lg:col-span-2 flex flex-col space-y-8">
             
-            {/* Photo */}
+            {/* Photo: prefer manager-uploaded cover, then Google Places photo */}
             <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
               <PubPhoto
                 photoRef={getPhotoRefFromPub(pub._internal) ?? undefined}
                 photoName={pub._internal?.photo_name}
                 placeId={pub._internal?.place_id}
-                src={pub._internal?.photo_url}
+                src={pub._internal?.uploadedCoverPhotoUrl ?? pub._internal?.photo_url}
                 alt={`${pub.name} pub`}
                 width={480}
                 height={360}
@@ -400,10 +401,14 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
                   '💺 Comfort': ['Booths', 'Fireplace', 'Sofas', 'Stools at the Bar']
                 };
 
+                // Amenities to hide on pub pages (not useful as filters)
+                const HIDDEN_AMENITIES = ['Licensed', 'Bar'];
+
                 // Group amenities by category
                 const groupedAmenities: { [key: string]: string[] } = {};
                 
                 pub.amenities?.forEach(amenity => {
+                  if (HIDDEN_AMENITIES.includes(amenity)) return;
                   for (const [category, items] of Object.entries(categorizedAmenities)) {
                     if (items.includes(amenity)) {
                       if (!groupedAmenities[category]) {
@@ -422,7 +427,9 @@ export default function PubPageClient({ pub }: PubPageClientProps) {
 
                 return (
                   <div className="space-y-6">
-                    {Object.entries(groupedAmenities).map(([category, amenities]) => (
+                    {Object.entries(groupedAmenities)
+                      .filter(([, amenities]) => amenities.length > 0)
+                      .map(([category, amenities]) => (
                       <div key={category} className="space-y-3">
                         <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                           {category}

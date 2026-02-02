@@ -31,7 +31,11 @@ export function transformDbPubToPubFormat(dbPub: any): Pub {
     ...(dbPub.features || []),
     ...amenities
   ];
-  
+
+  // Uploaded cover photo (manager-uploaded) takes precedence for display on public page
+  const uploadedCover = dbPub.photos?.find((p: any) => p.isCover) || dbPub.photos?.[0];
+  const uploadedCoverPhotoUrl = uploadedCover ? uploadedCover.url : undefined;
+
   return {
     id: dbPub.placeId || dbPub.id, // Use placeId as primary identifier, fallback to DB ID
     name: dbPub.name,
@@ -56,6 +60,7 @@ export function transformDbPubToPubFormat(dbPub: any): Pub {
       lng: dbPub.lng || undefined,
       photo_url: dbPub.photoUrl || undefined,
       photo_name: dbPub.photoName || undefined,
+      uploadedCoverPhotoUrl,
     }
   };
 }
@@ -154,10 +159,11 @@ export async function getPubById(id: string): Promise<Pub | null> {
         include: {
           amenity: true
         }
-      }
+      },
+      photos: true,
     }
   });
-  
+
   // If not found, try by database ID
   if (!dbPub) {
     dbPub = await prisma.pub.findUnique({
@@ -169,7 +175,8 @@ export async function getPubById(id: string): Promise<Pub | null> {
           include: {
             amenity: true
           }
-        }
+        },
+        photos: true,
       }
     });
   }
@@ -194,7 +201,8 @@ export async function getPubByPlaceId(placeId: string): Promise<Pub | null> {
         include: {
           amenity: true
         }
-      }
+      },
+      photos: true,
     }
   });
   
@@ -218,7 +226,8 @@ export async function getPubBySlug(slug: string): Promise<Pub | null> {
         include: {
           amenity: true
         }
-      }
+      },
+      photos: true,
     }
   });
   

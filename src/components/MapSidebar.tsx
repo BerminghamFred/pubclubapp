@@ -93,7 +93,7 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
           placeholder="🔍 Search pubs..."
           value={filters.searchTerm}
           onChange={(e) => updateFilter('searchTerm', e.target.value)}
-          className="w-full h-11 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
+          className="w-full h-11 px-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
         />
       </div>
 
@@ -103,7 +103,7 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
         <select
           value={filters.selectedArea}
           onChange={(e) => updateFilter('selectedArea', e.target.value)}
-          className="w-full h-11 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
+          className="w-full h-11 px-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
         >
           <option value="All Areas">📍 All Areas</option>
           {areas.map(area => (
@@ -115,7 +115,7 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
         <select
           value={filters.minRating}
           onChange={(e) => updateFilter('minRating', Number(e.target.value))}
-          className="w-full h-11 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
+          className="w-full h-11 px-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
         >
           <option value={0}>⭐ Any Rating</option>
           <option value={4}>⭐ 4+ Stars</option>
@@ -126,7 +126,7 @@ export function MapSidebar({ filters, onFiltersChange, areas }: MapSidebarProps)
         <select
           value={filters.openingFilter}
           onChange={(e) => updateFilter('openingFilter', e.target.value)}
-          className="w-full h-11 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
+          className="w-full h-11 px-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-[#08d78c] focus:border-transparent outline-none text-sm"
         >
           <option value="Any Time">🕒 Any Time</option>
           <option value="Open Now">🕒 Open Now</option>

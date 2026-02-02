@@ -143,7 +143,7 @@ export default function MobileFilterDrawer({
                 <select
                   value={selectedArea}
                   onChange={(e) => onAreaChange(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-base"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-base"
                 >
                   {areas.map((area) => (
                     <option key={area} value={area}>
@@ -163,7 +163,7 @@ export default function MobileFilterDrawer({
                 <select
                   value={minRating}
                   onChange={(e) => onRatingChange(Number(e.target.value))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-base"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent appearance-none bg-white text-base"
                 >
                   <option value={0}>Any Rating</option>
                   <option value={4.5}>4.5+</option>

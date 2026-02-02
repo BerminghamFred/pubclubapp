@@ -50,9 +50,11 @@ export async function getPubManagerFromRequest(request: NextRequest): Promise<{ 
     return null;
   }
 
-  // Find manager in database
+  const emailLower = decodedToken.email.toLowerCase();
+
+  // Find manager in database (optional – used when manager is linked via admin)
   const manager = await prisma.manager.findUnique({
-    where: { email: decodedToken.email.toLowerCase() },
+    where: { email: emailLower },
     include: {
       pubs: {
         include: {
@@ -61,10 +63,6 @@ export async function getPubManagerFromRequest(request: NextRequest): Promise<{ 
       }
     }
   });
-
-  if (!manager) {
-    return null;
-  }
 
   // Find the specific pub from token
   const pub = await prisma.pub.findUnique({
@@ -85,16 +83,21 @@ export async function getPubManagerFromRequest(request: NextRequest): Promise<{ 
     return null;
   }
 
-  // Verify manager has access to this pub
-  const hasAccess = manager.pubs.some(pm => pm.pubId === pub.id);
-  if (!hasAccess) {
-    return null;
+  // If manager exists and is linked to this pub, use manager's accessible pubs
+  if (manager) {
+    const hasAccess = manager.pubs.some(pm => pm.pubId === pub.id);
+    if (hasAccess) {
+      const accessiblePubs = manager.pubs.map(pm => pm.pub);
+      return { pub, token: decodedToken, pubs: accessiblePubs };
+    }
   }
 
-  // Get all pubs this manager has access to
-  const accessiblePubs = manager.pubs.map(pm => pm.pub);
+  // Fallback: pub-only login (no Manager record) – token was issued from Pub.managerEmail + managerPassword
+  if (pub.managerEmail?.toLowerCase() === emailLower) {
+    return { pub, token: decodedToken, pubs: [pub] };
+  }
 
-  return { pub, token: decodedToken, pubs: accessiblePubs };
+  return null;
 }
 
 export function createPubManagerResponse(data: any, token?: string): Response {

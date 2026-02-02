@@ -165,7 +165,7 @@ export default function ManageAmenitiesPage() {
             <div className="flex items-center">
               <button
                 onClick={() => router.push('/pub-manager/dashboard')}
-                className="mr-4 text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center gap-2 bg-[#08d78c] hover:bg-[#06b875] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors mr-4"
               >
                 ← Back to Dashboard
               </button>
@@ -263,7 +263,7 @@ export default function ManageAmenitiesPage() {
               placeholder="Search amenities..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#08d78c] focus:border-transparent"
             />
           </div>
 

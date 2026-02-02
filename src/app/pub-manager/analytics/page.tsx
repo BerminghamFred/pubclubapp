@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
             <div className="flex items-center">
               <button
                 onClick={() => router.push('/pub-manager/dashboard')}
-                className="mr-4 text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center gap-2 bg-[#08d78c] hover:bg-[#06b875] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors mr-4"
               >
                 ← Back to Dashboard
               </button>
@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-500"
               >
                 <option value="7">Last 7 days</option>
                 <option value="30">Last 30 days</option>
