@@ -84,17 +84,17 @@ export function PubRequestModal({ open, onOpenChange }: PubRequestModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-white">
+      <DialogContent className="sm:max-w-[500px] bg-white [&>button]:text-gray-800 [&>button]:hover:text-gray-900">
         <DialogHeader>
-          <DialogTitle>Contact Pub Club</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-gray-900">Contact Pub Club</DialogTitle>
+          <DialogDescription className="text-gray-700">
             Fill out this form to request access to the Pub Manager dashboard. We'll get back to you soon!
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="pubName">Pub Name *</Label>
+              <Label htmlFor="pubName" className="text-gray-900">Pub Name *</Label>
               <Input
                 id="pubName"
                 name="pubName"
@@ -107,7 +107,7 @@ export function PubRequestModal({ open, onOpenChange }: PubRequestModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="postcode">Postcode *</Label>
+              <Label htmlFor="postcode" className="text-gray-900">Postcode *</Label>
               <Input
                 id="postcode"
                 name="postcode"
@@ -120,7 +120,7 @@ export function PubRequestModal({ open, onOpenChange }: PubRequestModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="managerName">Your Name *</Label>
+              <Label htmlFor="managerName" className="text-gray-900">Your Name *</Label>
               <Input
                 id="managerName"
                 name="managerName"
@@ -147,7 +147,7 @@ export function PubRequestModal({ open, onOpenChange }: PubRequestModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contactPhone">Phone Number *</Label>
+              <Label htmlFor="contactPhone" className="text-gray-900">Phone Number *</Label>
               <Input
                 id="contactPhone"
                 name="contactPhone"
@@ -179,6 +179,7 @@ export function PubRequestModal({ open, onOpenChange }: PubRequestModalProps) {
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading || success}
+              className="text-gray-900 border-gray-300 hover:bg-gray-100 hover:text-gray-900"
             >
               Cancel
             </Button>
