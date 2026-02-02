@@ -6,7 +6,10 @@ import { getPubById } from '@/lib/services/pubService';
 import Link from 'next/link';
 import PubPageClient from './PubPageClient';
 
-// Generate static params for all pubs
+// Render on-demand so we don't exhaust DB connection pool during build
+export const dynamic = 'force-dynamic';
+
+// Generate static params for all pubs (used for path info; pages are still rendered on-demand)
 export async function generateStaticParams() {
   return pubData.map((pub) => ({
     slug: generatePubSlug(pub.name, pub.id),
