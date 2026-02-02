@@ -208,19 +208,17 @@ export default function PubManagerDashboard() {
       {/* Header */}
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">
-                🍺 {currentPub?.name || managerData.pubName || (typeof window !== 'undefined' ? localStorage.getItem('pub-manager-pub-name') : null) || 'Pub'} Dashboard
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
+          <div className="flex flex-col gap-4 py-4 sm:py-6 md:flex-row md:justify-between md:items-center md:gap-0">
+            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+              🍺 {currentPub?.name || managerData.pubName || (typeof window !== 'undefined' ? localStorage.getItem('pub-manager-pub-name') : null) || 'Pub'} Dashboard
+            </h1>
+            <div className="flex items-center justify-between gap-3 sm:justify-end">
+              <span className="text-sm text-gray-600 min-w-0 truncate max-w-[50vw] sm:max-w-none" title={managerData.email}>
                 Welcome, {managerData.email}
               </span>
               <button
                 onClick={handleLogout}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                className="flex-shrink-0 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
               >
                 Logout
               </button>
