@@ -48,19 +48,17 @@ export async function POST(request: NextRequest) {
           { expiresIn: '24h' }
         );
 
-        // Log the login if manager exists
-        if (manager) {
-          try {
-            await prisma.managerLogin.create({
-              data: {
-                managerId: manager.id,
-                pubId: pubFromDb.id,
-              }
-            });
-          } catch (loginError) {
-            console.error('Failed to log manager login:', loginError);
-            // Don't fail the login if logging fails
-          }
+        // Always log the login so admin dashboard shows "active" and last login (managerId optional)
+        try {
+          await prisma.managerLogin.create({
+            data: {
+              managerId: manager?.id ?? null,
+              pubId: pubFromDb.id,
+            }
+          });
+        } catch (loginError) {
+          console.error('Failed to log manager login:', loginError);
+          // Don't fail the login if logging fails
         }
 
         return NextResponse.json({
@@ -227,6 +225,23 @@ export async function POST(request: NextRequest) {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    // If this pub exists in DB (by placeId), log the login so admin dashboard shows "active"
+    try {
+      const dbPub = await prisma.pub.findUnique({
+        where: { placeId: pub.id },
+      });
+      if (dbPub) {
+        await prisma.managerLogin.create({
+          data: {
+            managerId: null,
+            pubId: dbPub.id,
+          }
+        });
+      }
+    } catch (loginError) {
+      console.error('Failed to log manager login (pubData fallback):', loginError);
+    }
 
     return NextResponse.json({
       success: true,
