@@ -297,7 +297,7 @@ function getAnalyticsClient(): AnalyticsClientAPI {
 
 export const analytics: AnalyticsClientAPI = new Proxy(noopClient, {
   get(_, prop) {
-    return (getAnalyticsClient() as Record<string, unknown>)[prop as string]
+    return (getAnalyticsClient() as unknown as Record<string, unknown>)[prop as string]
   },
 })
 
