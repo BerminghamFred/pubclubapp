@@ -262,9 +262,19 @@ class AnalyticsClient {
   }
 }
 
+// Public API surface (so we can type the no-op and the proxy without class internals)
+export interface AnalyticsClientAPI {
+  trackPageView: (data: Parameters<AnalyticsClient['trackPageView']>[0]) => void
+  trackSearch: (data: Parameters<AnalyticsClient['trackSearch']>[0]) => void
+  trackFilterUsage: (data: Parameters<AnalyticsClient['trackFilterUsage']>[0]) => void
+  trackCtaClick: (data: Parameters<AnalyticsClient['trackCtaClick']>[0]) => void
+  trackHomepageTile: (data: Parameters<AnalyticsClient['trackHomepageTile']>[0]) => void
+  flush: () => void
+}
+
 // No-op client for SSR/build so we don't create real clients or log during server requests
 const noop = () => {}
-const noopClient = {
+const noopClient: AnalyticsClientAPI = {
   trackPageView: noop,
   trackSearch: noop,
   trackFilterUsage: noop,
@@ -275,19 +285,19 @@ const noopClient = {
 
 let clientInstance: AnalyticsClient | null = null
 
-function getAnalyticsClient(): AnalyticsClient | typeof noopClient {
+function getAnalyticsClient(): AnalyticsClientAPI {
   if (typeof window === 'undefined') {
     return noopClient
   }
   if (!clientInstance) {
     clientInstance = new AnalyticsClient()
   }
-  return clientInstance
+  return clientInstance as unknown as AnalyticsClientAPI
 }
 
-export const analytics = new Proxy(noopClient as AnalyticsClient, {
+export const analytics: AnalyticsClientAPI = new Proxy(noopClient, {
   get(_, prop) {
-    return (getAnalyticsClient() as any)[prop]
+    return (getAnalyticsClient() as Record<string, unknown>)[prop as string]
   },
 })
 
