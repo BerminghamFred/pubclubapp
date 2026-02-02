@@ -1,5 +1,7 @@
 // Client-side analytics SDK for tracking events
 
+const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development'
+
 export interface AnalyticsEvent {
   type: 'page_view' | 'search' | 'filter_usage' | 'cta_click' | 'homepage_tile'
   data: any
@@ -13,7 +15,9 @@ class AnalyticsClient {
 
   constructor() {
     this.sessionId = this.generateSessionId()
-    console.log('[Analytics] Initialized with session ID:', this.sessionId)
+    if (isDev) {
+      console.log('[Analytics] Initialized with session ID:', this.sessionId)
+    }
     this.startFlushInterval()
     
     // Flush on page unload
@@ -50,7 +54,7 @@ class AnalyticsClient {
     this.eventQueue = []
 
     try {
-      console.log('[Analytics] Flushing events:', events.length, events)
+      if (isDev) console.log('[Analytics] Flushing events:', events.length, events)
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: {
@@ -65,7 +69,7 @@ class AnalyticsClient {
         // Re-queue events if send failed
         this.eventQueue.unshift(...events)
       } else {
-        console.log('[Analytics] Successfully sent events')
+        if (isDev) console.log('[Analytics] Successfully sent events')
       }
     } catch (error) {
       console.error('[Analytics] Failed to send analytics events:', error)
@@ -75,7 +79,7 @@ class AnalyticsClient {
   }
 
   private track(event: AnalyticsEvent) {
-    console.log('[Analytics] Tracking event:', event.type, event.data)
+    if (isDev) console.log('[Analytics] Tracking event:', event.type, event.data)
     this.eventQueue.push(event)
 
     // Flush immediately if queue is full
@@ -105,7 +109,7 @@ class AnalyticsClient {
         
         // Check if this pubId was already viewed in this session
         if (sentPubIds.has(data.pubId)) {
-          console.log('[Analytics] Page view already tracked for this session:', data.pubId)
+          if (isDev) console.log('[Analytics] Page view already tracked for this session:', data.pubId)
           return // Skip - already sent
         }
         
@@ -173,7 +177,7 @@ class AnalyticsClient {
       
       // Check if this filterKey was already sent in this session
       if (sentFilterKeys.has(data.filterKey)) {
-        console.log('[Analytics] Filter usage already tracked for this session:', data.filterKey)
+        if (isDev) console.log('[Analytics] Filter usage already tracked for this session:', data.filterKey)
         return // Skip - already sent
       }
       
@@ -235,7 +239,7 @@ class AnalyticsClient {
         
         // Check if this slotId impression was already sent in this session
         if (sentSlotIds.has(data.slotId)) {
-          console.log('[Analytics] Homepage tile impression already tracked for this session:', data.slotId)
+          if (isDev) console.log('[Analytics] Homepage tile impression already tracked for this session:', data.slotId)
           return // Skip - already sent
         }
         
@@ -258,22 +262,49 @@ class AnalyticsClient {
   }
 }
 
-// Create singleton instance
-export const analytics = new AnalyticsClient()
+// No-op client for SSR/build so we don't create real clients or log during server requests
+const noop = () => {}
+const noopClient = {
+  trackPageView: noop,
+  trackSearch: noop,
+  trackFilterUsage: noop,
+  trackCtaClick: noop,
+  trackHomepageTile: noop,
+  flush: noop,
+}
+
+let clientInstance: AnalyticsClient | null = null
+
+function getAnalyticsClient(): AnalyticsClient | typeof noopClient {
+  if (typeof window === 'undefined') {
+    return noopClient
+  }
+  if (!clientInstance) {
+    clientInstance = new AnalyticsClient()
+  }
+  return clientInstance
+}
+
+export const analytics = new Proxy(noopClient as AnalyticsClient, {
+  get(_, prop) {
+    return (getAnalyticsClient() as any)[prop]
+  },
+})
 
 // React hook for easy use in components
 export function useAnalytics() {
+  const client = getAnalyticsClient()
   return {
-    trackPageView: analytics.trackPageView.bind(analytics),
-    trackSearch: analytics.trackSearch.bind(analytics),
-    trackFilterUsage: analytics.trackFilterUsage.bind(analytics),
-    trackCtaClick: analytics.trackCtaClick.bind(analytics),
-    trackHomepageTile: analytics.trackHomepageTile.bind(analytics),
-    flush: () => analytics.flush(),
+    trackPageView: client.trackPageView.bind(client),
+    trackSearch: client.trackSearch.bind(client),
+    trackFilterUsage: client.trackFilterUsage.bind(client),
+    trackCtaClick: client.trackCtaClick.bind(client),
+    trackHomepageTile: client.trackHomepageTile.bind(client),
+    flush: () => client.flush(),
   }
 }
 
 // Expose flush method for testing
 export function flushAnalytics() {
-  analytics.flush()
+  getAnalyticsClient().flush()
 }
