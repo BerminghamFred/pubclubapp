@@ -1,8 +1,10 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getPubManagerFromRequest } from '@/utils/auth';
 import { prisma } from '@/lib/prisma';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -112,6 +114,12 @@ export async function PUT(request: NextRequest) {
         }
       }
     });
+
+    // Revalidate the public pub page so it shows updated details immediately
+    if (finalPub) {
+      const slug = generatePubSlug(finalPub.name, finalPub.placeId ?? finalPub.id);
+      revalidatePath(`/pubs/${slug}`);
+    }
 
     return NextResponse.json({
       success: true,

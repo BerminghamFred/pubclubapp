@@ -108,16 +108,11 @@ export default function ManageAmenitiesPage() {
       const result = await response.json();
 
       if (result.success) {
-        setMessage('Amenities updated successfully!');
-        setMessageType('success');
-        setPubData({
-          ...pubData,
-          amenities: result.pub.amenities || [],
-          last_updated: result.pub.lastUpdated,
-          updated_by: result.pub.updatedBy
-        });
-        // Clear message after 5 seconds
-        setTimeout(() => setMessage(''), 5000);
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('pub-manager-toast', 'Details updated');
+        }
+        router.push('/pub-manager/dashboard');
+        return;
       } else {
         setMessage(result.message || 'Failed to update amenities');
         setMessageType('error');

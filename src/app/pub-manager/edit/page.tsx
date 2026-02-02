@@ -210,16 +210,11 @@ export default function EditPubPage() {
       const result = await response.json();
 
       if (result.success) {
-        setMessage('Pub details updated successfully!');
-        setMessageType('success');
-        setPubData({
-          ...pubData,
-          ...result.pub,
-          last_updated: result.pub.lastUpdated,
-          updated_by: result.pub.updatedBy
-        });
-        // Clear message after 5 seconds
-        setTimeout(() => setMessage(''), 5000);
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('pub-manager-toast', 'Details updated');
+        }
+        router.push('/pub-manager/dashboard');
+        return;
       } else {
         setMessage(result.message || 'Failed to update pub details');
         setMessageType('error');

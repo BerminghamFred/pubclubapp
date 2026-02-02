@@ -26,13 +26,27 @@ interface AnalyticsOverview {
   totalCtaClicks: number;
 }
 
+const TOAST_KEY = 'pub-manager-toast';
+
 export default function PubManagerDashboard() {
   const [managerData, setManagerData] = useState<PubManagerData | null>(null);
   const [selectedPubId, setSelectedPubId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null);
   const [pubStats, setPubStats] = useState<any>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [insightsSignedUp, setInsightsSignedUp] = useState<boolean | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const message = typeof window !== 'undefined' ? sessionStorage.getItem(TOAST_KEY) : null;
+    if (message) {
+      sessionStorage.removeItem(TOAST_KEY);
+      setToastMessage(message);
+      const t = setTimeout(() => setToastMessage(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -118,6 +132,16 @@ export default function PubManagerDashboard() {
         });
         // Load analytics and pub stats
         loadDashboardData(data.pubId);
+        // Check if signed up for monthly insights
+        try {
+          const newsletterRes = await fetch('/api/pub-manager/newsletter', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const newsletterData = await newsletterRes.json();
+          setInsightsSignedUp(!!(newsletterData.success && newsletterData.signedUp));
+        } catch {
+          setInsightsSignedUp(false);
+        }
       } else {
         // Token invalid, redirect to login
         localStorage.removeItem('pub-manager-token');
@@ -172,6 +196,15 @@ export default function PubManagerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Toast */}
+      {toastMessage && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg bg-[#08d78c] text-white font-medium"
+          role="alert"
+        >
+          {toastMessage}
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -338,13 +371,19 @@ export default function PubManagerDashboard() {
               <h3 className="text-lg font-semibold text-gray-900">Get monthly user insights</h3>
             </div>
             <p className="text-gray-600 text-sm mb-4 flex-1">
-              Sign up for our newsletter: popular searches, competitor insights, and tips to drive traffic.
+              {insightsSignedUp
+                ? 'You\'re signed up for our monthly newsletter: popular searches, competitor insights, and tips to drive traffic.'
+                : 'Sign up for our newsletter: popular searches, competitor insights, and tips to drive traffic.'}
             </p>
             <button
               onClick={() => router.push('/pub-manager/insights')}
-              className="w-full mt-auto bg-[#08d78c] hover:bg-[#06b875] text-white py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200"
+              className={`w-full mt-auto py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+                insightsSignedUp
+                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                  : 'bg-[#08d78c] hover:bg-[#06b875] text-white'
+              }`}
             >
-              Sign up
+              {insightsSignedUp ? 'View insights' : 'Sign up'}
             </button>
           </div>
 

@@ -1,8 +1,10 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getPubManagerFromRequest } from '@/utils/auth';
 import { prisma } from '@/lib/prisma';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 // GET - List all photos for a pub
 export async function GET(request: NextRequest) {
@@ -123,6 +125,11 @@ export async function POST(request: NextRequest) {
         uploadedBy: authData.token.email,
       }
     });
+
+    const pubForSlug = authData.pubs.find((p: { id: string; placeId?: string | null }) => p.id === targetPubId);
+    if (pubForSlug) {
+      revalidatePath(`/pubs/${generatePubSlug(pubForSlug.name, pubForSlug.placeId ?? pubForSlug.id)}`);
+    }
 
     return NextResponse.json({
       success: true,

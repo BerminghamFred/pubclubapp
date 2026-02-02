@@ -18,7 +18,21 @@ export default function InsightsPage() {
       router.push('/pub-manager/login');
       return;
     }
-    setLoading(false);
+    (async () => {
+      try {
+        const res = await fetch('/api/pub-manager/newsletter', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.success && data.signedUp) {
+          setSignedUp(true);
+        }
+      } catch {
+        // Keep signedUp false on error
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [router]);
 
   const handleSignUp = async () => {
@@ -82,15 +96,15 @@ export default function InsightsPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {message && (
+        {(signedUp || message) && (
           <div
             className={`mb-6 p-4 rounded-md ${
-              messageType === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
+              messageType === 'error'
+                ? 'bg-red-50 text-red-800 border border-red-200'
+                : 'bg-green-50 text-green-800 border border-green-200'
             }`}
           >
-            {message}
+            {messageType === 'error' ? message : (signedUp ? 'You are signed up for monthly insights.' : message)}
           </div>
         )}
 

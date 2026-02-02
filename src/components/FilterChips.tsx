@@ -97,9 +97,13 @@ export default function FilterChips({
           </motion.button>
         )}
 
-        {/* SearchBar Selection Filters (exclude amenities; those are shown from selectedAmenities below) */}
+        {/* SearchBar Selection Filters (exclude amenities; exclude area when same as selectedArea to avoid duplicate chip) */}
         {searchSelections
-          .filter((s) => s.type !== 'amenity')
+          .filter((s) => {
+            if (s.type === 'amenity') return false;
+            if (s.type === 'area' && selectedArea && s.text === selectedArea) return false;
+            return true;
+          })
           .map((selection) => (
           <motion.button
             key={selection.id}

@@ -21,7 +21,8 @@ const REQUEST_TYPES = [
   { value: 'drive_more_customers', label: 'Drive more customers' },
 ] as const;
 
-const SELF_SERVE_TYPES = ['update_info', 'add_photos'];
+// Only "Update information" shows the self-serve modal; upload photos not yet available
+const SELF_SERVE_TYPES = ['update_info'];
 
 export default function RequestPage() {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -228,7 +229,7 @@ export default function RequestPage() {
                       </button>
                     </div>
                     <p className="text-gray-600 text-sm mb-6">
-                      You can update information or upload photos by returning to the main dashboard and clicking <strong>Edit pub details</strong>.
+                      You can update your pub information by returning to the main dashboard and clicking <strong>Edit pub details</strong>.
                     </p>
                     <div className="flex justify-end gap-2">
                       <button

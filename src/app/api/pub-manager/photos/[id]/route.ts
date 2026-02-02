@@ -1,8 +1,10 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getPubManagerFromRequest } from '@/utils/auth';
 import { prisma } from '@/lib/prisma';
+import { generatePubSlug } from '@/utils/slugUtils';
 
 // DELETE - Delete a photo
 export async function DELETE(
@@ -42,6 +44,11 @@ export async function DELETE(
     await prisma.pubPhoto.delete({
       where: { id }
     });
+
+    const pubForSlug = authData.pubs.find((p: { id: string; placeId?: string | null }) => p.id === photo.pubId);
+    if (pubForSlug) {
+      revalidatePath(`/pubs/${generatePubSlug(pubForSlug.name, pubForSlug.placeId ?? pubForSlug.id)}`);
+    }
 
     return NextResponse.json({
       success: true,
@@ -108,6 +115,11 @@ export async function PUT(
       where: { id },
       data: body
     });
+
+    const pubForSlug = authData.pubs.find((p: { id: string; placeId?: string | null }) => p.id === photo.pubId);
+    if (pubForSlug) {
+      revalidatePath(`/pubs/${generatePubSlug(pubForSlug.name, pubForSlug.placeId ?? pubForSlug.id)}`);
+    }
 
     return NextResponse.json({
       success: true,

@@ -473,6 +473,15 @@ export default function PubDataLoader() {
       })));
     }
 
+    // Deduplicate by stable id so the same pub never appears twice (e.g. when searching by name or DB has duplicates)
+    const seen = new Set<string>();
+    filtered = filtered.filter((pub) => {
+      const key = (pub._internal as any)?.place_id || pub.id || `${pub.name}|${pub.area || ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     return filtered;
   }, [allPubs, searchSelections, searchTerm, selectedArea, selectedAmenities, minRating, openingFilter, userLocation, calculateDistance, sortRefreshTrigger, activeFiltersCount, checkPubFilters]);
 
