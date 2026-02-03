@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getIndexableAreas } from '@/data/areaData';
+import { getAllAreas } from '@/data/areaData';
 import { AMENITY_FILTERS } from '@/data/amenityData';
 
 function requireAdmin(session: unknown) {
@@ -19,7 +19,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const areas = getIndexableAreas().map((a) => ({ slug: a.slug, name: a.name }));
+    // Return ALL areas (not just indexable) for admin use
+    const areas = getAllAreas().map((a) => ({ slug: a.slug, name: a.name }));
     const amenities = AMENITY_FILTERS.map((a) => ({ slug: a.slug, title: a.title }));
 
     return NextResponse.json({ areas, amenities });

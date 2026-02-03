@@ -28,28 +28,47 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const keys = ['title', 'excerpt', 'content', 'metaTitle', 'metaDescription'] as const;
     const input: Record<string, string> = {};
-    for (const k of keys) {
+    const hasContent = body.title || body.excerpt || body.content;
+    
+    // Always include title/excerpt/content if provided
+    for (const k of ['title', 'excerpt', 'content'] as const) {
       if (body[k] != null && typeof body[k] === 'string') {
         const v = body[k].trim();
         if (k === 'content' && v.length > MAX_CONTENT_LENGTH) {
           input[k] = v.slice(0, MAX_CONTENT_LENGTH) + '...';
-        } else {
+        } else if (v) {
           input[k] = v;
         }
       }
     }
+    
+    // If title/excerpt/content provided but meta fields not, auto-generate them
+    if (hasContent && (!body.metaTitle || !body.metaDescription)) {
+      // Will generate metaTitle and metaDescription from title/excerpt/content
+    }
+    
+    // Include existing meta fields if provided
+    for (const k of ['metaTitle', 'metaDescription'] as const) {
+      if (body[k] != null && typeof body[k] === 'string' && body[k].trim()) {
+        input[k] = body[k].trim();
+      }
+    }
+    
     if (Object.keys(input).length === 0) {
-      return NextResponse.json({ error: 'Provide at least one of: title, excerpt, content, metaTitle, metaDescription' }, { status: 400 });
+      return NextResponse.json({ error: 'Provide at least one of: title, excerpt, content' }, { status: 400 });
     }
 
     const client = new OpenAI({ apiKey });
 
-    const systemPrompt = `You are an expert editor for a pub and nightlife blog. Improve the given text for:
-- Clarity and engagement (clear, punchy sentences)
-- SEO (natural keywords, compelling meta titles and descriptions)
-- Formatting (short paragraphs, optional subheadings; keep structure readable)
+    const systemPrompt = `You are an expert SEO editor for a pub and nightlife blog. Your tasks:
+1. Improve text for clarity and engagement (clear, punchy sentences)
+2. Generate SEO-optimized meta titles (50-60 chars, include keywords, compelling)
+3. Generate SEO-optimized meta descriptions (150-160 chars, include keywords, call-to-action)
+4. Format content (short paragraphs, optional subheadings; keep structure readable)
 
-Return ONLY a valid JSON object with the same keys that were sent. Do not add keys that were not in the input. Preserve the author's voice and facts; only improve wording and structure.`;
+IMPORTANT: If title/excerpt/content are provided, ALWAYS generate metaTitle and metaDescription even if not in input. Use the content to create compelling, keyword-rich meta tags.
+
+Return ONLY a valid JSON object. Include all keys that were sent PLUS metaTitle and metaDescription if title/excerpt/content were provided. Preserve the author's voice and facts; only improve wording and structure.`;
 
     const userContent = JSON.stringify(input);
 
@@ -81,11 +100,21 @@ Return ONLY a valid JSON object with the same keys that were sent. Do not add ke
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 502 });
     }
 
-    // Only return keys that were in the request
+    // Return all keys from result (including auto-generated metaTitle/metaDescription)
     const out: Record<string, string> = {};
     for (const k of keys) {
       if (result[k] != null && typeof result[k] === 'string') {
         out[k] = result[k].trim();
+      }
+    }
+    
+    // Also include any meta fields that were auto-generated
+    if (hasContent) {
+      if (result.metaTitle && typeof result.metaTitle === 'string') {
+        out.metaTitle = result.metaTitle.trim();
+      }
+      if (result.metaDescription && typeof result.metaDescription === 'string') {
+        out.metaDescription = result.metaDescription.trim();
       }
     }
 

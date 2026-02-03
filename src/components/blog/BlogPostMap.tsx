@@ -28,6 +28,7 @@ export function BlogPostMap({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const { isLoaded, error } = useMapLoader(true);
 
+  // Create filters that update when areaName/amenityLabel change
   const filters = {
     searchTerm: undefined as string | undefined,
     selectedArea: mapConfig.type === 'area' && areaName ? areaName : undefined,
@@ -36,10 +37,10 @@ export function BlogPostMap({
     openingFilter: undefined as string | undefined,
   };
 
-  useMapPins(map, filters);
-
+  // Initialize map and set up pins
   useEffect(() => {
     if (!isLoaded || !mapRef.current || typeof window === 'undefined' || !window.google?.maps?.Map) return;
+    if (map) return; // Already initialized
 
     const mapInstance = new window.google.maps.Map(mapRef.current, {
       center: DEFAULT_LONDON,
@@ -56,7 +57,10 @@ export function BlogPostMap({
     return () => {
       setMap(null);
     };
-  }, [isLoaded]);
+  }, [isLoaded, map]);
+
+  // Use map pins hook - this will fetch and display pins when map and filters are ready
+  useMapPins(map, filters);
 
   if (error) {
     return (

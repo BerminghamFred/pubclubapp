@@ -227,38 +227,65 @@ function StandardBlogIndex({ posts }: { posts: Awaited<ReturnType<typeof getPubl
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {posts.map((post) => (
-              <article key={post.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                <div className="h-48 bg-[#08d78c]/20 flex items-center justify-center">
-                  <div className="text-[#08d78c] text-4xl">🍺</div>
+              <article key={post.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col" style={{ minHeight: '500px' }}>
+                {/* Image */}
+                <div className="h-48 bg-[#08d78c]/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {post.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={post.imageUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-[#08d78c] text-4xl">🍺</div>
+                  )}
                 </div>
-                <div className="p-6">
-                  <div className="flex items-center text-sm text-gray-500 mb-3">
-                    <span>{post.date}</span>
-                    <span className="mx-2">•</span>
-                    <span>{post.author}</span>
-                    <span className="mx-2">•</span>
-                    <span>{post.readingTime} min read</span>
-                  </div>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-3 line-clamp-2">
+                
+                {/* Content - flex column to push tags to bottom */}
+                <div className="p-6 flex flex-col flex-grow" style={{ minHeight: '352px' }}>
+                  {/* Title */}
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-2">
                     {post.title}
                   </h2>
-                  <p className="text-gray-600 mb-4 line-clamp-3">
+                  
+                  {/* Author - date */}
+                  <div className="text-sm text-gray-500 mb-1">
+                    <span>{post.author}</span>
+                    <span className="mx-1">-</span>
+                    <span>{post.date}</span>
+                  </div>
+                  
+                  {/* Time to read */}
+                  <div className="text-sm text-gray-500 mb-3">
+                    {post.readingTime} min read
+                  </div>
+                  
+                  {/* Description - flex-grow to fill space */}
+                  <p className="text-gray-600 mb-4 line-clamp-3 flex-grow">
                     {post.excerpt}
                   </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex space-x-2">
-                      {post.tags.map((tag) => (
+                  
+                  {/* Tags + Read More - fixed at bottom */}
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+                      {post.tags.slice(0, 3).map((tag) => (
                         <span 
                           key={tag} 
-                          className="px-2 py-1 bg-[#08d78c]/10 text-[#08d78c] text-xs rounded-full"
+                          className="px-2 py-1 bg-[#08d78c]/10 text-[#08d78c] text-xs rounded-full whitespace-nowrap flex-shrink-0"
                         >
                           {tag}
                         </span>
                       ))}
+                      {post.tags.length > 3 && (
+                        <span className="px-2 py-1 bg-[#08d78c]/10 text-[#08d78c] text-xs rounded-full whitespace-nowrap flex-shrink-0">
+                          +{post.tags.length - 3}
+                        </span>
+                      )}
                     </div>
                     <Link 
                       href={`/blog/${post.slug}`}
-                      className="text-[#08d78c] hover:text-[#06b875] font-semibold text-sm"
+                      className="text-[#08d78c] hover:text-[#06b875] font-semibold text-sm whitespace-nowrap ml-2 flex-shrink-0"
                     >
                       Read More →
                     </Link>
