@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { TrendingUp, Users, Eye, Search, Filter, Building, Settings, BarChart3, Layout, MapPin, Mail, Link2 } from 'lucide-react';
+import { TrendingUp, Users, Eye, Search, Filter, Building, Settings, BarChart3, Layout, MapPin, Mail, Link2, FileText } from 'lucide-react';
 
 interface AnalyticsOverview {
   totalViews: number;
@@ -295,6 +295,14 @@ export default function AdminDashboard() {
             >
               <Link2 className="w-4 h-4 mr-2" />
               Connection Requests
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="text-gray-600 hover:text-gray-900"
+              onClick={() => router.push('/admin/blog')}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Blog Posts
             </Button>
             <Button 
               variant="ghost" 

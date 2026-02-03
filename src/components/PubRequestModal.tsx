@@ -133,7 +133,7 @@ export function PubRequestModal({ open, onOpenChange }: PubRequestModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contactEmail">Email Address *</Label>
+              <Label htmlFor="contactEmail" className="text-gray-900">Email Address *</Label>
               <Input
                 id="contactEmail"
                 name="contactEmail"

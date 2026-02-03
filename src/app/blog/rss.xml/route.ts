@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { getPublishedPosts, getBlogConfig } from '@/lib/blog';
 
 export async function GET() {
-  const config = getBlogConfig();
+  const config = await getBlogConfig();
   
   // If less than minimum published posts, return 204 (no content)
   if (config.shouldShowComingSoon) {
     return new NextResponse(null, { status: 204 });
   }
 
-  const posts = getPublishedPosts({ limit: 20 });
+  const posts = await getPublishedPosts({ limit: 20 });
   const baseUrl = 'https://pubclub.co.uk';
   
   const rss = `<?xml version="1.0" encoding="UTF-8"?>

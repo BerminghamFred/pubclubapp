@@ -6,7 +6,7 @@ import { MapPin, Search, Beer, Heart, Calendar, Star } from 'lucide-react';
 
 // Generate metadata based on blog state
 export async function generateMetadata(): Promise<Metadata> {
-  const config = getBlogConfig();
+  const config = await getBlogConfig();
   
   if (config.shouldShowComingSoon) {
     return {
@@ -41,16 +41,16 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function BlogPage() {
-  const config = getBlogConfig();
+export default async function BlogPage() {
+  const config = await getBlogConfig();
   
   // Show coming soon state if less than minimum published posts
   if (config.shouldShowComingSoon) {
     return <ComingSoonBlogHub />;
   }
 
-  // Show standard blog index if enough published posts
-  return <StandardBlogIndex />;
+  const publishedPosts = await getPublishedPosts();
+  return <StandardBlogIndex posts={publishedPosts} />;
 }
 
 function ComingSoonBlogHub() {
@@ -205,9 +205,7 @@ function ComingSoonBlogHub() {
   );
 }
 
-function StandardBlogIndex() {
-  const publishedPosts = getPublishedPosts();
-
+function StandardBlogIndex({ posts }: { posts: Awaited<ReturnType<typeof getPublishedPosts>> }) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -228,7 +226,7 @@ function StandardBlogIndex() {
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {publishedPosts.map((post) => (
+            {posts.map((post) => (
               <article key={post.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
                 <div className="h-48 bg-[#08d78c]/20 flex items-center justify-center">
                   <div className="text-[#08d78c] text-4xl">🍺</div>
@@ -289,10 +287,8 @@ function StandardBlogIndex() {
 }
 
 // Generate CollectionPage + ItemList schema for blog listing
-function generateBlogSchema() {
+function generateBlogSchema(posts: Awaited<ReturnType<typeof getPublishedPosts>>) {
   const baseUrl = "https://pubclub.co.uk";
-  const posts = getPublishedPosts();
-  
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",

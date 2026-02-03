@@ -1,9 +1,9 @@
 import { MetadataRoute } from 'next';
 import { getBlogConfig, getPublishedPosts } from '@/lib/blog';
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://pubclub.co.uk';
-  const blogConfig = getBlogConfig();
+  const blogConfig = await getBlogConfig();
   
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [
@@ -40,7 +40,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     });
 
     // Add published blog posts
-    const publishedPosts = getPublishedPosts();
+    const publishedPosts = await getPublishedPosts();
     publishedPosts.forEach(post => {
       blogPages.push({
         url: `${baseUrl}/blog/${post.slug}`,

@@ -1,22 +1,21 @@
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { getPublishedPostBySlug, getRelatedPosts } from '@/lib/blog';
-import { blogPosts } from '@/data/blogPosts';
+import { getPublishedPostBySlug, getPublishedSlugs, getRelatedPosts } from '@/lib/blog';
+import { getAreaBySlug } from '@/data/areaData';
+import { getAmenityFilterName } from '@/data/amenityData';
+import { BlogPostMap } from '@/components/blog/BlogPostMap';
 
 // Generate static params for published blog posts only
 export async function generateStaticParams() {
-  return blogPosts
-    .filter(post => post.published !== false)
-    .map((post) => ({
-      slug: post.slug,
-    }));
+  const slugs = await getPublishedSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 // Generate metadata for each blog post
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const resolvedParams = await params;
-  const post = getPublishedPostBySlug(resolvedParams.slug);
+  const post = await getPublishedPostBySlug(resolvedParams.slug);
 
   if (!post) {
     return {
@@ -29,8 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   return {
-    title: `${post.title} - Pub Club Blog`,
-    description: post.excerpt,
+    title: (post.metaTitle || post.title) + ' - Pub Club Blog',
+    description: post.metaDescription || post.excerpt || undefined,
     robots: {
       index: true,
       follow: true,
@@ -45,11 +44,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       publishedTime: post.date,
       authors: [post.author],
       tags: post.tags,
+      ...(post.imageUrl && { images: [{ url: post.imageUrl, alt: post.title }] }),
     },
     twitter: {
-      card: 'summary_large_image',
+      card: post.imageUrl ? 'summary_large_image' : 'summary',
       title: `${post.title} - Pub Club Blog`,
       description: post.excerpt,
+      ...(post.imageUrl && { images: [post.imageUrl] }),
     },
     alternates: {
       canonical: `https://pubclub.co.uk/blog/${post.slug}`,
@@ -59,13 +60,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
-  const post = getPublishedPostBySlug(resolvedParams.slug);
+  const post = await getPublishedPostBySlug(resolvedParams.slug);
   
   if (!post) {
     notFound();
   }
 
-  const relatedPosts = getRelatedPosts(resolvedParams.slug, 3);
+  const relatedPosts = await getRelatedPosts(resolvedParams.slug, 3);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -110,9 +111,20 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <div className="bg-white rounded-lg shadow-lg p-8 md:p-12">
             {/* Article Header */}
             <div className="mb-8">
-              <div className="h-64 bg-[#08d78c]/10 rounded-lg flex items-center justify-center mb-8">
-                <div className="text-[#08d78c] text-6xl">🍺</div>
-              </div>
+              {post.imageUrl ? (
+                <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-8 bg-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.imageUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="h-64 bg-[#08d78c]/10 rounded-lg flex items-center justify-center mb-8">
+                  <div className="text-[#08d78c] text-6xl">🍺</div>
+                </div>
+              )}
               
               <div className="prose prose-lg max-w-none">
                 <p className="text-xl text-gray-600 leading-relaxed mb-8 font-medium">
@@ -137,6 +149,48 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 ))}
               </div>
             </div>
+
+            {/* CTA: Suggested link */}
+            {post.suggestedLinkType && post.suggestedLinkSlug && (
+              <div className="mt-8 p-6 rounded-lg bg-[#08d78c]/10 border border-[#08d78c]/30">
+                <p className="text-sm font-medium text-gray-600 mb-2">Explore</p>
+                <Link
+                  href={
+                    post.suggestedLinkType === 'area'
+                      ? `/area/${post.suggestedLinkSlug}`
+                      : post.suggestedLinkType === 'vibe'
+                        ? `/vibe/${post.suggestedLinkSlug}`
+                        : post.suggestedLinkSlug
+                          ? `/pubs?search=${encodeURIComponent(post.suggestedLinkSlug)}`
+                          : '/pubs'
+                  }
+                  className="text-lg font-semibold text-[#08d78c] hover:text-[#06b875] transition-colors"
+                >
+                  {post.suggestedLinkLabel || (post.suggestedLinkType === 'area' ? `Pubs in ${post.suggestedLinkSlug}` : post.suggestedLinkType === 'vibe' ? post.suggestedLinkSlug : 'Browse pubs')} →
+                </Link>
+              </div>
+            )}
+
+            {/* Map block */}
+            {post.mapConfig?.enabled && post.mapConfig?.type && post.mapConfig?.slug && (
+              <div className="mt-8">
+                <BlogPostMap
+                  mapConfig={{
+                    type: post.mapConfig.type as 'area' | 'amenity',
+                    slug: post.mapConfig.slug,
+                  }}
+                  areaName={post.mapConfig.type === 'area' ? getAreaBySlug(post.mapConfig.slug)?.name : undefined}
+                  amenityLabel={post.mapConfig.type === 'amenity' ? getAmenityFilterName(post.mapConfig.slug) : undefined}
+                  caption={
+                    post.mapConfig.type === 'amenity'
+                      ? `Pubs showing ${getAmenityFilterName(post.mapConfig.slug)}`
+                      : post.mapConfig.type === 'area'
+                        ? `Pubs in ${getAreaBySlug(post.mapConfig.slug)?.name ?? post.mapConfig.slug}`
+                        : undefined
+                  }
+                />
+              </div>
+            )}
 
             {/* Article Footer */}
             <div className="mt-12 pt-8 border-t border-gray-200">
@@ -213,7 +267,7 @@ function generateArticleSchema(post: any) {
     "@id": `${baseUrl}/blog/${post.slug}#article`,
     "headline": post.title,
     "description": post.excerpt,
-    "image": `${baseUrl}/images/blog/${post.slug}-hero.jpg`, // Placeholder for future images
+    "image": post.imageUrl || `${baseUrl}/images/blog/${post.slug}-hero.jpg`,
     "datePublished": post.date,
     "dateModified": post.date, // Assuming no modification for now
     "author": {
