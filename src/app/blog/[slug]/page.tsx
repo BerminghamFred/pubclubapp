@@ -6,10 +6,20 @@ import { getAreaBySlug } from '@/data/areaData';
 import { getAmenityFilterName } from '@/data/amenityData';
 import { BlogPostMap } from '@/components/blog/BlogPostMap';
 
-// Generate static params for published blog posts only
+// Generate static params for published blog posts only.
+// If blog_posts table does not exist yet (e.g. migration not applied), return [] so build succeeds.
 export async function generateStaticParams() {
-  const slugs = await getPublishedSlugs();
-  return slugs.map((slug) => ({ slug }));
+  try {
+    const slugs = await getPublishedSlugs();
+    return slugs.map((slug) => ({ slug }));
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code;
+    if (code === 'P2021') {
+      // Table does not exist - return empty so build passes; pages will be generated on demand
+      return [];
+    }
+    throw err;
+  }
 }
 
 // Generate metadata for each blog post
