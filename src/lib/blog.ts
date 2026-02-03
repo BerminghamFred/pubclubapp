@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
-// Environment configuration
-const BLOG_MIN_PUBLISHED = parseInt(process.env.BLOG_MIN_PUBLISHED || '3');
+// Environment configuration: minimum published posts before showing the blog listing (not "coming soon")
+const BLOG_MIN_PUBLISHED = parseInt(process.env.BLOG_MIN_PUBLISHED || '1', 10);
 
 export interface PublishedBlogPost {
   id: string;
