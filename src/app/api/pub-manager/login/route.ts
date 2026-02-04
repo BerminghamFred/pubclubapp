@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pubData } from '@/data/pubData';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -17,7 +16,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const emailLower = email.toLowerCase();
+    // Normalize email and password (trim whitespace)
+    const emailLower = email.trim().toLowerCase();
+    const passwordTrimmed = password.trim();
 
     // First, try to find pub directly by managerEmail (most direct check)
     let pubFromDb = await prisma.pub.findFirst({
@@ -28,7 +29,10 @@ export async function POST(request: NextRequest) {
 
     if (pubFromDb && pubFromDb.managerPassword) {
       // Verify password
-      const isValidPassword = await bcrypt.compare(password, pubFromDb.managerPassword);
+      console.log(`[Login] Attempting login for email: ${emailLower}, pub: ${pubFromDb.id} (${pubFromDb.name})`);
+      console.log(`[Login] Password hash starts with: ${pubFromDb.managerPassword.substring(0, 20)}...`);
+      const isValidPassword = await bcrypt.compare(passwordTrimmed, pubFromDb.managerPassword);
+      console.log(`[Login] Password match result: ${isValidPassword}`);
 
       if (isValidPassword) {
         // Find manager record if it exists
@@ -125,7 +129,7 @@ export async function POST(request: NextRequest) {
       for (const pm of manager.pubs) {
         if (pm.pub.managerPassword) {
           console.log(`[Login] Checking password for pub ${pm.pub.id} (${pm.pub.name})`);
-          const passwordMatch = await bcrypt.compare(password, pm.pub.managerPassword);
+          const passwordMatch = await bcrypt.compare(passwordTrimmed, pm.pub.managerPassword);
           console.log(`[Login] Password match for pub ${pm.pub.id}: ${passwordMatch}`);
           if (passwordMatch) {
             isValidPassword = true;
@@ -205,7 +209,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, pub.manager_password);
+    const isValidPassword = await bcrypt.compare(passwordTrimmed, pub.manager_password);
 
     if (!isValidPassword) {
       return NextResponse.json(

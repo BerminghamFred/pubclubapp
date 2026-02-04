@@ -230,27 +230,36 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Next up</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {relatedPosts.map((relatedPost) => (
-                  <Link 
-                    key={relatedPost.id}
-                    href={`/blog/${relatedPost.slug}`}
-                    className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-                  >
-                    <div className="h-32 bg-[#08d78c]/20 flex items-center justify-center">
-                      <div className="text-[#08d78c] text-3xl">🍺</div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                        {relatedPost.title}
-                      </h3>
-                      <p className="text-gray-600 text-sm line-clamp-2 mb-2">
-                        {relatedPost.excerpt}
-                      </p>
-                      <p className="text-[#08d78c] text-sm font-medium">
-                        Read More →
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+                <Link 
+                  key={relatedPost.id}
+                  href={`/blog/${relatedPost.slug}`}
+                  className="group block bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                >
+                  <div className="h-32 bg-[#08d78c]/20 flex items-center justify-center overflow-hidden">
+                    {relatedPost.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={relatedPost.imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="text-[#08d78c] text-3xl transition-transform duration-300 group-hover:scale-110">🍺</div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#08d78c] transition-colors duration-300">
+                      {relatedPost.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm line-clamp-2 mb-2">
+                      {relatedPost.excerpt}
+                    </p>
+                    <p className="text-[#08d78c] text-sm font-medium group-hover:text-[#06b875] transition-colors duration-300">
+                      Read More →
+                    </p>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         </div>

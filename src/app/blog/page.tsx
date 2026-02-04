@@ -227,7 +227,12 @@ function StandardBlogIndex({ posts }: { posts: Awaited<ReturnType<typeof getPubl
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {posts.map((post) => (
-              <article key={post.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col" style={{ minHeight: '500px' }}>
+              <Link
+                key={post.id}
+                href={`/blog/${post.slug}`}
+                className="group block bg-white rounded-lg shadow-md overflow-hidden flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                style={{ minHeight: '500px' }}
+              >
                 {/* Image */}
                 <div className="h-48 bg-[#08d78c]/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {post.imageUrl ? (
@@ -235,17 +240,17 @@ function StandardBlogIndex({ posts }: { posts: Awaited<ReturnType<typeof getPubl
                     <img
                       src={post.imageUrl}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="text-[#08d78c] text-4xl">🍺</div>
+                    <div className="text-[#08d78c] text-4xl transition-transform duration-300 group-hover:scale-110">🍺</div>
                   )}
                 </div>
                 
                 {/* Content - flex column to push tags to bottom */}
                 <div className="p-6 flex flex-col flex-grow" style={{ minHeight: '352px' }}>
                   {/* Title */}
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-2">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#08d78c] transition-colors duration-300">
                     {post.title}
                   </h2>
                   
@@ -283,15 +288,12 @@ function StandardBlogIndex({ posts }: { posts: Awaited<ReturnType<typeof getPubl
                         </span>
                       )}
                     </div>
-                    <Link 
-                      href={`/blog/${post.slug}`}
-                      className="text-[#08d78c] hover:text-[#06b875] font-semibold text-sm whitespace-nowrap ml-2 flex-shrink-0"
-                    >
+                    <span className="text-[#08d78c] font-semibold text-sm whitespace-nowrap ml-2 flex-shrink-0 group-hover:text-[#06b875] transition-colors duration-300">
                       Read More →
-                    </Link>
+                    </span>
                   </div>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </div>

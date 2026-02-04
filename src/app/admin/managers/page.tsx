@@ -42,46 +42,16 @@ export default function AdminManagersPage() {
   const fetchManagers = async () => {
     setLoading(true);
     try {
-      // This would be a real API call
-      // For now, using mock data
-      const mockManagers: Manager[] = [
-        {
-          id: '1',
-          email: 'manager1@example.com',
-          name: 'John Smith',
-          pubs: [
-            {
-              pub: { id: 'pub1', name: 'The Red Lion', slug: 'the-red-lion' },
-              role: 'owner'
-            }
-          ],
-          lastLogin: {
-            loggedInAt: '2024-01-15T10:30:00Z',
-            pub: { id: 'pub1', name: 'The Red Lion' }
-          },
-          loginCount: 15,
-          createdAt: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: '2',
-          email: 'manager2@example.com',
-          name: 'Sarah Johnson',
-          pubs: [
-            {
-              pub: { id: 'pub2', name: 'The Crown', slug: 'the-crown' },
-              role: 'editor'
-            }
-          ],
-          loginCount: 3,
-          createdAt: '2024-01-10T00:00:00Z'
-        }
-      ];
+      const res = await fetch('/api/admin/managers');
+      if (!res.ok) throw new Error('Failed to fetch managers');
+      const data: Manager[] = await res.json();
 
-      // Filter by search query
-      const filtered = mockManagers.filter(manager =>
-        manager.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        manager.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        manager.pubs.some(p => p.pub.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      // Filter by search query (client-side)
+      const filtered = data.filter(
+        (manager) =>
+          manager.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (manager.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+          manager.pubs.some((p) => p.pub.name.toLowerCase().includes(searchQuery.toLowerCase()))
       );
 
       setManagers(filtered);

@@ -69,6 +69,11 @@ function getPassword(record) {
   return password;
 }
 
+// Check if password is already hashed (bcrypt hashes start with $2a$, $2b$, or $2y$)
+function isPasswordHashed(password) {
+  return typeof password === 'string' && /^\$2[ayb]\$/.test(password);
+}
+
 async function main() {
   const csvPath = process.argv[2];
   if (!csvPath) {
@@ -151,7 +156,22 @@ async function main() {
           break;
         }
 
-        const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
+        // Check if password is already hashed (don't double-hash)
+        let hashedPassword;
+        if (isPasswordHashed(plainPassword)) {
+          console.log(`  ⚠️  Password for ${email} appears to already be hashed - using as-is`);
+          hashedPassword = plainPassword;
+        } else {
+          hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
+        }
+
+        // Check if this pub already has credentials
+        const existingPub = await prisma.pub.findUnique({
+          where: { id: pub.id },
+          select: { managerEmail: true, managerPassword: true },
+        });
+
+        const isUpdate = !!(existingPub?.managerEmail || existingPub?.managerPassword);
 
         await prisma.pub.update({
           where: { id: pub.id },
@@ -162,7 +182,11 @@ async function main() {
         });
 
         updated++;
-        console.log(`  ${updated} pub login${updated === 1 ? '' : 's'} added`);
+        if (isUpdate) {
+          console.log(`  ${updated}. Updated credentials for ${pub.name} (${email})`);
+        } else {
+          console.log(`  ${updated}. Added credentials for ${pub.name} (${email})`);
+        }
         lastErr = null;
         break;
       } catch (err) {

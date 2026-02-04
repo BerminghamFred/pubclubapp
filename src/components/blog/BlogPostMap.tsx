@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useMapLoader } from '@/hooks/useMapLoader';
 import { useMapPins } from '@/hooks/useMapPins';
 
@@ -25,22 +25,33 @@ export function BlogPostMap({
   height = 320,
 }: BlogPostMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const { isLoaded, error } = useMapLoader(true);
 
-  // Create filters that update when areaName/amenityLabel change
-  const filters = {
-    searchTerm: undefined as string | undefined,
-    selectedArea: mapConfig.type === 'area' && areaName ? areaName : undefined,
-    selectedAmenities: mapConfig.type === 'amenity' && amenityLabel ? [amenityLabel] : undefined,
-    minRating: undefined as number | undefined,
-    openingFilter: undefined as string | undefined,
-  };
+  // Memoize filters to prevent unnecessary re-renders - only include defined values
+  const filters = useMemo(() => {
+    const result: {
+      searchTerm?: string;
+      selectedArea?: string;
+      selectedAmenities?: string[];
+      minRating?: number;
+      openingFilter?: string;
+    } = {};
+    
+    if (mapConfig.type === 'area' && areaName) {
+      result.selectedArea = areaName;
+    }
+    if (mapConfig.type === 'amenity' && amenityLabel) {
+      result.selectedAmenities = [amenityLabel];
+    }
+    
+    return result;
+  }, [mapConfig.type, areaName, amenityLabel]);
 
-  // Initialize map and set up pins
+  // Initialize map - only once when loaded
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || typeof window === 'undefined' || !window.google?.maps?.Map) return;
-    if (map) return; // Already initialized
+    if (!isLoaded || !mapRef.current || typeof window === 'undefined' || !window.google?.maps?.Map || mapInstanceRef.current) return;
 
     const mapInstance = new window.google.maps.Map(mapRef.current, {
       center: DEFAULT_LONDON,
@@ -52,12 +63,14 @@ export function BlogPostMap({
       streetViewControl: false,
       fullscreenControl: true,
     });
+    
+    mapInstanceRef.current = mapInstance;
     setMap(mapInstance);
 
     return () => {
-      setMap(null);
+      mapInstanceRef.current = null;
     };
-  }, [isLoaded, map]);
+  }, [isLoaded]);
 
   // Use map pins hook - this will fetch and display pins when map and filters are ready
   useMapPins(map, filters);
@@ -80,7 +93,11 @@ export function BlogPostMap({
 
   return (
     <div className="rounded-lg overflow-hidden border border-gray-200">
-      <div ref={mapRef} className="w-full bg-gray-100" style={{ height }} />
+      <div 
+        ref={mapRef} 
+        className="w-full bg-gray-100" 
+        style={{ height, minHeight: height }}
+      />
       {caption && (
         <p className="text-sm text-gray-500 mt-2 px-1">{caption}</p>
       )}

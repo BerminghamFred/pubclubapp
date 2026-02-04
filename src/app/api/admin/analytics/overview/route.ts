@@ -52,17 +52,19 @@ export async function GET(request: NextRequest) {
     })
     const uniquePubsViewed = uniquePubsViewedResult.length
 
-    // Get active managers (managers who logged in within last 90 days)
+    // Active = any manager OR any pub that has logged in (last 90 days)
     const managerLoginCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-    const activeManagersLogins = await prisma.managerLogin.findMany({
-      where: {
-        loggedInAt: { gte: managerLoginCutoff },
-        managerId: { not: null }
-      },
-      select: { managerId: true },
-      distinct: ['managerId']
+    const recentLogins = await prisma.managerLogin.findMany({
+      where: { loggedInAt: { gte: managerLoginCutoff } },
+      select: { managerId: true, pubId: true },
     })
-    const activeManagers = activeManagersLogins.length
+    const managerIds = new Set<string>()
+    const pubOnlyPubIds = new Set<string>()
+    for (const l of recentLogins) {
+      if (l.managerId != null) managerIds.add(l.managerId)
+      else if (l.pubId != null) pubOnlyPubIds.add(l.pubId)
+    }
+    const activeManagers = managerIds.size + pubOnlyPubIds.size
 
     // Get views by day - fetch all and group by date
     const allViews = await prisma.eventPageView.findMany({
