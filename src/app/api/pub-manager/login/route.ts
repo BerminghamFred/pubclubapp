@@ -188,72 +188,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fallback: Check pubData for legacy managers
-    const pub = pubData.find(p => 
-      p.manager_email && p.manager_email.toLowerCase() === emailLower
+    return NextResponse.json(
+      { success: false, message: 'Invalid email or password' },
+      { status: 401 }
     );
-
-    if (!pub) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
-
-    // Check if pub has a password set
-    if (!pub.manager_password) {
-      return NextResponse.json(
-        { success: false, message: 'No password set for this pub. Please contact Pub Club support.' },
-        { status: 401 }
-      );
-    }
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(passwordTrimmed, pub.manager_password);
-
-    if (!isValidPassword) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        pubId: pub.id,
-        pubName: pub.name,
-        email: pub.manager_email,
-        type: 'pub-manager'
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    // If this pub exists in DB (by placeId), log the login so admin dashboard shows "active"
-    try {
-      const dbPub = await prisma.pub.findUnique({
-        where: { placeId: pub.id },
-      });
-      if (dbPub) {
-        await prisma.managerLogin.create({
-          data: {
-            managerId: null,
-            pubId: dbPub.id,
-          }
-        });
-      }
-    } catch (loginError) {
-      console.error('Failed to log manager login (pubData fallback):', loginError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      token,
-      pubId: pub.id,
-      pubName: pub.name,
-      message: 'Login successful'
-    });
 
   } catch (error) {
     console.error('Login error:', error);
