@@ -4,6 +4,8 @@
  * Migrate pub manager emails and passwords from a CSV into the database.
  * Matches rows to Pub records by ID (or place_id), then sets managerEmail
  * and managerPassword (hashed with bcrypt).
+ * Pubs that already have both managerEmail and managerPassword set (by ID)
+ * are skipped and not overwritten.
  *
  * CSV columns (any of these names work):
  *   - Pub ID: id, place_id
@@ -105,6 +107,7 @@ async function main() {
 
   let updated = 0;
   let skipped = 0;
+  let skippedAlready = 0;
   const notFound = [];
   const errors = [];
   const total = records.length;
@@ -140,18 +143,25 @@ async function main() {
         // Match by Pub.id first, then by Pub.placeId (CSV may have either)
         let pub = await prisma.pub.findUnique({
           where: { id: pubId },
-          select: { id: true, name: true },
+          select: { id: true, name: true, managerEmail: true, managerPassword: true },
         });
         if (!pub) {
           pub = await prisma.pub.findFirst({
             where: { placeId: pubId },
-            select: { id: true, name: true },
+            select: { id: true, name: true, managerEmail: true, managerPassword: true },
           });
         }
 
         if (!pub) {
           notFound.push({ id: pubId, email });
           skipped++;
+          lastErr = null;
+          break;
+        }
+
+        // Skip if this pub already has both email and password set (by ID)
+        if (pub.managerEmail && pub.managerPassword) {
+          skippedAlready++;
           lastErr = null;
           break;
         }
@@ -165,13 +175,7 @@ async function main() {
           hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
         }
 
-        // Check if this pub already has credentials
-        const existingPub = await prisma.pub.findUnique({
-          where: { id: pub.id },
-          select: { managerEmail: true, managerPassword: true },
-        });
-
-        const isUpdate = !!(existingPub?.managerEmail || existingPub?.managerPassword);
+        const isUpdate = !!(pub.managerEmail || pub.managerPassword);
 
         await prisma.pub.update({
           where: { id: pub.id },
@@ -207,6 +211,7 @@ async function main() {
   console.log('--- Summary ---');
   console.log(`Updated: ${updated}`);
   console.log(`Skipped (pub not found): ${skipped}`);
+  console.log(`Skipped (already have email/password): ${skippedAlready}`);
 
   if (notFound.length > 0) {
     console.log('\nPubs not found in database (no matching id):');

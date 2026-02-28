@@ -1,5 +1,5 @@
 export const runtime = 'nodejs';
-export const revalidate = 60; // 1 min cache; data is refreshed daily by cron
+export const dynamic = 'force-dynamic'; // always use current time and fresh DB so we don't show stale/cached Feb fixtures
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -96,7 +96,7 @@ export async function GET() {
 
     return NextResponse.json(
       { data: sorted },
-      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } }
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   } catch (err) {
     console.error('[fixtures/upcoming] DB error:', err);
